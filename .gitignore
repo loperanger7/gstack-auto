@@ -1,0 +1,16 @@
+# Pattaya
+.context/
+output/
+results-history.json
+*.log
+
+# OS
+.DS_Store
+
+# Node (for generated projects)
+node_modules/
+.env
+.env.local
+
+# gstack
+.gstack/

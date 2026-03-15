@@ -1,0 +1,21 @@
+# Pattaya Pipeline Configuration
+
+# Number of parallel runs. Override from invocation prompt: "run with N=5"
+parallel_runs: 3
+
+# Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
+max_fix_cycles: 3
+
+# Scoring dimensions (must match rubric.md)
+scoring_dimensions:
+  - functionality
+  - code_quality
+  - test_coverage
+  - ux_polish
+  - spec_adherence
+
+# Score penalty for exhausting max_fix_cycles without clearing bugs
+unresolved_bugs_penalty: 2.0
+
+# Gmail recipient (user provides in product-spec.md or here)
+notify_email: ""
