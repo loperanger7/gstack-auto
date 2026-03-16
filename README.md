@@ -1,6 +1,6 @@
 # gstack-auto
 
-**An RL engine for software development.**
+**Semi-Autonomous gstack Orchestration: Build with a strong product spec and let Garry Tan's gstack figure out the rest.**
 
 ## Why This Exists
 
