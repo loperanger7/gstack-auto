@@ -30,6 +30,7 @@ STYLE_PATH = os.path.join(ROOT, 'style.css')
 SEND_SCRIPT = os.path.join(ROOT, 'scripts', 'send-email.py')
 OUTPUT_ROOT = os.path.join(ROOT, 'output')
 RUNS_DIR = os.path.join(ROOT, '.context', 'runs')
+RESULTS_HISTORY = os.path.join(ROOT, 'results-history.json')
 
 CONTENT_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -270,7 +271,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         first_line = spec.strip().split('\n', 1)[0].lstrip('# ').strip() if spec.strip() else ''
         spec_title = first_line if first_line and first_line != 'Product Spec' else ''
 
-        self.respond(200, {'runs': all_runs, 'status': status, 'spec_title': spec_title})
+        # Round history from results-history.json (most recent pipeline run)
+        round_history = []
+        if os.path.isfile(RESULTS_HISTORY):
+            try:
+                with open(RESULTS_HISTORY, 'r') as f:
+                    history = json.load(f)
+                if isinstance(history, list):
+                    for entry in reversed(history):
+                        if 'round_results' in entry:
+                            round_history = entry['round_results']
+                            break
+                elif isinstance(history, dict) and 'round_results' in history:
+                    round_history = history['round_results']
+            except (json.JSONDecodeError, IOError):
+                pass
+
+        self.respond(200, {
+            'runs': all_runs,
+            'status': status,
+            'spec_title': spec_title,
+            'round_history': round_history,
+        })
 
     def serve_output(self, rel_path):
         """Serve static files from output/ with path traversal protection."""

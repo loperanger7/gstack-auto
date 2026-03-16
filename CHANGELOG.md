@@ -2,6 +2,30 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.3.0] - 2026-03-16
+
+### Added
+- Multi-round pipeline: `rounds: N` in config.yml runs N sequential rounds, auto-selecting the winner each round and feeding it into the next
+- Winner carry-forward: copies winner's output/ to main repo and creates a git commit with score card and feature summary after each round
+- Auto-upgrade system: `scripts/pattaya-update-check` (version comparison, 12h cache, escalating snooze) and `scripts/pattaya-upgrade.sh` (git and vendored installs)
+- Differentiation strategy: Run A (code quality), Run B (UX polish), Run C (robustness) approach biases in phase 01 prompt
+- `{MODE}` template variable (greenfield/iteration) across phases 01-05, 07-08 for round 2+ behavior
+- `{EXISTING_CODE_SUMMARY}` template variable in phase 01 for iteration context
+- Dashboard round progression view with score bars and round-over-round deltas
+- Round history in `/results` API from `results-history.json`
+- `auto_accept_winner` config option for single-round manual selection
+- Round progression section in email report template
+- 14 new validation tests: config keys, upgrade scripts, winner selection with tie-breaking, {MODE} in phase prompts, {EXISTING_CODE_SUMMARY}
+- TODO: round-over-round early stopping (P2)
+
+### Changed
+- CLAUDE.md pipeline restructured: Steps 2-5 wrapped in round loop (Steps 2a-2f), pre-flight includes update check
+- Architecture diagram updated to show round loop and winner selection
+- Phase prompts support iteration mode (modify existing code vs greenfield)
+- Phase 05 commit messages include run ID and mode-aware format
+- Email subject includes round count
+- Validation suite expanded from 122 to 136 checks
+
 ## [0.1.2.0] - 2026-03-15
 
 ### Added

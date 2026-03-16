@@ -16,6 +16,12 @@
 Review the code written in Phase 03. Find bugs, security issues, and
 quality problems. Fix them directly — do not ask for permission.
 
+## Mode: {MODE}
+
+**If mode is `iteration`:** Focus your review on the CHANGES made this
+round. Don't re-review unchanged code unless a change introduces a
+regression risk in adjacent code.
+
 ## Review Process
 
 ### Pass 1: Critical Issues (fix immediately)

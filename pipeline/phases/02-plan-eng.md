@@ -19,6 +19,13 @@ with file-by-file specificity.
 
 Read the CEO plan at `{PHASE_ARTIFACTS}/phase-01-plan-ceo.md`.
 
+## Mode: {MODE}
+
+**If mode is `iteration`:** The existing code in `output/` is your starting
+point. Your file plan should describe CHANGES to existing files, not a
+greenfield file tree. Use "MODIFY output/foo.js" vs "CREATE output/foo.js".
+Read the existing code first. Your plan must preserve what works.
+
 ## Review Process
 
 ### 1. Architecture Validation

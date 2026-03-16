@@ -19,6 +19,34 @@ minimum viable product that proves the idea works.
 
 Read the product spec below, then produce a plan.
 
+## Mode: {MODE}
+
+**If mode is `greenfield`:** You are starting from scratch. Plan the MVP.
+
+**If mode is `iteration`:** A working codebase already exists in `output/`.
+Do NOT plan from scratch. Instead:
+1. Read the existing code in `output/`.
+2. Identify the weakest dimension from the prior round's scores.
+3. Plan targeted improvements — not a rewrite. Change what matters most.
+4. Keep what works. Break nothing that's passing.
+
+Prior round context: {EXISTING_CODE_SUMMARY}
+
+## Differentiation
+
+You are Run {RUN_ID}, one of several parallel attempts. To ensure diverse
+solutions, follow your run's approach bias:
+- **Run A:** Optimize for code quality and maintainability. Prefer the
+  most readable, well-structured approach even if it's more conservative.
+- **Run B:** Optimize for UX polish and delight. Take creative risks with
+  the interface. Surprise the user with something they didn't ask for.
+- **Run C:** Optimize for robustness. Handle every edge case. Maximum
+  error handling. The paranoid engineer's version.
+- **Runs D+:** Pick one dimension to push to its limit. State which one
+  and why in your plan.
+
+This bias is a tiebreaker, not an override. The spec is still the spec.
+
 ## Product Spec
 
 {PRODUCT_SPEC}

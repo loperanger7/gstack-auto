@@ -16,13 +16,24 @@ PATTAYA DEVELOPMENT PIPELINE — RESULTS
 =======================================
 
 Spec: {SPEC_TITLE}
-Runs: {N_RUNS} parallel attempts
+Runs: {N_RUNS} parallel × {R_ROUNDS} round(s)
 Date: {DATE}
 Pipeline time: {DURATION}
 
 
-RANKED RESULTS
-──────────────
+{IF_MULTI_ROUND}
+ROUND PROGRESSION
+─────────────────
+
+{FOR_EACH_ROUND}
+Round {ROUND_NUM}: Best {ROUND_BEST_SCORE}/10 ({ROUND_WINNER})  {ROUND_BAR}  {ROUND_DELTA}
+{/FOR_EACH_ROUND}
+
+Note: Each bar is 20 chars wide. █ = 5% of max score (10).
+{/IF_MULTI_ROUND}
+
+RANKED RESULTS (Final Round)
+────────────────────────────
 
 {FOR_EACH_RUN_RANKED}
 Run {RUN_ID} (Score: {AVERAGE}/10)    {WINNER_LABEL}

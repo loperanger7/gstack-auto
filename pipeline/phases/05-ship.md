@@ -11,6 +11,8 @@
 # - Work in output/ directory for generated code
 # - Make ALL decisions autonomously
 
+## Mode: {MODE}
+
 ## Your Task
 
 Prepare the code for commit. Run final checks, ensure everything passes,
@@ -41,12 +43,19 @@ If tests fail: fix them. If debug artifacts found: remove them.
 
 Stage and commit all files in `output/`:
 
+**If mode is `greenfield`:**
 ```bash
 git add output/
-git commit -m "feat: implement MVP — [one-line description of what was built]"
+git commit -m "feat({RUN_ID}): implement MVP — [one-line description of what was built]"
 ```
 
-Use a descriptive commit message that says WHAT was built, not HOW.
+**If mode is `iteration`:**
+```bash
+git add output/
+git commit -m "improve({RUN_ID}): [what was improved] — [weakest dimension targeted]"
+```
+
+Use a descriptive commit message that says WHAT was built or changed.
 
 ### 4. Verify
 

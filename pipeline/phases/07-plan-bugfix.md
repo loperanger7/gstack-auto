@@ -18,6 +18,8 @@
 # - Make ALL decisions autonomously
 # - Do NOT expand scope. Fix bugs. Nothing else.
 
+## Mode: {MODE}
+
 ## Your Task
 
 Read the QA report at `{PHASE_ARTIFACTS}/phase-06-qa.md` (or the most

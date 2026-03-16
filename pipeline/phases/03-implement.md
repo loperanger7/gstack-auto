@@ -18,6 +18,13 @@ boilerplate's sake. Every file earns its place.
 
 Read the engineering plan at `{PHASE_ARTIFACTS}/phase-02-plan-eng.md`.
 
+## Mode: {MODE}
+
+**If mode is `iteration`:** You are modifying existing code in `output/`,
+not writing from scratch. Read the existing files first. Make surgical
+changes per the engineering plan. Run existing tests before AND after your
+changes — break nothing that was passing.
+
 ## Implementation Style
 
 Write code as if the best engineer you know will read it tomorrow:
