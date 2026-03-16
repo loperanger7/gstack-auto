@@ -12,26 +12,39 @@ QA → fix → score cycles.
         │
         ▼
   ┌─ PRE-FLIGHT ──────────────────────────────────────────┐
-  │  1. Validate product-spec.md exists and is non-empty   │
-  │  2. Assess spec quality (reject if too vague)          │
-  │  3. Verify email delivery (SMTP probe)                 │
-  │  4. Verify browse binary exists                        │
-  │  5. Read pipeline/config.yml for N and settings        │
+  │  1. Check for gstack-auto updates                      │
+  │  2. Validate product-spec.md exists and is non-empty   │
+  │  3. Assess spec quality (reject if too vague)          │
+  │  4. Verify email delivery (SMTP probe)                 │
+  │  5. Verify browse binary exists                        │
+  │  6. Read pipeline/config.yml for N, R, and settings    │
   └────────────────────────────────────────────────────────┘
         │
         ▼
-  ┌─ SPAWN N PARALLEL RUNS ───────────────────────────────┐
-  │  For each run (a, b, c, ...):                          │
-  │    Agent(isolation: "worktree", run_in_background)      │
+  ┌─ ROUND LOOP (1..R) ───────────────────────────────────┐
   │                                                        │
-  │  All runs execute in lock-step:                        │
-  │    Phase 1-6 together → bug-fix divergence → Phase 12  │
+  │  ┌─ SPAWN N PARALLEL RUNS ─────────────────────────┐  │
+  │  │  For each run (a, b, c, ...):                    │  │
+  │  │    Agent(isolation: "worktree", run_in_background)│  │
+  │  │    {MODE} = greenfield (round 1) | iteration (2+)│  │
+  │  │                                                  │  │
+  │  │  All runs execute in lock-step:                  │  │
+  │  │    Phase 1-6 → bug-fix divergence → Phase 12     │  │
+  │  └──────────────────────────────────────────────────┘  │
+  │       │                                                │
+  │       ▼                                                │
+  │  ┌─ SELECT WINNER ─────────────────────────────────┐  │
+  │  │  Rank by avg score → bugs → cycles               │  │
+  │  │  Copy winner output/ → main repo                 │  │
+  │  │  Git commit "round-{N}: {feature summary}"       │  │
+  │  └──────────────────────────────────────────────────┘  │
+  │       │                                                │
+  │       └─ next round (if round < R)                     │
   └────────────────────────────────────────────────────────┘
         │
         ▼
-  ┌─ COLLECT & COMPARE ───────────────────────────────────┐
-  │  Read .context/runs/run-{id}/score.json from each      │
-  │  Rank by average score                                 │
+  ┌─ FINAL REPORT ────────────────────────────────────────┐
+  │  All rounds' scores with progression                   │
   │  Compose email with ASCII score cards                  │
   │  Save results to results-history.json                  │
   │  Send via scripts/send-email.py (fallback: disk)       │
@@ -42,10 +55,23 @@ QA → fix → score cycles.
 
 ### Step 1: Pre-Flight Checks
 
-Before burning compute, validate everything:
+Before burning compute, validate everything.
+
+**Update check (run once, never between rounds):**
 
 ```bash
-# Check browse binary
+UPD=$(scripts/pattaya-update-check 2>/dev/null || true)
+```
+
+If output is `UPGRADE_AVAILABLE <old> <new>`: tell the user an update is
+available and offer to upgrade before proceeding. Run
+`scripts/pattaya-upgrade.sh` if they accept. If output is
+`JUST_UPGRADED <old> <new>`: tell the user "Running gstack-auto v{new}
+(just updated!)" and continue.
+
+**Browse binary check:**
+
+```bash
 B=$(~/.claude/skills/gstack/browse/dist/browse 2>/dev/null || .claude/skills/gstack/browse/dist/browse 2>/dev/null)
 test -x "$B" || echo "FAIL: browse binary not found"
 ```
@@ -59,8 +85,10 @@ Read `product-spec.md`. If it's empty or missing, stop and tell the user.
 
 If the spec is too vague, tell the user what's missing. Do NOT proceed.
 
-Read `pipeline/config.yml` for configuration. The user may override N
-in their invocation prompt (e.g., "run with N=5").
+Read `pipeline/config.yml` for configuration:
+- `parallel_runs` (N) — the user may override via prompt: "run with N=5"
+- `rounds` (R) — the user may override via prompt: "run 5 rounds"
+- `auto_accept_winner` — when true or R > 1, auto-select the winner
 
 **Email delivery check:** Run the SMTP probe to verify email will work
 before spending 30+ minutes on the pipeline:
@@ -77,7 +105,18 @@ If the probe fails, **STOP** and show the error. Common fixes:
 If `email.method` is `file-only` in config.yml, the probe is skipped
 and a warning is shown: "Email disabled — results will be saved to disk only."
 
-### Step 2: Spawn Parallel Runs
+### Step 2: Round Loop
+
+Initialize round state:
+- `current_round` = 1
+- `total_rounds` = R (from config or prompt override)
+- `mode` = "greenfield"
+- `existing_code_summary` = "" (empty for round 1)
+- `round_results` = [] (accumulates across rounds)
+
+**For each round (1 through R), execute Steps 2a–2f:**
+
+### Step 2a: Spawn Parallel Runs
 
 For each run (1 through N), launch an Agent with `isolation: "worktree"`:
 
@@ -87,12 +126,19 @@ Agent(
   prompt: <contents of pipeline/phases/01-plan-ceo.md>
           with {PRODUCT_SPEC} replaced by contents of product-spec.md
           and {RUN_ID} replaced by the run identifier (a, b, c, ...)
+          and {MODE} replaced by current mode
+          and {EXISTING_CODE_SUMMARY} replaced by summary of output/
 )
 ```
 
 Launch all N agents in a single message (parallel tool calls).
 
-### Step 3: Resume Through Phases (Lock-Step)
+**If mode is `iteration`:** Before spawning, each agent's worktree must
+contain the winner's code in `output/`. The orchestrator copies the
+winner's output into the main repo before spawning (see Step 2f), and
+worktrees forked from the main branch inherit it automatically.
+
+### Step 2b: Resume Through Phases (Lock-Step)
 
 After all N agents complete phase 1, resume ALL of them for phase 2:
 
@@ -107,8 +153,10 @@ and pass its contents as the resume prompt. Replace template variables:
 - `{PRODUCT_SPEC}` — contents of product-spec.md
 - `{RUN_ID}` — the run identifier
 - `{PHASE_ARTIFACTS}` — path to .context/runs/run-{id}/
+- `{MODE}` — "greenfield" or "iteration"
+- `{EXISTING_CODE_SUMMARY}` — file listing of output/ (empty if greenfield)
 
-### Step 4: Bug-Fix Divergence
+### Step 2c: Bug-Fix Divergence
 
 After phase 06 (QA), read each run's QA report from
 `.context/runs/run-{id}/phase-06-qa.md`.
@@ -123,14 +171,14 @@ proceed to phase 12 with a score penalty note.
 
 Runs that don't need fixes wait idle while others fix.
 
-### Step 5: Retro & Scoring
+### Step 2d: Retro & Scoring
 
 Resume all N agents with phase 12 (retro + scoring). Each agent writes:
 - `.context/runs/run-{id}/score.json` — structured scores
 - `.context/runs/run-{id}/retro.md` — full retrospective
 - `.context/runs/run-{id}/highlight.md` — best code snippet
 
-### Step 6: Compare & Report
+### Step 2e: Compare & Select Winner
 
 Read all `score.json` files. Expected format:
 ```json
@@ -151,31 +199,96 @@ Read all `score.json` files. Expected format:
 Rank runs by `average` score (descending). Break ties by `bugs_remaining`
 (fewer is better), then `fix_cycles_used` (fewer is better).
 
-### Step 7: Compose Email
+**Error check:** If no run has a valid score.json, STOP and tell the user:
+"Round {N} failed — no runs produced valid scores. Check agent logs."
 
-Read `templates/email-report.md` for the format. Build the email body with:
-- Ranked results with ASCII score bar charts
-- "Why I Built It This Way" narrative per run
-- Code highlight reel per run
+Store this round's results in `round_results`:
+```json
+{
+  "round": 1,
+  "winner": "run-b",
+  "winner_score": 7.6,
+  "all_scores": { "run-a": 6.2, "run-b": 7.6, "run-c": 7.1 }
+}
+```
+
+### Step 2f: Winner Carry-Forward
+
+If this is NOT the final round:
+
+1. Identify the winner's worktree path (returned by the Agent tool).
+2. **Verify the worktree exists and has output/:**
+   ```bash
+   test -d "{WINNER_WORKTREE}/output" || echo "ERROR: winner output missing"
+   ```
+   If missing, STOP with a clear error.
+3. Copy the winner's output to the main repo:
+   ```bash
+   rm -rf output/
+   cp -r {WINNER_WORKTREE}/output/ output/
+   ```
+4. Build the commit message from the winner's phase artifacts:
+   - Read `{WINNER_ARTIFACTS}/phase-03-implement.md` for file list
+   - Read `{WINNER_ARTIFACTS}/phase-01-plan-ceo.md` for the plan summary
+   ```bash
+   git add output/
+   git commit -m "round-{N}({WINNER_ID}): {one-line summary from CEO plan}
+
+   Score: {average}/10 (F:{func} Q:{quality} T:{tests} U:{ux} S:{spec})
+   Winner: {WINNER_ID} out of {N} parallel runs
+   Files: {count} files in output/"
+   ```
+5. **Verify the commit succeeded:**
+   ```bash
+   git log --oneline -1
+   ```
+6. Update mode for next round:
+   - `mode` = "iteration"
+   - `existing_code_summary` = output of `ls -la output/` + first 5 lines
+     of each source file (enough context for the phase prompts)
+
+**Then continue to the next round (back to Step 2a).**
+
+### Step 3: Final Report
+
+After all rounds complete, compose the final report.
+
+**If R > 1**, the email includes a round progression section:
+```
+ROUND PROGRESSION
+─────────────────
+Round 1: Best 7.6/10 (run-b)  ██████████████░░ 76%
+Round 2: Best 8.2/10 (run-a)  ████████████████░ 82%  (+0.6)
+Round 3: Best 8.9/10 (run-c)  █████████████████░ 89%  (+0.7)
+```
+
+Read `templates/email-report.md` for the base format. Build the email
+body with:
+- Round progression (if R > 1)
+- Final round's ranked results with ASCII score bar charts
+- "Why I Built It This Way" narrative per run (final round)
+- Code highlight reel per run (final round)
 - QA screenshot references
 - Git branch name for each run's worktree
+- Git log showing the round-by-round commit history
 
-### Step 8: Send & Save
+### Step 4: Send & Save
 
 1. Save the full email body to `.context/results-email.md` (ALWAYS — this
    is the fallback if email send fails)
-2. Append to `results-history.json` with timestamp and spec hash
+2. Append to `results-history.json` with timestamp, spec hash, and
+   `round_results` array
 3. Send via the email script:
 
 ```bash
 python3 scripts/send-email.py --send .context/results-email.md \
-  --subject "Pattaya Results: {SPEC_TITLE} — Best Score: {BEST_SCORE}/10"
+  --subject "Pattaya Results: {SPEC_TITLE} — {R} rounds — Best: {BEST_SCORE}/10"
 ```
 
 If the send fails, tell the user: "Results saved to .context/results-email.md.
 Email send failed: {error}. Check .env credentials and pipeline/config.yml."
 
-### Step 9: Staleness Check
+### Step 5: Staleness Check
 
 Run `scripts/check-gstack-sync.sh` and report any stale phase prompts
 to the user as an informational note (not blocking).
