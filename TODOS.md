@@ -17,6 +17,14 @@ variation, parallel runs may converge on identical solutions. Diversity
 in the population is what makes evolutionary search work.
 **Effort: M**
 
+### Deep-link to conductor.build
+Add an "Open in Conductor" button that launches conductor.build with the
+project workspace pre-loaded, eliminating copy-paste entirely. Blocked on
+knowing Conductor's URL scheme or web API for opening workspaces. The
+copy-to-clipboard prompt was shipped as the universal fallback.
+**Effort: S** (once URL scheme is known)
+**Depends on:** Conductor exposing a URL scheme or web API
+
 ## P2 — Medium Priority
 
 ### Auto-deployment with preview URLs
