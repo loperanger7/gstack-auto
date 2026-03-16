@@ -230,6 +230,12 @@ else
     fail "GET /results returned invalid JSON"
   fi
 
+  if echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'spec_title' in d" 2>/dev/null; then
+    pass "GET /results includes spec_title field"
+  else
+    fail "GET /results missing spec_title field"
+  fi
+
   code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/output/../../.env")
   [ "$code" = "403" ] || [ "$code" = "404" ] && pass "Path traversal blocked ($code)" || fail "Path traversal NOT blocked ($code)"
 

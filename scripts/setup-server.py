@@ -266,7 +266,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             status = 'ready'
 
-        self.respond(200, {'runs': all_runs, 'status': status})
+        spec = read_file(SPEC_PATH) or ''
+        first_line = spec.strip().split('\n', 1)[0].lstrip('# ').strip() if spec.strip() else ''
+        spec_title = first_line if first_line and first_line != 'Product Spec' else ''
+
+        self.respond(200, {'runs': all_runs, 'status': status, 'spec_title': spec_title})
 
     def serve_output(self, rel_path):
         """Serve static files from output/ with path traversal protection."""

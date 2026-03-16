@@ -603,10 +603,40 @@ button.primary:hover:not(:disabled) {
   margin-bottom: 4px;
 }
 
-.build-path {
+.prompt-block-wrap {
+  position: relative;
+}
+
+.prompt-block-wrap .prompt-text {
+  white-space: pre-wrap;
+  padding-right: 70px;
+  cursor: text;
+  user-select: text;
+}
+
+.btn-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--border);
+  border: none;
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
   font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-copy:hover {
+  background: var(--text-dim);
+  color: var(--bg);
+}
+
+.btn-copy.copied {
+  background: #2a5a2a;
+  color: #6fbf6f;
 }
 
 /* ── Phase Progress ─────────────────────────────────── */
