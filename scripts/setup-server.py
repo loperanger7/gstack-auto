@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gstack-auto server.
 
-Serves the setup page, results dashboard, and pipeline output.
+Serves the Mission Control UI and pipeline output.
 Binds to 127.0.0.1 only. No dependencies beyond Python stdlib.
 
 Usage:
@@ -24,8 +24,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(ROOT, '.env')
 CONFIG_PATH = os.path.join(ROOT, 'pipeline', 'config.yml')
 SPEC_PATH = os.path.join(ROOT, 'product-spec.md')
-SETUP_PATH = os.path.join(ROOT, 'setup.html')
-DASHBOARD_PATH = os.path.join(ROOT, 'dashboard.html')
+INDEX_PATH = os.path.join(ROOT, 'index.html')
+STYLES_DIR = os.path.join(ROOT, 'pipeline', 'styles')
 STYLE_PATH = os.path.join(ROOT, 'style.css')
 SEND_SCRIPT = os.path.join(ROOT, 'scripts', 'send-email.py')
 OUTPUT_ROOT = os.path.join(ROOT, 'output')
@@ -102,6 +102,112 @@ def update_config_email_to(email):
     write_file(CONFIG_PATH, updated)
 
 
+def update_config_value(key, value):
+    """Update a top-level key in config.yml. Uncomments if commented out.
+
+    Skips indented keys (nested YAML). If the key doesn't exist at all,
+    appends it. Uses string values for style, integers for numeric fields.
+    """
+    text = read_file(CONFIG_PATH)
+    if text is None:
+        return
+
+    # Try to find the key — commented or uncommented, top-level only
+    pattern = re.compile(
+        r'^(#\s*)?' + re.escape(key) + r':\s*"?[^"\n]*"?',
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    if match:
+        # Replace the matched line with the uncommented, updated value
+        if isinstance(value, int):
+            replacement = f'{key}: {value}'
+        else:
+            replacement = f'{key}: "{value}"'
+        updated = text[:match.start()] + replacement + text[match.end():]
+    else:
+        # Key not found — append before the email block
+        if isinstance(value, int):
+            line = f'{key}: {value}\n'
+        else:
+            line = f'{key}: "{value}"\n'
+        updated = text.rstrip('\n') + '\n\n' + line
+
+    write_file(CONFIG_PATH, updated)
+
+
+def get_config_value(key, default=''):
+    """Read a top-level scalar value from config.yml."""
+    text = read_file(CONFIG_PATH)
+    if text is None:
+        return default
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        if stripped.startswith(key + ':'):
+            val = stripped.split(':', 1)[1].strip().strip('"').strip("'")
+            return val if val else default
+    return default
+
+
+def get_style_profiles():
+    """Scan pipeline/styles/*.md and return profile metadata.
+
+    Each profile .md has: line 1 = # Name, first blockquote = signature quote,
+    ## Principles section = coding principles, ## Review Focus = review focus.
+    """
+    profiles = []
+    if not os.path.isdir(STYLES_DIR):
+        return profiles
+
+    for fname in sorted(os.listdir(STYLES_DIR)):
+        if not fname.endswith('.md'):
+            continue
+        fpath = os.path.join(STYLES_DIR, fname)
+        content = read_file(fpath)
+        if not content:
+            continue
+
+        name = fname[:-3]  # strip .md
+        lines = content.strip().split('\n')
+
+        # Extract display name from # heading
+        display = lines[0].lstrip('# ').strip() if lines and lines[0].startswith('#') else name
+
+        # Extract quote from first blockquote line
+        quote = ''
+        for line in lines[1:]:
+            stripped = line.strip()
+            if stripped.startswith('>'):
+                quote = stripped.lstrip('> ').strip('"').strip()
+                break
+
+        # Extract principles section
+        principles = []
+        in_principles = False
+        for line in lines:
+            if line.startswith('## Principles'):
+                in_principles = True
+                continue
+            if in_principles and line.startswith('## '):
+                break
+            if in_principles and line.strip().startswith('- **'):
+                # Extract the bold principle name
+                m = re.match(r'- \*\*(.+?)\.\*\*', line.strip())
+                if m:
+                    principles.append(m.group(1))
+
+        profiles.append({
+            'name': name,
+            'display': display,
+            'quote': quote,
+            'principles': principles,
+        })
+
+    return profiles
+
+
 def guess_content_type(path):
     ext = os.path.splitext(path)[1].lower()
     return CONTENT_TYPES.get(ext, 'application/octet-stream')
@@ -137,14 +243,15 @@ def collect_run_sources(run_dir):
 class Handler(http.server.BaseHTTPRequestHandler):
     """
     ── Routes ────────────────────────────────────────────
-    GET  /              → smart route: dashboard (if results) or setup
-    GET  /setup         → setup.html
-    GET  /dashboard     → dashboard.html
+    GET  /              → index.html (Mission Control)
+    GET  /setup         → redirect to /
+    GET  /dashboard     → redirect to /
     GET  /style.css     → style.css
+    GET  /styles        → JSON: available style profiles
     GET  /results       → JSON: run scores + progress
     GET  /output/*      → static files from output/ (path-traversal safe)
     GET  /diff          → unified diff between two runs
-    GET  /current-config→ { email, spec }
+    GET  /current-config→ { email, spec, parallel_runs, rounds, style }
     POST /save-config   → write .env, config.yml, product-spec.md
     POST /test-email    → run send-email.py --probe
     """
@@ -182,14 +289,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?')[0]
 
-        if path == '/':
-            self.smart_route()
-        elif path == '/setup':
-            self.serve_file(SETUP_PATH, 'text/html; charset=utf-8')
-        elif path == '/dashboard':
-            self.serve_file(DASHBOARD_PATH, 'text/html; charset=utf-8')
+        if path == '/' or path == '/setup' or path == '/dashboard':
+            self.serve_file(INDEX_PATH, 'text/html; charset=utf-8')
         elif path == '/style.css':
             self.serve_file(STYLE_PATH, 'text/css; charset=utf-8')
+        elif path == '/styles':
+            self.get_styles()
         elif path == '/results':
             self.get_results()
         elif path.startswith('/output/'):
@@ -201,17 +306,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    def smart_route(self):
-        if has_scored_runs():
-            self.serve_file(DASHBOARD_PATH, 'text/html; charset=utf-8')
-        else:
-            self.serve_file(SETUP_PATH, 'text/html; charset=utf-8')
-
     def get_current_config(self):
         env = parse_env()
         email = env.get('PATTAYA_SMTP_USER', '') or get_email_to()
         spec = read_file(SPEC_PATH) or ''
-        self.respond(200, {'email': email, 'spec': spec})
+        self.respond(200, {
+            'email': email,
+            'spec': spec,
+            'parallel_runs': int(get_config_value('parallel_runs', '3')),
+            'rounds': int(get_config_value('rounds', '1')),
+            'style': get_config_value('style', ''),
+        })
+
+    def get_styles(self):
+        self.respond(200, get_style_profiles())
 
     def get_results(self):
         if not os.path.isdir(RUNS_DIR):
@@ -400,8 +508,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         spec = data.get('spec') or ''
 
         has_creds = bool(email and password)
+        has_pipeline_config = any(
+            k in data for k in ('parallel_runs', 'rounds', 'style')
+        )
 
-        if not has_creds and not spec.strip():
+        if not has_creds and not spec.strip() and not has_pipeline_config:
             self.respond(400, {'error': 'Nothing to save.'})
             return
 
@@ -412,6 +523,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             if spec.strip():
                 write_file(SPEC_PATH, spec)
+
+            if 'parallel_runs' in data:
+                val = max(1, int(data['parallel_runs']))
+                update_config_value('parallel_runs', val)
+            if 'rounds' in data:
+                val = max(1, int(data['rounds']))
+                update_config_value('rounds', val)
+            if 'style' in data:
+                update_config_value('style', str(data['style']))
 
             self.respond(200, {'message': 'Saved.'})
 
