@@ -717,3 +717,55 @@ button.primary:hover:not(:disabled) {
   color: var(--accent-dim);
   margin-top: 8px;
 }
+
+/* ── Round History ──────────────────────────────────── */
+
+.round-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.round-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.round-label {
+  min-width: 64px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.round-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.round-score {
+  min-width: 48px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.round-winner {
+  min-width: 100px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.round-delta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.round-delta.positive { color: var(--green); }
+.round-delta.negative { color: var(--red); }

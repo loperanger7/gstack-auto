@@ -19,6 +19,12 @@
 
 <div id="runs"></div>
 
+<!-- ── ROUND PROGRESSION ─────────────────────────────────── -->
+<section id="section-rounds" style="display:none">
+  <h2>Round Progression</h2>
+  <div id="round-history" class="round-history"></div>
+</section>
+
 <!-- ── COMPARE RUNS ────────────────────────────────────── -->
 <section id="section-compare" style="display:none">
   <h2>Compare Runs</h2>
@@ -55,6 +61,7 @@
 
 let runs = [];
 let specTitle = '';
+let roundHistory = [];
 let pollInterval = null;
 
 const PHASE_NAMES = {
@@ -158,9 +165,42 @@ function progressCard(run) {
 
 // ── Render ────────────────────────────────────────────────
 
+function roundProgressBar(score) {
+  var pct = (score / 10) * 100;
+  var cls = score >= 8 ? 'high' : score >= 6 ? 'mid' : 'low';
+  return '<div class="round-bar-track">' +
+    '<div class="score-bar-fill score-' + cls + '" style="width:' + pct + '%"></div>' +
+  '</div>';
+}
+
+function renderRoundHistory(history) {
+  var section = document.getElementById('section-rounds');
+  if (!history || history.length < 2) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  var html = '';
+  history.forEach(function(round, i) {
+    var delta = i > 0 ? (round.winner_score - history[i - 1].winner_score).toFixed(1) : '';
+    var deltaStr = delta ? (parseFloat(delta) >= 0 ? ' <span class="round-delta positive">+' + delta + '</span>' : ' <span class="round-delta negative">' + delta + '</span>') : '';
+    html += '<div class="round-row">' +
+      '<span class="round-label">Round ' + round.round + '</span>' +
+      roundProgressBar(round.winner_score) +
+      '<span class="round-score">' + round.winner_score + '/10</span>' +
+      '<span class="round-winner">(' + esc(round.winner) + ')' + deltaStr + '</span>' +
+    '</div>';
+  });
+  document.getElementById('round-history').innerHTML = html;
+}
+
 function render(data) {
   specTitle = data.spec_title || '';
-  const container = document.getElementById('runs');
+  roundHistory = data.round_history || [];
+  var container = document.getElementById('runs');
+
+  renderRoundHistory(roundHistory);
 
   if (data.runs.length === 0) {
     container.innerHTML =
