@@ -2,6 +2,12 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.1.1] - 2026-03-15
+
+### Changed
+- Dashboard: allow multiple preview iframes and build panels open simultaneously (removed single-preview restriction)
+- README: updated gstack install instructions to use Garry Tan's official install method from the gstack repo
+
 ## [0.1.1.0] - 2026-03-15
 
 ### Added
