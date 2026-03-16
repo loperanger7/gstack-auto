@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstack-auto</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+
+<div class="nav">
+  <div>
+    <h1>gstack-auto</h1>
+    <p class="subtitle">mission control<span id="style-badge"></span></p>
+  </div>
+  <button type="button" class="gear-btn" id="btn-gear" title="Configuration">&#9881;</button>
+</div>
+
+<!-- ── CONFIG PANEL (collapsible) ──────────────────────── -->
+<div id="config-panel" class="config-panel">
+
+  <!-- Email Delivery -->
+  <section id="section-email">
+    <h2>Email Delivery</h2>
+    <div id="email-collapsed" style="display:none">
+      <div class="email-status-line">
+        <span class="email-addr" id="email-display"></span>
+        <span class="check">configured</span>
+        <button type="button" class="link-btn" id="btn-edit-email">[edit]</button>
+      </div>
+    </div>
+    <div id="email-expanded">
+      <details>
+        <summary>How to get a Gmail App Password</summary>
+        <ol>
+          <li>Go to <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a></li>
+          <li>Turn on 2-Step Verification if it's not already on</li>
+          <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a></li>
+          <li>Enter a name (e.g. "gstack-auto") and click Create</li>
+          <li>Copy the 16-character password and paste it below</li>
+        </ol>
+      </details>
+      <label for="email">Gmail address</label>
+      <input type="email" id="email" placeholder="you@gmail.com" autocomplete="email" spellcheck="false">
+      <label for="password">App Password</label>
+      <input type="password" id="password" placeholder="xxxx xxxx xxxx xxxx" autocomplete="off" spellcheck="false">
+      <div class="email-actions">
+        <button type="button" id="btn-test">Test Connection</button>
+        <button type="button" class="link-btn" id="btn-done-email" style="display:none">[done]</button>
+      </div>
+      <div id="test-status" class="status"></div>
+    </div>
+  </section>
+
+  <!-- Pipeline Config -->
+  <section id="section-pipeline-config">
+    <h2>Pipeline</h2>
+    <div class="preset-bar">
+      <span class="preset-label">presets:</span>
+      <button type="button" class="preset-btn" data-preset="quick">quick test</button>
+      <button type="button" class="preset-btn" data-preset="standard">standard</button>
+      <button type="button" class="preset-btn" data-preset="thorough">thorough</button>
+    </div>
+    <div class="config-row">
+      <div class="config-field">
+        <label for="cfg-runs">Parallel runs</label>
+        <input type="number" id="cfg-runs" min="1" max="26" value="3">
+      </div>
+      <div class="config-field">
+        <label for="cfg-rounds">Rounds</label>
+        <input type="number" id="cfg-rounds" min="1" max="10" value="1">
+      </div>
+      <div class="config-field config-field-wide">
+        <label for="cfg-style">Style inspiration</label>
+        <select id="cfg-style">
+          <option value="">None (default)</option>
+        </select>
+      </div>
+    </div>
+    <div id="style-preview" class="style-preview" style="display:none"></div>
+  </section>
+
+  <!-- Product Spec -->
+  <section id="section-spec">
+    <h2>Product Spec</h2>
+    <div class="template-bar">
+      <span class="template-label">start from:</span>
+      <button type="button" class="template-btn" data-template="weather">weather app</button>
+      <button type="button" class="template-btn" data-template="bookshelf">bookshelf</button>
+      <button type="button" class="template-btn" data-template="todo">todo list</button>
+    </div>
+    <textarea id="spec" placeholder="Describe what you want built." spellcheck="false"></textarea>
+    <div id="spec-hints" class="hint-list">
+      <div class="hint fail" id="hint-description">
+        <span class="hint-icon">-</span> Has a product description
+      </div>
+      <div class="hint fail" id="hint-interaction">
+        <span class="hint-icon">-</span> Has a user interaction
+      </div>
+      <div class="hint fail" id="hint-specificity">
+        <span class="hint-icon">-</span> Specific enough to build
+      </div>
+    </div>
+  </section>
+
+  <!-- Save -->
+  <div class="actions">
+    <button type="button" class="primary" id="btn-save">Save</button>
+  </div>
+  <div id="save-status" class="status"></div>
+
+  <!-- What Happens Next (shown after save) -->
+  <section id="section-next" style="display:none">
+    <h2>What Happens Next</h2>
+    <div class="next-content">
+      <p>Your config is saved. Open Conductor and say:</p>
+      <pre class="command-block" id="launch-command">Run the gstack-auto pipeline with N=3</pre>
+      <p>The pipeline will:</p>
+      <ol>
+        <li>Validate your spec and test email delivery</li>
+        <li>Spawn parallel development runs</li>
+        <li>Each run: plan, build, review, QA, fix, score</li>
+        <li>Email you a ranked comparison of all runs</li>
+      </ol>
+      <p class="next-time">Estimated time: ~30 minutes. Go get coffee.</p>
+    </div>
+  </section>
+</div>
+
+<!-- ── RESULTS ─────────────────────────────────────────── -->
+<div id="results-section" style="display:none">
+
+  <div id="run-again-bar" class="run-again-bar" style="display:none">
+    <button type="button" class="btn-run-again" id="btn-run-again">Run the pipeline again</button>
+    <span class="run-again-hint" id="run-again-hint"></span>
+  </div>
+
+  <div id="runs"></div>
+
+  <section id="section-rounds" style="display:none">
+    <h2>Round Progression</h2>
+    <div id="round-history" class="round-history"></div>
+  </section>
+
+  <section id="section-compare" style="display:none">
+    <h2>Compare Runs</h2>
+    <div class="compare-controls">
+      <select id="diff-a"></select>
+      <span class="compare-vs">vs</span>
+      <select id="diff-b"></select>
+      <button type="button" id="btn-compare">Compare</button>
+    </div>
+    <div id="diff-output" class="diff-output"></div>
+  </section>
+</div>
+
+<p class="footer">localhost only &mdash; credentials never leave this machine</p>
+
+</div>
+
+<script>
+// ── State Machine ────────────────────────────────────────
+//
+//   Page Load → GET /current-config + GET /results + GET /styles
+//
+//     ├─ no config, no results ─────► SETUP
+//     │   config panel: expanded (full setup wizard)
+//     │   results section: hidden
+//     │
+//     ├─ config exists, no results ─► READY
+//     │   config panel: collapsed (summary)
+//     │   results section: hidden
+//     │   "what happens next" panel visible
+//     │
+//     ├─ config exists, in_progress ► MONITORING
+//     │   config panel: collapsed
+//     │   results section: visible (progress cards, polling)
+//     │
+//     └─ results scored ────────────► RESULTS
+//         config panel: collapsed
+//         results section: visible (score cards, diff, rounds)
+//         "run again" bar visible
+//
+//   [gear icon] toggles config panel in READY/MONITORING/RESULTS
+//
+
+var $ = function(id) { return document.getElementById(id); };
+var runs = [];
+var specTitle = '';
+var styleName = '';
+var roundHistory = [];
+var styleProfiles = [];
+var pollInterval = null;
+var cachedPassword = null;
+var configuredEmail = '';
+var emailExpanded = true;
+var configPanelOpen = true;
+var hasConfig = false;
+var hasResults = false;
+
+// ── Templates ────────────────────────────────────────────
+
+var TEMPLATES = {
+  weather: '## What It Does\n\nA weather app that shows the current weather for San Francisco\nand recommends what to wear today.\n\n## Core Interaction\n\nUser opens the page and immediately sees:\n1. Current temperature and conditions\n2. A plain-English outfit recommendation\n3. A weather icon or emoji\n\nNo clicks needed. No settings. Always San Francisco.\n\n## Constraints\n\n- Pure HTML/CSS/JS, no backend\n- Use Open-Meteo API (no key needed)\n- Must be responsive (mobile-friendly)\n- No frameworks',
+
+  bookshelf: '## What It Does\n\nA personal bookshelf app where the user can track books\nthey\'ve read, are reading, or want to read.\n\n## Core Interaction\n\nUser can:\n1. Add a book (title, author, optional cover image URL)\n2. Move books between shelves: "Want to Read", "Reading", "Read"\n3. See book counts per shelf\n4. Delete a book\n\nData persists in localStorage.\n\n## Constraints\n\n- Pure HTML/CSS/JS, no backend\n- Data stored in localStorage\n- Must look good on mobile\n- No frameworks, no build tools',
+
+  todo: '## What It Does\n\nA minimal todo list app with keyboard-first interaction\nand clean typography.\n\n## Core Interaction\n\nUser can:\n1. Type a task and press Enter to add it\n2. Click a task to mark it complete (strikethrough)\n3. Press Backspace on an empty input to delete the last task\n4. See a count of remaining tasks\n\n## Constraints\n\n- Pure HTML/CSS/JS\n- Data stored in localStorage\n- Must work without a mouse (keyboard accessible)\n- Minimal design, monospace font\n- No frameworks',
+};
+
+var PRESETS = {
+  quick:    { runs: 2, rounds: 1, style: '' },
+  standard: { runs: 3, rounds: 1, style: '' },
+  thorough: { runs: 3, rounds: 3, style: '' },
+};
+
+var PHASE_NAMES = {
+  '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
+  '04': 'Review',     '05': 'Ship',        '06': 'QA',
+  '07': 'Fix Plan',   '08': 'Fix',         '09': 'Fix Review',
+  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Score',
+};
+var TOTAL_PHASES = 12;
+
+// ── Utilities ────────────────────────────────────────────
+
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function setStatus(el, cls, msg) {
+  el.className = 'status ' + cls;
+  el.textContent = msg;
+}
+
+function clearStatus(el) {
+  el.className = 'status';
+  el.textContent = '';
+}
+
+function debounce(fn, ms) {
+  var timer;
+  return function() {
+    var args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(null, args); }, ms);
+  };
+}
+
+function truncateEmail(email) {
+  var at = email.indexOf('@');
+  if (at <= 6) return email;
+  return email.slice(0, 6) + '...' + email.slice(at);
+}
+
+function runLabel(id) {
+  return 'Run ' + id.split('-')[1].toUpperCase();
+}
+
+async function post(path, body) {
+  var res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, data: await res.json() };
+}
+
+// ── Config Panel Toggle ──────────────────────────────────
+
+function toggleConfigPanel() {
+  configPanelOpen = !configPanelOpen;
+  renderConfigPanel();
+}
+
+function renderConfigPanel() {
+  var panel = $('config-panel');
+  var gear = $('btn-gear');
+  if (configPanelOpen) {
+    panel.classList.add('open');
+    panel.classList.remove('closed');
+    gear.classList.add('active');
+  } else {
+    panel.classList.remove('open');
+    panel.classList.add('closed');
+    gear.classList.remove('active');
+  }
+}
+
+// ── Email Section ────────────────────────────────────────
+
+function renderEmailSection() {
+  if (configuredEmail && emailExpanded === false) {
+    $('email-collapsed').style.display = '';
+    $('email-expanded').style.display = 'none';
+    $('email-display').textContent = truncateEmail(configuredEmail);
+  } else {
+    $('email-collapsed').style.display = 'none';
+    $('email-expanded').style.display = '';
+    $('btn-done-email').style.display = configuredEmail ? '' : 'none';
+  }
+}
+
+function expandEmail() {
+  emailExpanded = true;
+  $('email').value = configuredEmail;
+  $('password').value = '';
+  renderEmailSection();
+  $('password').focus();
+}
+
+function collapseEmail() {
+  emailExpanded = false;
+  renderEmailSection();
+}
+
+// ── Spec Quality Hints ──────────────────────────────────
+
+function setHint(id, pass) {
+  var el = $(id);
+  el.className = 'hint ' + (pass ? 'pass' : 'fail');
+  el.querySelector('.hint-icon').textContent = pass ? '\u2713' : '-';
+}
+
+function checkSpecQuality(text) {
+  var t = text || '';
+  var hasDescription = t.length >= 50 && (
+    /## (?:what it does|description|overview|about)/i.test(t) ||
+    /(?:is a|that |which |app |tool |site |page |website )/i.test(t)
+  );
+  var hasInteraction =
+    /user\s+(?:opens|clicks|types|sees|can|enters|selects|taps|views|will|should)/i.test(t) ||
+    /## (?:core interaction|user interaction|how it works|features)/i.test(t) ||
+    /(?:click|tap|enter|submit|select|type|open|press)\s/i.test(t);
+  var hasSpecificity = t.length >= 100 && (
+    /## (?:constraints|success criteria|requirements|tech)/i.test(t) ||
+    /(?:must|should|require)\s/i.test(t) ||
+    /API|HTML|CSS|JS|database|responsive|mobile|localStorage|no framework/i.test(t)
+  );
+  setHint('hint-description', hasDescription);
+  setHint('hint-interaction', hasInteraction);
+  setHint('hint-specificity', hasSpecificity);
+}
+
+// ── Templates & Presets ──────────────────────────────────
+
+function populateTemplate(name) {
+  var spec = $('spec');
+  if (spec.value.trim() && !confirm('Replace current spec with template?')) return;
+  spec.value = TEMPLATES[name];
+  checkSpecQuality(spec.value);
+  spec.focus();
+}
+
+function applyPreset(name) {
+  var p = PRESETS[name];
+  if (!p) return;
+  $('cfg-runs').value = p.runs;
+  $('cfg-rounds').value = p.rounds;
+  if (p.style !== undefined) {
+    $('cfg-style').value = p.style;
+    renderStylePreview();
+  }
+}
+
+// ── Style Picker ─────────────────────────────────────────
+
+function populateStyleDropdown(profiles) {
+  styleProfiles = profiles;
+  var sel = $('cfg-style');
+  sel.innerHTML = '<option value="">None (default)</option>';
+  profiles.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.display;
+    sel.appendChild(opt);
+  });
+}
+
+function renderStylePreview() {
+  var name = $('cfg-style').value;
+  var preview = $('style-preview');
+  if (!name) {
+    preview.style.display = 'none';
+    return;
+  }
+  var profile = styleProfiles.find(function(p) { return p.name === name; });
+  if (!profile) {
+    preview.style.display = 'none';
+    return;
+  }
+  var html = '';
+  if (profile.quote) {
+    html += '<div class="style-quote">' + esc(profile.quote) + '</div>';
+  }
+  if (profile.principles && profile.principles.length) {
+    html += '<ul class="style-principles">';
+    profile.principles.forEach(function(p) {
+      html += '<li>' + esc(p) + '</li>';
+    });
+    html += '</ul>';
+  }
+  preview.innerHTML = html;
+  preview.style.display = '';
+}
+
+// ── Test Connection ──────────────────────────────────────
+
+async function testConnection() {
+  var btn = $('btn-test');
+  var status = $('test-status');
+  var email = $('email').value.trim();
+  var password = $('password').value.replace(/\s/g, '');
+  if (!email || !password) {
+    setStatus(status, 'err', 'Enter email and password first.');
+    return;
+  }
+  btn.disabled = true;
+  setStatus(status, 'working', 'Saving credentials and testing...');
+  try {
+    var save = await post('/save-config', {
+      email: email, password: password, spec: $('spec').value,
+    });
+    if (!save.ok) { setStatus(status, 'err', save.data.error || 'Save failed.'); return; }
+    var res = await post('/test-email', {});
+    if (res.ok) {
+      setStatus(status, 'ok', res.data.message);
+      cachedPassword = password;
+      configuredEmail = email;
+    } else {
+      setStatus(status, 'err', res.data.error);
+    }
+  } catch (e) {
+    setStatus(status, 'err', 'Server not reachable.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Save Config ──────────────────────────────────────────
+
+async function saveConfig() {
+  var btn = $('btn-save');
+  var status = $('save-status');
+  var spec = $('spec').value;
+  if (!spec.trim()) {
+    setStatus(status, 'err', 'Product spec is required.');
+    return;
+  }
+  var email, password;
+  if ($('email-expanded').style.display !== 'none') {
+    email = $('email').value.trim();
+    password = $('password').value.replace(/\s/g, '');
+  } else {
+    email = configuredEmail;
+    password = cachedPassword;
+  }
+  btn.disabled = true;
+  setStatus(status, 'working', 'Saving...');
+  try {
+    var body = {
+      spec: spec,
+      parallel_runs: parseInt($('cfg-runs').value) || 3,
+      rounds: parseInt($('cfg-rounds').value) || 1,
+      style: $('cfg-style').value,
+    };
+    if (email && password) {
+      body.email = email;
+      body.password = password;
+    }
+    var res = await post('/save-config', body);
+    if (res.ok) {
+      cachedPassword = password;
+      configuredEmail = email;
+      emailExpanded = false;
+      hasConfig = true;
+      renderEmailSection();
+      clearStatus(status);
+      // Update launch command with current runs count
+      $('launch-command').textContent =
+        'Run the gstack-auto pipeline with N=' + (parseInt($('cfg-runs').value) || 3);
+      $('section-next').style.display = '';
+      $('section-next').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      setStatus(status, 'err', res.data.error || 'Save failed.');
+    }
+  } catch (e) {
+    setStatus(status, 'err', 'Server not reachable.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Score Bars ───────────────────────────────────────────
+
+function scoreBar(label, value) {
+  var pct = (value / 10) * 100;
+  var cls = value >= 8 ? 'high' : value >= 6 ? 'mid' : 'low';
+  return '<div class="score-bar">' +
+    '<span class="score-bar-label">' + esc(label) + '</span>' +
+    '<div class="score-bar-track">' +
+      '<div class="score-bar-fill score-' + cls + '" style="width:' + pct + '%"></div>' +
+    '</div>' +
+    '<span class="score-bar-value">' + value + '</span>' +
+  '</div>';
+}
+
+// ── Card Templates ───────────────────────────────────────
+
+function scoredCard(run, isWinner) {
+  var s = run.scores;
+  var label = runLabel(run.id);
+  return '<div class="card' + (isWinner ? ' winner' : '') + '" data-run="' + esc(run.id) + '">' +
+    '<div class="card-header">' +
+      '<span class="card-title">' +
+        (isWinner ? '<span class="winner-badge">\u2605 WINNER</span> ' : '') +
+        esc(label) +
+      '</span>' +
+      '<span class="card-score">' + s.average + '<span class="score-max">/10</span></span>' +
+    '</div>' +
+    '<div class="score-bars">' +
+      scoreBar('Functionality', s.functionality) +
+      scoreBar('Code Quality', s.code_quality) +
+      scoreBar('Test Coverage', s.test_coverage) +
+      scoreBar('UX Polish', s.ux_polish) +
+      scoreBar('Spec Adherence', s.spec_adherence) +
+    '</div>' +
+    '<div class="card-meta">' +
+      '<span>Bugs: ' + s.bugs_remaining + '</span>' +
+      '<span>Fix cycles: ' + s.fix_cycles_used + '/3</span>' +
+    '</div>' +
+    '<details class="narrative"><summary>Why I built it this way</summary>' +
+      '<p class="narrative-text"></p>' +
+    '</details>' +
+    '<details class="code-highlight"><summary>Code highlight</summary>' +
+      '<p class="highlight-text"></p>' +
+    '</details>' +
+    '<div class="card-actions">' +
+      (run.has_output
+        ? '<button type="button" class="btn-preview" data-run="' + esc(run.id) + '">Preview</button>'
+        : '') +
+      '<button type="button" class="btn-build" data-run="' + esc(run.id) + '">Build on this</button>' +
+    '</div>' +
+    '<div class="preview-container" id="preview-' + esc(run.id) + '" style="display:none"></div>' +
+    '<div class="build-panel" id="build-' + esc(run.id) + '" style="display:none"></div>' +
+  '</div>';
+}
+
+function progressCard(run) {
+  var label = runLabel(run.id);
+  var phases = run.phases_completed || [];
+  var latest = phases[phases.length - 1] || '';
+  var m = latest.match(/phase-(\d+)/);
+  var phaseNum = m ? m[1] : null;
+  var phaseName = phaseNum ? PHASE_NAMES[phaseNum] : '';
+  var dots = '';
+  for (var i = 1; i <= TOTAL_PHASES; i++) {
+    var num = String(i).padStart(2, '0');
+    var done = phases.some(function(p) { return p.indexOf('phase-' + num) !== -1; });
+    dots += '<span class="phase-dot' + (done ? ' done' : '') + '" title="Phase ' + num + ': ' + (PHASE_NAMES[num] || '') + '"></span>';
+  }
+  return '<div class="card in-progress" data-run="' + esc(run.id) + '">' +
+    '<div class="card-header">' +
+      '<span class="card-title">' + esc(label) + '</span>' +
+      '<span class="card-phase">Phase ' + (phaseNum || '?') + ': ' + esc(phaseName) + '</span>' +
+    '</div>' +
+    '<div class="phase-progress">' + dots + '</div>' +
+  '</div>';
+}
+
+// ── Round History ────────────────────────────────────────
+
+function roundProgressBar(score) {
+  var pct = (score / 10) * 100;
+  var cls = score >= 8 ? 'high' : score >= 6 ? 'mid' : 'low';
+  return '<div class="round-bar-track">' +
+    '<div class="score-bar-fill score-' + cls + '" style="width:' + pct + '%"></div>' +
+  '</div>';
+}
+
+function renderRoundHistory(history) {
+  var section = $('section-rounds');
+  if (!history || history.length < 2) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  var html = '';
+  history.forEach(function(round, i) {
+    var delta = i > 0 ? (round.winner_score - history[i - 1].winner_score).toFixed(1) : '';
+    var deltaStr = delta ? (parseFloat(delta) >= 0 ? ' <span class="round-delta positive">+' + delta + '</span>' : ' <span class="round-delta negative">' + delta + '</span>') : '';
+    html += '<div class="round-row">' +
+      '<span class="round-label">Round ' + round.round + '</span>' +
+      roundProgressBar(round.winner_score) +
+      '<span class="round-score">' + round.winner_score + '/10</span>' +
+      '<span class="round-winner">(' + esc(round.winner) + ')' + deltaStr + '</span>' +
+    '</div>';
+  });
+  $('round-history').innerHTML = html;
+}
+
+// ── Render Results ───────────────────────────────────────
+
+function renderResults(data) {
+  specTitle = data.spec_title || '';
+  styleName = data.style_name || '';
+  roundHistory = data.round_history || [];
+  var container = $('runs');
+
+  // Style badge in header
+  var badge = $('style-badge');
+  badge.textContent = styleName && styleName !== 'Default'
+    ? ' \u00b7 style: ' + styleName : '';
+
+  renderRoundHistory(roundHistory);
+
+  if (data.runs.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state">' +
+        '<p>No pipeline results yet.</p>' +
+        '<p>Configure your spec above and run the pipeline.</p>' +
+      '</div>';
+    $('section-compare').style.display = 'none';
+    $('run-again-bar').style.display = 'none';
+    return;
+  }
+
+  hasResults = true;
+
+  container.innerHTML = data.runs.map(function(run, i) {
+    return run.status === 'scored' ? scoredCard(run, i === 0) : progressCard(run);
+  }).join('');
+
+  // Fill AI-generated text safely
+  data.runs.forEach(function(run) {
+    if (run.status !== 'scored') return;
+    var card = container.querySelector('[data-run="' + run.id + '"]');
+    if (!card) return;
+    var narr = card.querySelector('.narrative-text');
+    if (narr) narr.textContent = run.scores.narrative || '';
+    var hl = card.querySelector('.highlight-text');
+    if (hl) hl.textContent = run.scores.highlight || '';
+  });
+
+  wireCardEvents();
+  updateCompareSelectors();
+
+  // Show "run again" bar if all scored
+  var allScored = data.runs.every(function(r) { return r.status === 'scored'; });
+  if (allScored) {
+    $('run-again-bar').style.display = '';
+  }
+}
+
+// ── Card Interactions ────────────────────────────────────
+
+function wireCardEvents() {
+  document.querySelectorAll('.btn-preview').forEach(function(btn) {
+    btn.addEventListener('click', function() { togglePreview(btn.dataset.run); });
+  });
+  document.querySelectorAll('.btn-build').forEach(function(btn) {
+    btn.addEventListener('click', function() { toggleBuild(btn.dataset.run); });
+  });
+}
+
+function togglePreview(runId) {
+  var container = $('preview-' + runId);
+  if (!container) return;
+  if (container.style.display === 'none') {
+    container.style.display = '';
+    container.innerHTML =
+      '<div class="viewport-toggle">' +
+        '<button type="button" class="viewport-btn active" data-viewport="desktop" data-run="' + esc(runId) + '">Desktop</button>' +
+        '<button type="button" class="viewport-btn" data-viewport="mobile" data-run="' + esc(runId) + '">Mobile</button>' +
+      '</div>' +
+      '<iframe class="preview-frame" src="/output/' + esc(runId) + '/index.html" sandbox="allow-scripts allow-same-origin"></iframe>';
+    container.querySelectorAll('.viewport-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { toggleViewport(runId, btn.dataset.viewport); });
+    });
+  } else {
+    container.style.display = 'none';
+    container.innerHTML = '';
+  }
+}
+
+function toggleViewport(runId, viewport) {
+  var container = $('preview-' + runId);
+  if (!container) return;
+  var iframe = container.querySelector('.preview-frame');
+  var btns = container.querySelectorAll('.viewport-btn');
+  btns.forEach(function(b) { b.classList.toggle('active', b.dataset.viewport === viewport); });
+  if (iframe) iframe.classList.toggle('mobile', viewport === 'mobile');
+}
+
+function buildPrompt(runId) {
+  var run = runs.find(function(r) { return r.id === runId; });
+  var path = 'output/' + runId + '/';
+  var name = specTitle || 'this project';
+  var lines = ['The codebase for ' + name + ' is in ' + path + '.'];
+  if (run && run.scores) {
+    var s = run.scores;
+    lines.push('It scores ' + s.average + '/10 — ' +
+      'Functionality: ' + s.functionality + ', ' +
+      'Code Quality: ' + s.code_quality + ', ' +
+      'Tests: ' + s.test_coverage + ', ' +
+      'UX: ' + s.ux_polish + ', ' +
+      'Spec Adherence: ' + s.spec_adherence + '.');
+  }
+  lines.push('');
+  lines.push('[Describe what to build next]');
+  return lines.join('\n');
+}
+
+function copyToClipboard(text, btn) {
+  var done = function() {
+    var orig = btn.textContent;
+    btn.textContent = '\u2713 Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(function() {
+      fallbackCopy(text) ? done() : (btn.textContent = 'Copy failed');
+    });
+  } else {
+    fallbackCopy(text) ? done() : (btn.textContent = 'Copy failed');
+  }
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  var ok = document.execCommand('copy');
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function toggleBuild(runId) {
+  var panel = $('build-' + runId);
+  if (!panel) return;
+  if (panel.style.display === 'none') {
+    var prompt = buildPrompt(runId);
+    panel.style.display = '';
+    panel.innerHTML =
+      '<p class="build-label">Paste this into Conductor to keep building:</p>' +
+      '<div class="prompt-block-wrap">' +
+        '<pre class="command-block prompt-text"></pre>' +
+        '<button type="button" class="btn-copy">Copy</button>' +
+      '</div>';
+    panel.querySelector('.prompt-text').textContent = prompt;
+    panel.querySelector('.prompt-text').addEventListener('click', function() {
+      var range = document.createRange();
+      range.selectNodeContents(this);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    panel.querySelector('.btn-copy').addEventListener('click', function() {
+      copyToClipboard(prompt, this);
+    });
+  } else {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+  }
+}
+
+// ── Run Again ────────────────────────────────────────────
+
+function runAgain() {
+  var n = parseInt($('cfg-runs').value) || 3;
+  var cmd = 'Run the gstack-auto pipeline with N=' + n;
+  copyToClipboard(cmd, $('btn-run-again'));
+  $('run-again-hint').textContent = 'Paste this into Conductor';
+  setTimeout(function() { $('run-again-hint').textContent = ''; }, 3000);
+}
+
+// ── Compare / Diff ───────────────────────────────────────
+
+function updateCompareSelectors() {
+  var scored = runs.filter(function(r) { return r.status === 'scored'; });
+  var section = $('section-compare');
+  if (scored.length < 2) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  ['diff-a', 'diff-b'].forEach(function(id, i) {
+    var sel = $(id);
+    sel.innerHTML = scored.map(function(r) {
+      return '<option value="' + esc(r.id) + '">' + esc(runLabel(r.id)) + '</option>';
+    }).join('');
+    if (scored[i]) sel.value = scored[i].id;
+  });
+}
+
+async function compareDiff() {
+  var a = $('diff-a').value;
+  var b = $('diff-b').value;
+  var output = $('diff-output');
+  if (!a || !b || a === b) {
+    output.textContent = 'Select two different runs to compare.';
+    return;
+  }
+  output.textContent = 'Loading diff...';
+  try {
+    var res = await fetch('/diff?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b));
+    var data = await res.json();
+    if (!res.ok) { output.textContent = data.error || 'Diff failed.'; return; }
+    if (!data.diffs || data.diffs.length === 0) { output.textContent = 'Files are identical.'; return; }
+    output.innerHTML = '';
+    data.diffs.forEach(function(d) {
+      var header = document.createElement('div');
+      header.className = 'diff-file-header';
+      header.textContent = d.file;
+      output.appendChild(header);
+      d.diff.split('\n').forEach(function(line) {
+        var el = document.createElement('div');
+        el.className = 'diff-line';
+        if (line.charAt(0) === '+' && !line.startsWith('+++')) el.className += ' diff-add';
+        else if (line.charAt(0) === '-' && !line.startsWith('---')) el.className += ' diff-del';
+        else if (line.startsWith('@@')) el.className += ' diff-hunk';
+        el.textContent = line;
+        output.appendChild(el);
+      });
+    });
+  } catch (e) {
+    output.textContent = 'Server not reachable.';
+  }
+}
+
+// ── Polling ──────────────────────────────────────────────
+
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(async function() {
+    try {
+      var res = await fetch('/results');
+      var data = await res.json();
+      runs = data.runs;
+      renderResults(data);
+      $('results-section').style.display = '';
+      if (data.status === 'ready') {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    } catch (e) { /* network blip — keep trying */ }
+  }, 5000);
+}
+
+// ── Init ─────────────────────────────────────────────────
+
+async function init() {
+  // Load all data in parallel
+  var configP = fetch('/current-config').then(function(r) { return r.json(); }).catch(function() { return null; });
+  var resultsP = fetch('/results').then(function(r) { return r.json(); }).catch(function() { return null; });
+  var stylesP = fetch('/styles').then(function(r) { return r.json(); }).catch(function() { return []; });
+
+  var results = await Promise.all([configP, resultsP, stylesP]);
+  var config = results[0];
+  var resultData = results[1];
+  var styles = results[2];
+
+  // Populate style dropdown
+  populateStyleDropdown(styles);
+
+  // Apply config
+  if (config) {
+    if (config.email) {
+      configuredEmail = config.email;
+      $('email').value = config.email;
+      emailExpanded = false;
+    }
+    if (config.spec) {
+      $('spec').value = config.spec;
+      checkSpecQuality(config.spec);
+    }
+    $('cfg-runs').value = config.parallel_runs || 3;
+    $('cfg-rounds').value = config.rounds || 1;
+    if (config.style) {
+      $('cfg-style').value = config.style;
+      renderStylePreview();
+    }
+    hasConfig = !!(config.email || config.spec);
+  }
+
+  renderEmailSection();
+
+  // Determine page state
+  var hasRuns = resultData && resultData.runs && resultData.runs.length > 0;
+  var isInProgress = resultData && resultData.status === 'in_progress';
+
+  if (hasRuns) {
+    // MONITORING or RESULTS mode
+    runs = resultData.runs;
+    renderResults(resultData);
+    $('results-section').style.display = '';
+    configPanelOpen = false;
+    if (isInProgress) startPolling();
+  } else if (hasConfig) {
+    // READY mode — config exists but no results
+    configPanelOpen = false;
+  } else {
+    // SETUP mode — first time
+    configPanelOpen = true;
+  }
+
+  renderConfigPanel();
+}
+
+// ── Wire Events ──────────────────────────────────────────
+
+$('btn-gear').addEventListener('click', toggleConfigPanel);
+$('btn-test').addEventListener('click', testConnection);
+$('btn-save').addEventListener('click', saveConfig);
+$('btn-edit-email').addEventListener('click', expandEmail);
+$('btn-done-email').addEventListener('click', collapseEmail);
+$('btn-compare').addEventListener('click', compareDiff);
+$('btn-run-again').addEventListener('click', runAgain);
+$('spec').addEventListener('input', debounce(function() { checkSpecQuality($('spec').value); }, 300));
+$('cfg-style').addEventListener('change', renderStylePreview);
+$('email').addEventListener('input', function() { cachedPassword = null; });
+
+document.querySelectorAll('.template-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { populateTemplate(btn.dataset.template); });
+});
+
+document.querySelectorAll('.preset-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { applyPreset(btn.dataset.preset); });
+});
+
+init();
+</script>
+</body>
+</html>

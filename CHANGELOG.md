@@ -2,6 +2,27 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.5.0] - 2026-03-16
+
+### Added
+- Mission Control: unified single-page UI (`index.html`) replacing separate setup.html and dashboard.html
+- 4-state page: SETUP → READY → MONITORING → RESULTS, detected from `/current-config` + `/results` + `/styles`
+- Collapsible config panel with gear toggle, expanded in SETUP mode, collapsed otherwise
+- Pipeline config UI: parallel runs, rounds, style inspiration dropdown with live principle preview
+- Config presets: Quick Test (2 runs, 1 round), Standard (3 runs, 1 round), Thorough (3 runs, 3 rounds)
+- `/styles` API endpoint returning style profile metadata (name, display, quote, principles)
+- "Run again" button that copies Conductor command to clipboard
+- `update_config_value()` and `get_config_value()` helpers for regex-based config.yml updates
+- Server tests for `/styles` endpoint and extended `/current-config` fields
+- TODO: score history sparklines (P3), keyboard shortcuts (P3)
+
+### Changed
+- `/current-config` now returns `parallel_runs`, `rounds`, `style` in addition to email and spec
+- `/save-config` accepts and persists `parallel_runs`, `rounds`, `style` via config.yml
+- `/`, `/setup`, `/dashboard` all serve index.html (backward-compatible routing)
+- Validation suite expanded from 160 to 164 checks
+- README validation count updated
+
 ## [0.1.4.0] - 2026-03-16
 
 ### Added

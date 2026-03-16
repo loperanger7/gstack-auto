@@ -131,7 +131,7 @@ Available styles: `carmack`, `antirez`, `abramov`, `metz`, `holowaychuk`, `major
 bash tests/validate-pipeline.sh
 ```
 
-All 136 checks should pass before you run the pipeline.
+All 164 checks should pass before you run the pipeline.
 
 ---
 

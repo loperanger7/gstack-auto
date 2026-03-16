@@ -170,35 +170,33 @@ for s in "scripts/check-gstack-sync.sh" "scripts/diff-gstack-phase.sh" "scripts/
 done
 echo ""
 
-# --- Setup UI & Dashboard ---
-echo "Setup UI & Dashboard:"
-for f in "setup.html" "dashboard.html" "style.css"; do
+# --- Mission Control UI ---
+echo "Mission Control UI:"
+for f in "index.html" "style.css"; do
   if [ -f "$f" ]; then
     pass "$f exists"
   else
     fail "$f not found"
   fi
 done
-if grep -q 'href="/style.css"' "setup.html" 2>/dev/null; then
-  pass "setup.html links to external style.css"
+if grep -q 'href="/style.css"' "index.html" 2>/dev/null; then
+  pass "index.html links to external style.css"
 else
-  fail "setup.html missing style.css link"
+  fail "index.html missing style.css link"
 fi
-if grep -q 'href="/style.css"' "dashboard.html" 2>/dev/null; then
-  pass "dashboard.html links to external style.css"
+if grep -q '<style>' "index.html" 2>/dev/null; then
+  fail "index.html has inline <style> block (should use style.css)"
 else
-  fail "dashboard.html missing style.css link"
+  pass "index.html has no inline styles"
 fi
-if grep -q '<style>' "setup.html" 2>/dev/null; then
-  fail "setup.html still has inline <style> block (should use style.css)"
-else
-  pass "setup.html has no inline styles"
-fi
-if grep -q 'href="/dashboard"' "setup.html" 2>/dev/null; then
-  pass "setup.html links to dashboard"
-else
-  fail "setup.html missing dashboard link"
-fi
+# Backward compat: setup.html and dashboard.html still exist for redirects
+for f in "setup.html" "dashboard.html"; do
+  if [ -f "$f" ]; then
+    pass "$f exists (backward compat)"
+  else
+    fail "$f not found (backward compat)"
+  fi
+done
 echo ""
 
 # --- Server Integration ---
@@ -250,7 +248,35 @@ else
   [ "$code" = "403" ] || [ "$code" = "404" ] && pass "Path traversal blocked ($code)" || fail "Path traversal NOT blocked ($code)"
 
   code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
-  [ "$code" = "200" ] && pass "GET / smart route returns 200" || fail "GET / returned $code"
+  [ "$code" = "200" ] && pass "GET / returns 200" || fail "GET / returned $code"
+
+  # /styles endpoint
+  styles_body=$(curl -s "$BASE/styles")
+  if echo "$styles_body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert isinstance(d, list)" 2>/dev/null; then
+    pass "GET /styles returns JSON array"
+  else
+    fail "GET /styles did not return JSON array"
+  fi
+  if echo "$styles_body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert len(d) >= 7" 2>/dev/null; then
+    pass "GET /styles has >= 7 style profiles"
+  else
+    fail "GET /styles has fewer than 7 style profiles"
+  fi
+  if echo "$styles_body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert all(k in d[0] for k in ('name','display','quote'))" 2>/dev/null; then
+    pass "GET /styles entries have name/display/quote fields"
+  else
+    fail "GET /styles entries missing required fields"
+  fi
+
+  # Extended /current-config
+  cfg_body=$(curl -s "$BASE/current-config")
+  for field in parallel_runs rounds; do
+    if echo "$cfg_body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert '$field' in d" 2>/dev/null; then
+      pass "GET /current-config includes $field"
+    else
+      fail "GET /current-config missing $field"
+    fi
+  done
 fi
 
 if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true; fi
