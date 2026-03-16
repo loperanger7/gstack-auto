@@ -89,6 +89,16 @@ Read `pipeline/config.yml` for configuration:
 - `parallel_runs` (N) — the user may override via prompt: "run with N=5"
 - `rounds` (R) — the user may override via prompt: "run 5 rounds"
 - `auto_accept_winner` — when true or R > 1, auto-select the winner
+- `style` — optional name of a legendary engineer (e.g. "carmack")
+
+**Style resolution (if `style` is set):**
+Read `pipeline/styles/{style}.md`. If the file doesn't exist, STOP with:
+"Style '{style}' not found. Available styles: {list of .md files in
+pipeline/styles/ without extension}."
+Extract the file contents as `STYLE_PRINCIPLES` and the `# heading` line
+as `STYLE_NAME`. If `style` is not set, `{STYLE_NAME}` becomes "Default"
+and `{STYLE_PRINCIPLES}` becomes "(No specific style — use your best
+engineering judgment.)"
 
 **Email delivery check:** Run the SMTP probe to verify email will work
 before spending 30+ minutes on the pipeline:
@@ -155,6 +165,8 @@ and pass its contents as the resume prompt. Replace template variables:
 - `{PHASE_ARTIFACTS}` — path to .context/runs/run-{id}/
 - `{MODE}` — "greenfield" or "iteration"
 - `{EXISTING_CODE_SUMMARY}` — file listing of output/ (empty if greenfield)
+- `{STYLE_NAME}` — display name from style profile heading (or "Default")
+- `{STYLE_PRINCIPLES}` — full contents of the style profile (or generic fallback)
 
 ### Step 2c: Bug-Fix Divergence
 
