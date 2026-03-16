@@ -10,12 +10,10 @@ A build step would make updates atomic. Blocked by: Phase 1 prompts being
 stable enough to templatize.
 **Effort: M**
 
-### Differentiation strategy for parallel runs
-When spawning N parallel runs, each should approach the spec differently
-(e.g., different frameworks, different architectures). Without explicit
-variation, parallel runs may converge on identical solutions. Diversity
-in the population is what makes evolutionary search work.
-**Effort: M**
+### ~~Differentiation strategy for parallel runs~~ ✓ DONE
+Run A/B/C now have distinct approach biases: A→code quality,
+B→UX polish, C→robustness. Added to phase 01 prompt via
+`## Differentiation` section.
 
 ### Deep-link to conductor.build
 Add an "Open in Conductor" button that launches conductor.build with the
@@ -26,6 +24,15 @@ copy-to-clipboard prompt was shipped as the universal fallback.
 **Depends on:** Conductor exposing a URL scheme or web API
 
 ## P2 — Medium Priority
+
+### Round-over-round early stopping
+When running multi-round (rounds > 1), detect if a round's winner scores
+LOWER than the previous round's winner. If so, stop early and keep the
+best round's output rather than wasting compute on regression rounds.
+Implementation: compare `round_results[-1].winner_score` with the new
+winner's score after Step 2e. If lower, skip to Step 3 (final report).
+**Effort: S**
+**Depends on:** Multi-round pipeline (v0.2.0)
 
 ### Auto-deployment with preview URLs
 After the winning run is selected, auto-deploy it (Vercel/Netlify/Railway)
@@ -73,4 +80,10 @@ Zero friction between "I like this one" and "I'm working on it."
 
 ## Completed
 
-(none yet)
+### Differentiation strategy for parallel runs
+Run A/B/C have distinct approach biases in phase 01 prompt.
+
+### Multi-round pipeline with auto-accept winner
+Pipeline supports `rounds: N` in config.yml. Each round auto-selects
+the winner, commits it to git with a feature summary, and feeds it as
+input to the next round. Dashboard shows round progression.
