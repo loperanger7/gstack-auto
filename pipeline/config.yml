@@ -1,12 +1,12 @@
 # Pattaya Pipeline Configuration
 
 # Number of parallel runs. Override from invocation prompt: "run with N=5"
-parallel_runs: 3
+parallel_runs: 5
 
 # Number of sequential rounds. Each round runs N parallel attempts,
 # auto-selects the winner, commits it, and feeds it into the next round.
 # Override from invocation prompt: "run 5 rounds"
-rounds: 1
+rounds: 10
 
 # When true, the highest-scoring run is automatically selected as the
 # winner after each round. When false (and rounds=1), the user picks
@@ -17,7 +17,7 @@ auto_accept_winner: true
 # should guide implementation, review, and scoring. Looks for a matching
 # file in pipeline/styles/{name}.md. Leave blank for the default style.
 # Available: carmack, antirez, abramov, metz, holowaychuk, majors, marlinspike
-# style: "marlinspike"
+style: "marlinspike"
 
 # Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
 max_fix_cycles: 3
