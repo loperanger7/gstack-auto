@@ -22,6 +22,10 @@ quality problems. Fix them directly — do not ask for permission.
 round. Don't re-review unchanged code unless a change introduces a
 regression risk in adjacent code.
 
+## Style Inspiration: {STYLE_NAME}
+
+{STYLE_PRINCIPLES}
+
 ## Review Process
 
 ### Pass 1: Critical Issues (fix immediately)

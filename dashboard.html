@@ -12,7 +12,7 @@
 <div class="nav">
   <div>
     <h1>gstack-auto</h1>
-    <p class="subtitle">results</p>
+    <p class="subtitle">results<span id="style-badge"></span></p>
   </div>
   <a href="/setup" class="nav-link">setup &rarr;</a>
 </div>
@@ -61,6 +61,7 @@
 
 let runs = [];
 let specTitle = '';
+let styleName = '';
 let roundHistory = [];
 let pollInterval = null;
 
@@ -197,10 +198,15 @@ function renderRoundHistory(history) {
 
 function render(data) {
   specTitle = data.spec_title || '';
+  styleName = data.style_name || '';
   roundHistory = data.round_history || [];
   var container = document.getElementById('runs');
 
   renderRoundHistory(roundHistory);
+
+  var badge = document.getElementById('style-badge');
+  badge.textContent = styleName && styleName !== 'Default'
+    ? ' \u00b7 style: ' + styleName : '';
 
   if (data.runs.length === 0) {
     container.innerHTML =

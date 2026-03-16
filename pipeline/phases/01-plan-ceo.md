@@ -46,6 +46,12 @@ solutions, follow your run's approach bias:
   and why in your plan.
 
 This bias is a tiebreaker, not an override. The spec is still the spec.
+If a style inspiration is set, let its principles inform your approach
+alongside your run's bias — they compound, not conflict.
+
+## Style Inspiration: {STYLE_NAME}
+
+{STYLE_PRINCIPLES}
 
 ## Product Spec
 

@@ -2,6 +2,24 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.4.0] - 2026-03-16
+
+### Added
+- Style inspiration: `style:` config field selects a legendary engineer's coding philosophy
+- 7 built-in style profiles: Carmack, Antirez (Sanfilippo), Abramov, Metz, Holowaychuk, Majors, Marlinspike
+- Each profile encodes concrete principles, review focus, and a signature quote
+- `{STYLE_NAME}` and `{STYLE_PRINCIPLES}` template variables in phases 01, 03, 04, 12
+- Style name displayed in dashboard header and email report
+- `/results` API returns `style_name` from config
+- 24 new validation checks: style profiles exist, have headings, template vars present in phases
+- TODO: custom inline style principles (P2)
+
+### Changed
+- Phase 01 differentiation section notes that style and run bias compound
+- Phase 12 scoring evaluates code quality through the selected engineer's lens
+- README config example includes `style:` field with available options
+- Validation suite expanded from 136 to 160 checks
+
 ## [0.1.3.0] - 2026-03-16
 
 ### Added

@@ -117,10 +117,13 @@ parallel_runs: 3          # How many builds to run simultaneously
 rounds: 1                 # Sequential rounds (each improves on the last)
 auto_accept_winner: true   # Auto-select best score (false = pick via dashboard)
 max_fix_cycles: 3          # Max bug-fix attempts before forced scoring
+style: "marlinspike"       # Engineering style (see pipeline/styles/)
 email:
   to: "you@gmail.com"
   method: "smtp"           # or "file-only" to skip email
 ```
+
+Available styles: `carmack`, `antirez`, `abramov`, `metz`, `holowaychuk`, `majors`, `marlinspike`. Each encodes concrete coding principles that guide implementation, review, and scoring. Or leave it blank for the default.
 
 ## Validation
 

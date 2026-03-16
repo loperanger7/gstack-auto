@@ -25,6 +25,10 @@ not writing from scratch. Read the existing files first. Make surgical
 changes per the engineering plan. Run existing tests before AND after your
 changes — break nothing that was passing.
 
+## Style Inspiration: {STYLE_NAME}
+
+{STYLE_PRINCIPLES}
+
 ## Implementation Style
 
 Write code as if the best engineer you know will read it tomorrow:

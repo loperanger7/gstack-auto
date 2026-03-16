@@ -13,6 +13,12 @@ rounds: 1
 # via the dashboard. Ignored when rounds > 1 (auto-accept is implied).
 auto_accept_winner: true
 
+# Style inspiration — name a legendary engineer whose coding philosophy
+# should guide implementation, review, and scoring. Looks for a matching
+# file in pipeline/styles/{name}.md. Leave blank for the default style.
+# Available: carmack, antirez, abramov, metz, holowaychuk, majors, marlinspike
+# style: "marlinspike"
+
 # Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
 max_fix_cycles: 3
 
