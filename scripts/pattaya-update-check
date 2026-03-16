@@ -1,0 +1,125 @@
+#!/bin/bash
+# pattaya-update-check — compare local VERSION against remote.
+#
+# Outputs one of:
+#   JUST_UPGRADED <old> <new>   — upgrade just completed
+#   UPGRADE_AVAILABLE <old> <new> — remote is newer
+#   (nothing)                   — up to date, snoozed, or check disabled
+#
+# Design: fail-safe. Network errors, bad responses, and missing files
+# all resolve to silence. Never block the pipeline.
+
+set -euo pipefail
+
+PATTAYA_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_DIR="${HOME}/.pattaya"
+VERSION_FILE="${PATTAYA_ROOT}/VERSION"
+CACHE_FILE="${STATE_DIR}/last-update-check"
+SNOOZE_FILE="${STATE_DIR}/update-snoozed"
+UPGRADED_FILE="${STATE_DIR}/just-upgraded-from"
+CONFIG_FILE="${STATE_DIR}/config.yaml"
+
+# Remote VERSION URL — override with PATTAYA_REMOTE_URL for forks
+REMOTE_URL="${PATTAYA_REMOTE_URL:-https://raw.githubusercontent.com/loperanger7/gstack-auto/main/VERSION}"
+
+mkdir -p "$STATE_DIR"
+
+# --- Helpers ---
+
+local_version() {
+  cat "$VERSION_FILE" 2>/dev/null | tr -d '[:space:]'
+}
+
+config_get() {
+  local key="$1"
+  grep "^${key}:" "$CONFIG_FILE" 2>/dev/null | sed 's/^[^:]*: *//' | tr -d '[:space:]'
+}
+
+# --- Check if updates disabled ---
+
+if [ "$(config_get update_check)" = "false" ]; then
+  exit 0
+fi
+
+LOCAL=$(local_version)
+if [ -z "$LOCAL" ]; then
+  exit 0
+fi
+
+# --- Check for just-upgraded marker ---
+
+if [ -f "$UPGRADED_FILE" ]; then
+  OLD=$(cat "$UPGRADED_FILE" | tr -d '[:space:]')
+  echo "JUST_UPGRADED ${OLD} ${LOCAL}"
+  rm -f "$UPGRADED_FILE" "$SNOOZE_FILE"
+  exit 0
+fi
+
+# --- Snooze check ---
+
+if [ -f "$SNOOZE_FILE" ]; then
+  read -r SNOOZED_VER SNOOZED_LEVEL SNOOZED_EPOCH < "$SNOOZE_FILE" 2>/dev/null || true
+
+  if [ -n "$SNOOZED_VER" ] && [ -n "$SNOOZED_LEVEL" ] && [ -n "$SNOOZED_EPOCH" ]; then
+    NOW=$(date +%s)
+    case "$SNOOZED_LEVEL" in
+      1) WINDOW=86400 ;;   # 24h
+      2) WINDOW=172800 ;;  # 48h
+      *) WINDOW=604800 ;;  # 7 days
+    esac
+
+    ELAPSED=$((NOW - SNOOZED_EPOCH))
+    if [ "$ELAPSED" -lt "$WINDOW" ]; then
+      # Still snoozed — but only for the same version
+      # New version resets snooze (checked after fetch below)
+      SNOOZE_ACTIVE="$SNOOZED_VER"
+    fi
+  fi
+fi
+
+# --- Cache check (12-hour TTL) ---
+
+if [ -f "$CACHE_FILE" ]; then
+  STALE=$(find "$CACHE_FILE" -mmin +720 2>/dev/null || true)
+  if [ -z "$STALE" ]; then
+    CACHED=$(cat "$CACHE_FILE" 2>/dev/null)
+    case "$CACHED" in
+      "UP_TO_DATE "*)
+        exit 0
+        ;;
+      "UPGRADE_AVAILABLE "*)
+        REMOTE_VER=$(echo "$CACHED" | awk '{print $3}')
+        if [ -n "${SNOOZE_ACTIVE:-}" ] && [ "$SNOOZE_ACTIVE" = "$REMOTE_VER" ]; then
+          exit 0
+        fi
+        echo "$CACHED"
+        exit 0
+        ;;
+    esac
+  fi
+fi
+
+# --- Fetch remote version (slow path) ---
+
+REMOTE=$(curl -sf --max-time 5 "$REMOTE_URL" 2>/dev/null | tr -d '[:space:]' || true)
+
+# Validate: must look like a version number
+if ! echo "$REMOTE" | grep -qE '^[0-9]+\.[0-9.]+$'; then
+  exit 0
+fi
+
+# --- Compare and cache ---
+
+if [ "$LOCAL" = "$REMOTE" ]; then
+  echo "UP_TO_DATE ${LOCAL}" > "$CACHE_FILE"
+  exit 0
+fi
+
+echo "UPGRADE_AVAILABLE ${LOCAL} ${REMOTE}" > "$CACHE_FILE"
+
+# Check snooze against the fetched version
+if [ -n "${SNOOZE_ACTIVE:-}" ] && [ "$SNOOZE_ACTIVE" = "$REMOTE" ]; then
+  exit 0
+fi
+
+echo "UPGRADE_AVAILABLE ${LOCAL} ${REMOTE}"
