@@ -3,6 +3,16 @@
 # Number of parallel runs. Override from invocation prompt: "run with N=5"
 parallel_runs: 3
 
+# Number of sequential rounds. Each round runs N parallel attempts,
+# auto-selects the winner, commits it, and feeds it into the next round.
+# Override from invocation prompt: "run 5 rounds"
+rounds: 1
+
+# When true, the highest-scoring run is automatically selected as the
+# winner after each round. When false (and rounds=1), the user picks
+# via the dashboard. Ignored when rounds > 1 (auto-accept is implied).
+auto_accept_winner: true
+
 # Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
 max_fix_cycles: 3
 
@@ -21,7 +31,7 @@ unresolved_bugs_penalty: 2.0
 # Set method to "file-only" to skip email and just save results to disk.
 email:
   to: ""
-  method: "smtp"
+  method: "file-only"
   smtp:
     host: "smtp.gmail.com"
     port: 587

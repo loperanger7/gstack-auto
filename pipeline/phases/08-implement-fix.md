@@ -17,6 +17,8 @@
 # - Make ALL decisions autonomously
 # - SCOPE LOCK: Fix bugs only. Zero feature additions.
 
+## Mode: {MODE}
+
 ## Your Task
 
 Read the bug fix plan at `{PHASE_ARTIFACTS}/phase-07-plan-bugfix.md`.
