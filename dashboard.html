@@ -54,6 +54,7 @@
 //
 
 let runs = [];
+let specTitle = '';
 let pollInterval = null;
 
 const PHASE_NAMES = {
@@ -158,6 +159,7 @@ function progressCard(run) {
 // ── Render ────────────────────────────────────────────────
 
 function render(data) {
+  specTitle = data.spec_title || '';
   const container = document.getElementById('runs');
 
   if (data.runs.length === 0) {
@@ -231,19 +233,80 @@ function toggleViewport(runId, viewport) {
   if (iframe) iframe.classList.toggle('mobile', viewport === 'mobile');
 }
 
+function buildPrompt(runId) {
+  var run = runs.find(function(r) { return r.id === runId; });
+  var path = 'output/' + runId + '/';
+  var name = specTitle || 'this project';
+  var lines = ['The codebase for ' + name + ' is in ' + path + '.'];
+
+  if (run && run.scores) {
+    var s = run.scores;
+    lines.push('It scores ' + s.average + '/10 — ' +
+      'Functionality: ' + s.functionality + ', ' +
+      'Code Quality: ' + s.code_quality + ', ' +
+      'Tests: ' + s.test_coverage + ', ' +
+      'UX: ' + s.ux_polish + ', ' +
+      'Spec Adherence: ' + s.spec_adherence + '.');
+  }
+
+  lines.push('');
+  lines.push('[Describe what to build next]');
+  return lines.join('\n');
+}
+
+function copyToClipboard(text, btn) {
+  var done = function() {
+    var orig = btn.textContent;
+    btn.textContent = '\u2713 Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(function() {
+      fallbackCopy(text) ? done() : (btn.textContent = 'Copy failed');
+    });
+  } else {
+    fallbackCopy(text) ? done() : (btn.textContent = 'Copy failed');
+  }
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  var ok = document.execCommand('copy');
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function selectPromptText(el) {
+  var range = document.createRange();
+  range.selectNodeContents(el);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function toggleBuild(runId) {
   var panel = document.getElementById('build-' + runId);
   if (!panel) return;
 
   if (panel.style.display === 'none') {
-    var path = 'output/' + runId + '/';
+    var prompt = buildPrompt(runId);
     panel.style.display = '';
     panel.innerHTML =
-      '<p class="build-label">Continue building on this run:</p>' +
-      '<pre class="command-block">cd ' + esc(path) + '</pre>' +
-      '<p class="build-label">Then open Conductor and describe what to add:</p>' +
-      '<pre class="command-block">Add [your feature] to this weather app</pre>' +
-      '<p class="build-path">Source files: ' + esc(path) + '</p>';
+      '<p class="build-label">Paste this into Conductor to keep building:</p>' +
+      '<div class="prompt-block-wrap">' +
+        '<pre class="command-block prompt-text"></pre>' +
+        '<button type="button" class="btn-copy">Copy</button>' +
+      '</div>';
+    panel.querySelector('.prompt-text').textContent = prompt;
+    panel.querySelector('.prompt-text').addEventListener('click', function() { selectPromptText(this); });
+    panel.querySelector('.btn-copy').addEventListener('click', function() { copyToClipboard(prompt, this); });
   } else {
     panel.style.display = 'none';
     panel.innerHTML = '';

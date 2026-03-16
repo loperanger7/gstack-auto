@@ -2,6 +2,20 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.2.0] - 2026-03-15
+
+### Added
+- Pasteable Conductor prompt in "Build on this" panel with spec title and score breakdown
+- Copy-to-clipboard button with `execCommand` fallback for non-secure contexts
+- Visual "Copied!" feedback animation on copy button
+- Click-to-select on prompt text for manual copy
+- `spec_title` field in `/results` API response
+- Server test for `spec_title` field in validate-pipeline.sh
+- TODO: deep-link to conductor.build (deferred, blocked on URL scheme)
+
+### Changed
+- "Build on this" panel now shows a single pasteable prompt instead of `cd` + generic instructions
+
 ## [0.1.1.1] - 2026-03-15
 
 ### Changed
