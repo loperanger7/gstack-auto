@@ -165,3 +165,5 @@ This is reinforcement learning applied to the development process itself. Not at
 ---
 
 Built with [Conductor](https://conductor.build) and [gstack](https://github.com/garrytan/gstack).
+
+Special thanks to [Garry Tan](https://github.com/garrytan) for building [gstack](https://github.com/garrytan/gstack) — the skill system that makes this entire pipeline possible.
