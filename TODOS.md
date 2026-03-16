@@ -30,12 +30,14 @@ Monitor for user's email reply containing scope expansion instructions,
 then start a new pipeline cycle inheriting the winning run's codebase.
 Requires Gmail polling, reply parsing, cycle restart logic.
 **Effort: L**
+**Unblocked by:** email config (v0.1.1.0) — SMTP send works, polling is the remaining gap
 
 ### Live progress notifications
 Send email updates during pipeline run (not just at end).
 E.g., "Phase 3/12: Implementation complete." Prevents the 30+ minute
 silence that feels like it's broken.
 **Effort: S**
+**Unblocked by:** email config (v0.1.1.0) — SMTP infrastructure now available
 
 ### Persistent learning / knowledge base
 Store what worked (high-scoring patterns) and what didn't across runs.
@@ -45,10 +47,21 @@ Risk of overfitting to past successes.
 
 ## P3 — Low Priority
 
+### Auto-probe email on setup page load
+When setup.html loads and .env already exists, silently POST /test-email
+in the background and show a green/red dot in the collapsed email status
+line. Removes the manual "Test Connection" click for returning users.
+Risk: SMTP probe adds ~2s latency to page load; transient failures could
+show false red. Mitigate by showing "checking..." state and only going
+red on definitive auth failures.
+**Effort: S**
+**Depends on:** Collapsible email section (done in setup.html launchpad redesign)
+
 ### One-click branch selection in email
 Include git checkout commands in email for each run's worktree branch.
 Zero friction between "I like this one" and "I'm working on it."
 **Effort: S**
+**Unblocked by:** email config (v0.1.1.0) — email delivery now works
 
 ## Completed
 
