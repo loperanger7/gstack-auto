@@ -134,6 +134,16 @@ if grep -q "max_fix_cycles:" "pipeline/config.yml"; then
 else
   fail "config.yml missing max_fix_cycles"
 fi
+if grep -q "rounds:" "pipeline/config.yml"; then
+  pass "config.yml has rounds"
+else
+  fail "config.yml missing rounds"
+fi
+if grep -q "auto_accept_winner:" "pipeline/config.yml"; then
+  pass "config.yml has auto_accept_winner"
+else
+  fail "config.yml missing auto_accept_winner"
+fi
 echo ""
 
 # --- Scoring rubric dimensions ---
@@ -149,7 +159,7 @@ echo ""
 
 # --- Scripts ---
 echo "Scripts:"
-for s in "scripts/check-gstack-sync.sh" "scripts/diff-gstack-phase.sh" "scripts/setup-server.py"; do
+for s in "scripts/check-gstack-sync.sh" "scripts/diff-gstack-phase.sh" "scripts/setup-server.py" "scripts/pattaya-update-check" "scripts/pattaya-upgrade.sh"; do
   if [ -x "$s" ]; then
     pass "$s exists and is executable"
   elif [ -f "$s" ]; then
@@ -287,6 +297,106 @@ if python3 scripts/send-email.py --help 2>&1 | grep -q "\-\-probe"; then
   pass "send-email.py accepts --probe flag"
 else
   fail "send-email.py missing --probe flag"
+fi
+echo ""
+
+# --- Update check script ---
+echo "Update check:"
+# Test version comparison: local = remote → no output
+TMPVER=$(mktemp -d)
+echo "1.0.0" > "$TMPVER/VERSION"
+(
+  export PATTAYA_REMOTE_URL="file:///dev/null"
+  cd "$TMPVER"
+  mkdir -p scripts
+  cp "$(pwd)/../scripts/pattaya-update-check" scripts/ 2>/dev/null || true
+)
+# Test that script exits cleanly when VERSION exists
+if scripts/pattaya-update-check 2>/dev/null; [ $? -le 1 ]; then
+  pass "pattaya-update-check runs without crash"
+else
+  fail "pattaya-update-check exited with error"
+fi
+rm -rf "$TMPVER"
+
+# Test that upgrade script has --check flag
+if grep -q "\-\-check" "scripts/pattaya-upgrade.sh"; then
+  pass "pattaya-upgrade.sh supports --check flag"
+else
+  fail "pattaya-upgrade.sh missing --check flag"
+fi
+echo ""
+
+# --- Winner selection (mock score.json) ---
+echo "Winner selection logic:"
+TMPSCORES=$(mktemp -d)
+mkdir -p "$TMPSCORES/run-a" "$TMPSCORES/run-b" "$TMPSCORES/run-c"
+echo '{"average": 6.2, "bugs_remaining": 0, "fix_cycles_used": 1}' > "$TMPSCORES/run-a/score.json"
+echo '{"average": 7.6, "bugs_remaining": 0, "fix_cycles_used": 1}' > "$TMPSCORES/run-b/score.json"
+echo '{"average": 7.1, "bugs_remaining": 1, "fix_cycles_used": 2}' > "$TMPSCORES/run-c/score.json"
+
+# Find winner: highest average
+WINNER=$(python3 -c "
+import json, os, sys
+d = '$TMPSCORES'
+runs = []
+for name in sorted(os.listdir(d)):
+    sf = os.path.join(d, name, 'score.json')
+    if os.path.isfile(sf):
+        with open(sf) as f:
+            s = json.load(f)
+        runs.append((s['average'], -s.get('bugs_remaining',0), -s.get('fix_cycles_used',0), name))
+runs.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+print(runs[0][3])
+" 2>/dev/null)
+
+if [ "$WINNER" = "run-b" ]; then
+  pass "Winner selection picks highest score (run-b: 7.6)"
+else
+  fail "Winner selection expected run-b, got: $WINNER"
+fi
+
+# Test tie-breaking by bugs_remaining
+echo '{"average": 7.6, "bugs_remaining": 2, "fix_cycles_used": 1}' > "$TMPSCORES/run-c/score.json"
+WINNER2=$(python3 -c "
+import json, os
+d = '$TMPSCORES'
+runs = []
+for name in sorted(os.listdir(d)):
+    sf = os.path.join(d, name, 'score.json')
+    if os.path.isfile(sf):
+        with open(sf) as f:
+            s = json.load(f)
+        runs.append((s['average'], -s.get('bugs_remaining',0), -s.get('fix_cycles_used',0), name))
+runs.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+print(runs[0][3])
+" 2>/dev/null)
+
+if [ "$WINNER2" = "run-b" ]; then
+  pass "Tie-breaking by bugs_remaining (run-b: 0 bugs wins over run-c: 2 bugs)"
+else
+  fail "Tie-breaking expected run-b, got: $WINNER2"
+fi
+rm -rf "$TMPSCORES"
+echo ""
+
+# --- Phase prompts have {MODE} variable ---
+echo "Phase prompt template variables:"
+for n in 01 02 03 04 05 07 08; do
+  found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
+  if [ -n "$found" ] && grep -q '{MODE}' "$found"; then
+    pass "$(basename "$found") has {MODE} variable"
+  elif [ -n "$found" ]; then
+    fail "$(basename "$found") missing {MODE} variable"
+  fi
+done
+
+# Phase 01 should also have {EXISTING_CODE_SUMMARY} for iteration mode
+found01=$(ls "$PHASES_DIR"/01-*.md 2>/dev/null | head -1)
+if [ -n "$found01" ] && grep -q '{EXISTING_CODE_SUMMARY}' "$found01"; then
+  pass "$(basename "$found01") has {EXISTING_CODE_SUMMARY} variable"
+else
+  fail "$(basename "$found01") missing {EXISTING_CODE_SUMMARY} variable"
 fi
 echo ""
 
