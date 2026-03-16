@@ -71,8 +71,24 @@ multi-line YAML values and handling the precedence when both `style:` and
 
 ## P3 — Low Priority
 
-### Auto-probe email on setup page load
-When setup.html loads and .env already exists, silently POST /test-email
+### Score history sparklines
+Add inline SVG sparkline charts to the dashboard results cards showing
+how each scoring dimension changed across rounds. Requires storing
+per-round per-run scores in results-history.json and rendering tiny
+line charts (no library needed — inline SVG path elements). Most useful
+when rounds > 1.
+**Effort: M**
+**Depends on:** Multi-round pipeline (v0.2.0), results-history.json persistence
+
+### Keyboard shortcuts for dashboard
+Add keyboard navigation to Mission Control: `j`/`k` to move between run
+cards, `p` to toggle preview, `d` to jump to diff compare, `g` to toggle
+config panel, `?` to show shortcut overlay. Keep it opt-in (no conflicts
+with browser shortcuts).
+**Effort: S**
+
+### Auto-probe email on page load
+When index.html (Mission Control) loads and .env already exists, silently POST /test-email
 in the background and show a green/red dot in the collapsed email status
 line. Removes the manual "Test Connection" click for returning users.
 Risk: SMTP probe adds ~2s latency to page load; transient failures could
