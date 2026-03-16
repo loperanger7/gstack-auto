@@ -2,6 +2,11 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.3.1] - 2026-03-16
+
+### Changed
+- README rewritten: lead with RL insight, add architecture diagram, document multi-round pipeline with concrete score progression example, compress getting started to 3 steps, add dashboard and git history to "What You Get"
+
 ## [0.1.3.0] - 2026-03-16
 
 ### Added
