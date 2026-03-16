@@ -300,6 +300,40 @@ python3 scripts/send-email.py --send .context/results-email.md \
 If the send fails, tell the user: "Results saved to .context/results-email.md.
 Email send failed: {error}. Check .env credentials and pipeline/config.yml."
 
+### Step 4.5: Auto-Serve Winner
+
+After saving results, start the local server and open Mission Control so
+the user can immediately view results and the winning build.
+
+1. Check if the server is already running on any of ports 8080-8082:
+   ```bash
+   for PORT in 8080 8081 8082; do
+     curl -s "http://127.0.0.1:$PORT/" > /dev/null 2>&1 && echo "RUNNING:$PORT" && break
+   done
+   ```
+
+2. If no port responded, start the server in the background:
+   ```bash
+   python3 scripts/setup-server.py &
+   ```
+   Wait up to 5 seconds, checking each second, for one of ports 8080-8082
+   to respond. Capture the port that responds as `{PORT}`.
+
+3. Open the browser to Mission Control:
+   ```bash
+   open "http://127.0.0.1:{PORT}/"
+   ```
+   If `open` fails (non-macOS or headless), print the URL instead.
+
+4. Tell the user:
+   ```
+   Results served at http://127.0.0.1:{PORT}/
+   Winner preview: http://127.0.0.1:{PORT}/output/winner-final/index.html
+   ```
+
+If the server fails to start (all ports timeout), tell the user:
+"Could not auto-start server. Run manually: python3 scripts/setup-server.py"
+
 ### Step 5: Staleness Check
 
 Run `scripts/check-gstack-sync.sh` and report any stale phase prompts

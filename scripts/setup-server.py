@@ -412,12 +412,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except (json.JSONDecodeError, IOError):
                 pass
 
+        # Check if a winner-final output exists (with an actual index.html)
+        winner_final_path = os.path.join(OUTPUT_ROOT, 'winner-final', 'index.html')
+        has_winner_output = os.path.isfile(winner_final_path)
+
         self.respond(200, {
             'runs': all_runs,
             'status': status,
             'spec_title': spec_title,
             'style_name': style_name,
             'round_history': round_history,
+            'has_winner_output': has_winner_output,
         })
 
     def serve_output(self, rel_path):

@@ -14,7 +14,11 @@
     <h1>gstack-auto</h1>
     <p class="subtitle">mission control<span id="style-badge"></span></p>
   </div>
-  <button type="button" class="gear-btn" id="btn-gear" title="Configuration">&#9881;</button>
+</div>
+
+<div class="config-bar" id="btn-config-bar" role="button" tabindex="0" aria-expanded="true">
+  <span>configuration</span>
+  <span class="config-bar-arrow">&#9656;</span>
 </div>
 
 <!-- ── CONFIG PANEL (collapsible) ──────────────────────── -->
@@ -131,6 +135,10 @@
 <!-- ── RESULTS ─────────────────────────────────────────── -->
 <div id="results-section" style="display:none">
 
+  <div id="winner-bar" class="run-again-bar" style="display:none">
+    <a href="/output/winner-final/index.html" target="_blank" class="btn-run-again" id="btn-view-winner">View Winner</a>
+  </div>
+
   <div id="run-again-bar" class="run-again-bar" style="display:none">
     <button type="button" class="btn-run-again" id="btn-run-again">Run the pipeline again</button>
     <span class="run-again-hint" id="run-again-hint"></span>
@@ -182,7 +190,7 @@
 //         results section: visible (score cards, diff, rounds)
 //         "run again" bar visible
 //
-//   [gear icon] toggles config panel in READY/MONITORING/RESULTS
+//   [CONFIGURATION bar] toggles config panel in READY/MONITORING/RESULTS
 //
 
 var $ = function(id) { return document.getElementById(id); };
@@ -278,15 +286,15 @@ function toggleConfigPanel() {
 
 function renderConfigPanel() {
   var panel = $('config-panel');
-  var gear = $('btn-gear');
+  var bar = $('btn-config-bar');
   if (configPanelOpen) {
     panel.classList.add('open');
     panel.classList.remove('closed');
-    gear.classList.add('active');
+    bar.setAttribute('aria-expanded', 'true');
   } else {
     panel.classList.remove('open');
     panel.classList.add('closed');
-    gear.classList.remove('active');
+    bar.setAttribute('aria-expanded', 'false');
   }
 }
 
@@ -557,10 +565,14 @@ function progressCard(run) {
   var phaseNum = m ? m[1] : null;
   var phaseName = phaseNum ? PHASE_NAMES[phaseNum] : '';
   var dots = '';
+  var foundActive = false;
   for (var i = 1; i <= TOTAL_PHASES; i++) {
     var num = String(i).padStart(2, '0');
     var done = phases.some(function(p) { return p.indexOf('phase-' + num) !== -1; });
-    dots += '<span class="phase-dot' + (done ? ' done' : '') + '" title="Phase ' + num + ': ' + (PHASE_NAMES[num] || '') + '"></span>';
+    var cls = 'phase-dot';
+    if (done) { cls += ' done'; }
+    else if (!foundActive) { cls += ' active'; foundActive = true; }
+    dots += '<span class="' + cls + '" title="Phase ' + num + ': ' + (PHASE_NAMES[num] || '') + '"></span>';
   }
   return '<div class="card in-progress" data-run="' + esc(run.id) + '">' +
     '<div class="card-header">' +
@@ -616,6 +628,9 @@ function renderResults(data) {
     ? ' \u00b7 style: ' + styleName : '';
 
   renderRoundHistory(roundHistory);
+
+  // Show "View Winner" button if winner output exists
+  $('winner-bar').style.display = data.has_winner_output ? '' : 'none';
 
   if (data.runs.length === 0) {
     container.innerHTML =
@@ -916,7 +931,10 @@ async function init() {
 
 // ── Wire Events ──────────────────────────────────────────
 
-$('btn-gear').addEventListener('click', toggleConfigPanel);
+$('btn-config-bar').addEventListener('click', toggleConfigPanel);
+$('btn-config-bar').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleConfigPanel(); }
+});
 $('btn-test').addEventListener('click', testConnection);
 $('btn-save').addEventListener('click', saveConfig);
 $('btn-edit-email').addEventListener('click', expandEmail);
