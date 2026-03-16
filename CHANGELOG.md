@@ -2,6 +2,22 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.6.0] - 2026-03-16
+
+### Added
+- Auto-serve winner: pipeline auto-starts local server and opens Mission Control after completion (CLAUDE.md Step 4.5)
+- "View Winner" button in Mission Control results view, linking to `/output/winner-final/index.html`
+- `has_winner_output` field in `/results` API — checks for `output/winner-final/index.html`
+- Configuration bar replaces gear icon — full-width collapsible bar with arrow indicator and keyboard support
+- Active phase dot with pulse animation in progress cards
+- CRT scanline overlay for Akira aesthetic
+
+### Changed
+- Color palette: dark Akira red (`#c0392b`), teal CTA buttons (`#4ecdc4`), blue working state
+- Section headings now have left accent border
+- Winner card glow uses dark red instead of lime green
+- Score bars use cyan (high) and blue (mid) instead of green and lime
+
 ## [0.1.5.0] - 2026-03-16
 
 ### Added
