@@ -28,9 +28,3 @@ Be specific — "user clicks X, sees Y, can do Z" not "user manages their workfl
 <!-- Optional. Tech preferences, things to avoid, etc. -->
 
 - [e.g., "Must work without a backend" or "Use React" or "No auth needed for MVP"]
-
-## Notification Email
-
-<!-- Where should Pattaya send the results? -->
-
-Email: [your@email.com]

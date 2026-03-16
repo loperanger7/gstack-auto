@@ -14,7 +14,7 @@ QA → fix → score cycles.
   ┌─ PRE-FLIGHT ──────────────────────────────────────────┐
   │  1. Validate product-spec.md exists and is non-empty   │
   │  2. Assess spec quality (reject if too vague)          │
-  │  3. Verify Gmail MCP is available                      │
+  │  3. Verify email delivery (SMTP probe)                 │
   │  4. Verify browse binary exists                        │
   │  5. Read pipeline/config.yml for N and settings        │
   └────────────────────────────────────────────────────────┘
@@ -34,7 +34,7 @@ QA → fix → score cycles.
   │  Rank by average score                                 │
   │  Compose email with ASCII score cards                  │
   │  Save results to results-history.json                  │
-  │  Send via Gmail MCP (fallback: save to disk)           │
+  │  Send via scripts/send-email.py (fallback: disk)       │
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -61,6 +61,21 @@ If the spec is too vague, tell the user what's missing. Do NOT proceed.
 
 Read `pipeline/config.yml` for configuration. The user may override N
 in their invocation prompt (e.g., "run with N=5").
+
+**Email delivery check:** Run the SMTP probe to verify email will work
+before spending 30+ minutes on the pipeline:
+
+```bash
+python3 scripts/send-email.py --probe
+```
+
+If the probe fails, **STOP** and show the error. Common fixes:
+- Missing `.env` → "Copy .env.example to .env and fill in credentials"
+- Auth failure → "Check your Gmail App Password (see .env.example)"
+- Connection refused → "Check smtp host and port in pipeline/config.yml"
+
+If `email.method` is `file-only` in config.yml, the probe is skipped
+and a warning is shown: "Email disabled — results will be saved to disk only."
 
 ### Step 2: Spawn Parallel Runs
 
@@ -148,12 +163,17 @@ Read `templates/email-report.md` for the format. Build the email body with:
 ### Step 8: Send & Save
 
 1. Save the full email body to `.context/results-email.md` (ALWAYS — this
-   is the fallback if Gmail fails)
+   is the fallback if email send fails)
 2. Append to `results-history.json` with timestamp and spec hash
-3. Send via Gmail MCP tool
+3. Send via the email script:
 
-If Gmail MCP fails, tell the user: "Results saved to .context/results-email.md.
-Gmail send failed — check MCP configuration."
+```bash
+python3 scripts/send-email.py --send .context/results-email.md \
+  --subject "Pattaya Results: {SPEC_TITLE} — Best Score: {BEST_SCORE}/10"
+```
+
+If the send fails, tell the user: "Results saved to .context/results-email.md.
+Email send failed: {error}. Check .env credentials and pipeline/config.yml."
 
 ### Step 9: Staleness Check
 
@@ -170,4 +190,5 @@ to the user as an informational note (not blocking).
 - Phase artifacts go in `.context/runs/run-{id}/`.
 - The browse binary is a READ-ONLY dependency from gstack.
 - Maximum 3 bug-fix cycles per run before forced scoring.
-- Always save results to disk before attempting Gmail send.
+- Always save results to disk before attempting email send.
+- Email requires `.env` with SMTP credentials (see `.env.example`).
