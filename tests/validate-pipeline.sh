@@ -400,6 +400,59 @@ else
 fi
 echo ""
 
+# --- Style profiles ---
+echo "Style profiles:"
+STYLES_DIR="pipeline/styles"
+if [ -d "$STYLES_DIR" ]; then
+  pass "pipeline/styles/ directory exists"
+else
+  fail "pipeline/styles/ directory missing"
+fi
+
+for style in carmack antirez abramov metz holowaychuk majors marlinspike; do
+  sf="$STYLES_DIR/${style}.md"
+  if [ -f "$sf" ] && [ -s "$sf" ]; then
+    pass "${style}.md exists and is non-empty"
+  else
+    fail "${style}.md missing or empty"
+  fi
+done
+
+# Each style file should have a # heading
+for sf in "$STYLES_DIR"/*.md; do
+  name=$(basename "$sf")
+  if head -1 "$sf" | grep -q '^# '; then
+    pass "$name has # heading"
+  else
+    fail "$name missing # heading on first line"
+  fi
+done
+
+# {STYLE_PRINCIPLES} and {STYLE_NAME} in phases 01, 03, 04, 12
+echo ""
+echo "Style template variables:"
+for n in 01 03 04 12; do
+  found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
+  if [ -n "$found" ] && grep -q '{STYLE_PRINCIPLES}' "$found"; then
+    pass "$(basename "$found") has {STYLE_PRINCIPLES}"
+  elif [ -n "$found" ]; then
+    fail "$(basename "$found") missing {STYLE_PRINCIPLES}"
+  fi
+  if [ -n "$found" ] && grep -q '{STYLE_NAME}' "$found"; then
+    pass "$(basename "$found") has {STYLE_NAME}"
+  elif [ -n "$found" ]; then
+    fail "$(basename "$found") missing {STYLE_NAME}"
+  fi
+done
+
+# Config should have style field (even if commented out)
+if grep -q 'style:' pipeline/config.yml; then
+  pass "config.yml has style: field"
+else
+  fail "config.yml missing style: field"
+fi
+echo ""
+
 # --- Browse binary ---
 echo "Browse binary:"
 B=$(~/.claude/skills/gstack/browse/dist/browse 2>/dev/null && echo "found" || echo "")
