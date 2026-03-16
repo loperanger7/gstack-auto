@@ -17,6 +17,7 @@ PATTAYA DEVELOPMENT PIPELINE — RESULTS
 
 Spec: {SPEC_TITLE}
 Runs: {N_RUNS} parallel × {R_ROUNDS} round(s)
+Style: {STYLE_NAME}
 Date: {DATE}
 Pipeline time: {DURATION}
 

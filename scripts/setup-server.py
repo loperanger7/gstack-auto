@@ -271,6 +271,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
         first_line = spec.strip().split('\n', 1)[0].lstrip('# ').strip() if spec.strip() else ''
         spec_title = first_line if first_line and first_line != 'Product Spec' else ''
 
+        # Style name from config
+        style_name = ''
+        config = read_file(CONFIG_PATH) or ''
+        for line in config.split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('style:') and not stripped.startswith('#'):
+                val = stripped.split(':', 1)[1].strip().strip('"').strip("'")
+                if val:
+                    style_path = os.path.join(ROOT, 'pipeline', 'styles', val + '.md')
+                    if os.path.isfile(style_path):
+                        style_content = read_file(style_path) or ''
+                        heading = style_content.strip().split('\n', 1)[0].lstrip('# ').strip()
+                        style_name = heading if heading else val
+                    else:
+                        style_name = val
+                break
+
         # Round history from results-history.json (most recent pipeline run)
         round_history = []
         if os.path.isfile(RESULTS_HISTORY):
@@ -291,6 +308,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             'runs': all_runs,
             'status': status,
             'spec_title': spec_title,
+            'style_name': style_name,
             'round_history': round_history,
         })
 
