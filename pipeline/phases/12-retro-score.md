@@ -34,10 +34,15 @@ Read the actual code in `output/`.
 
 Read the original product spec (provided below).
 
+## Style Inspiration: {STYLE_NAME}
+
+{STYLE_PRINCIPLES}
+
 ### 2. Score on 5 Dimensions
 
 Read `pipeline/scoring/rubric.md` for detailed criteria. Score each
-dimension 0-10:
+dimension 0-10. When a style inspiration is set, evaluate code quality
+through that engineer's lens — does this code reflect their principles?
 
 **Functionality (weight: 30%)**
 Does it work? Do the success criteria pass?
