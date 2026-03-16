@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstack-auto</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+
+<div class="nav">
+  <div>
+    <h1>gstack-auto</h1>
+    <p class="subtitle">launchpad</p>
+  </div>
+  <a href="/dashboard" class="nav-link">results &rarr;</a>
+</div>
+
+<!-- ── EMAIL DELIVERY ──────────────────────────────────── -->
+<section id="section-email">
+  <h2>Email Delivery</h2>
+
+  <!-- Collapsed view -->
+  <div id="email-collapsed" style="display:none">
+    <div class="email-status-line">
+      <span class="email-addr" id="email-display"></span>
+      <span class="check">configured</span>
+      <button type="button" class="link-btn" id="btn-edit-email">[edit]</button>
+    </div>
+  </div>
+
+  <!-- Expanded view -->
+  <div id="email-expanded">
+    <details>
+      <summary>How to get a Gmail App Password</summary>
+      <ol>
+        <li>Go to <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a></li>
+        <li>Turn on 2-Step Verification if it's not already on</li>
+        <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a></li>
+        <li>Enter a name (e.g. "gstack-auto") and click Create</li>
+        <li>Copy the 16-character password and paste it below</li>
+      </ol>
+    </details>
+
+    <label for="email">Gmail address</label>
+    <input type="email" id="email" placeholder="you@gmail.com" autocomplete="email" spellcheck="false">
+
+    <label for="password">App Password</label>
+    <input type="password" id="password" placeholder="xxxx xxxx xxxx xxxx" autocomplete="off" spellcheck="false">
+
+    <div class="email-actions">
+      <button type="button" id="btn-test">Test Connection</button>
+      <button type="button" class="link-btn" id="btn-done-email" style="display:none">[done]</button>
+    </div>
+    <div id="test-status" class="status"></div>
+  </div>
+</section>
+
+<!-- ── PRODUCT SPEC ────────────────────────────────────── -->
+<section id="section-spec">
+  <h2>Product Spec</h2>
+
+  <div class="template-bar">
+    <span class="template-label">start from:</span>
+    <button type="button" class="template-btn" data-template="weather">weather app</button>
+    <button type="button" class="template-btn" data-template="bookshelf">bookshelf</button>
+    <button type="button" class="template-btn" data-template="todo">todo list</button>
+  </div>
+
+  <textarea id="spec" placeholder="Describe what you want built." spellcheck="false"></textarea>
+
+  <div id="spec-hints" class="hint-list">
+    <div class="hint fail" id="hint-description">
+      <span class="hint-icon">-</span> Has a product description
+    </div>
+    <div class="hint fail" id="hint-interaction">
+      <span class="hint-icon">-</span> Has a user interaction
+    </div>
+    <div class="hint fail" id="hint-specificity">
+      <span class="hint-icon">-</span> Specific enough to build
+    </div>
+  </div>
+</section>
+
+<!-- ── ACTIONS ──────────────────────────────────────────── -->
+<div class="actions">
+  <button type="button" class="primary" id="btn-save">Save</button>
+</div>
+<div id="save-status" class="status"></div>
+
+<!-- ── WHAT HAPPENS NEXT (hidden until save) ───────────── -->
+<section id="section-next" style="display:none">
+  <h2>What Happens Next</h2>
+  <div class="next-content">
+    <p>Your config is saved. Open Conductor and say:</p>
+    <pre class="command-block">Run the gstack-auto pipeline with N=3</pre>
+    <p>The pipeline will:</p>
+    <ol>
+      <li>Validate your spec and test email delivery</li>
+      <li>Spawn 3 parallel development runs</li>
+      <li>Each run: plan, build, review, QA, fix, score</li>
+      <li>Email you a ranked comparison of all runs</li>
+    </ol>
+    <p class="next-time">Estimated time: ~30 minutes. Go get coffee.</p>
+    <p style="margin-top:12px"><a href="/dashboard" class="nav-link">View your results &rarr;</a></p>
+  </div>
+</section>
+
+<p class="footer">localhost only &mdash; credentials never leave this machine</p>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+let cachedPassword = null;
+let configuredEmail = '';
+let emailExpanded = true;
+
+// ── Templates ─────────────────────────────────────────────
+const TEMPLATES = {
+  weather: `## What It Does
+
+A weather app that shows the current weather for San Francisco
+and recommends what to wear today.
+
+## Core Interaction
+
+User opens the page and immediately sees:
+1. Current temperature and conditions
+2. A plain-English outfit recommendation
+3. A weather icon or emoji
+
+No clicks needed. No settings. Always San Francisco.
+
+## Constraints
+
+- Pure HTML/CSS/JS, no backend
+- Use Open-Meteo API (no key needed)
+- Must be responsive (mobile-friendly)
+- No frameworks`,
+
+  bookshelf: `## What It Does
+
+A personal bookshelf app where the user can track books
+they've read, are reading, or want to read.
+
+## Core Interaction
+
+User can:
+1. Add a book (title, author, optional cover image URL)
+2. Move books between shelves: "Want to Read", "Reading", "Read"
+3. See book counts per shelf
+4. Delete a book
+
+Data persists in localStorage.
+
+## Constraints
+
+- Pure HTML/CSS/JS, no backend
+- Data stored in localStorage
+- Must look good on mobile
+- No frameworks, no build tools`,
+
+  todo: `## What It Does
+
+A minimal todo list app with keyboard-first interaction
+and clean typography.
+
+## Core Interaction
+
+User can:
+1. Type a task and press Enter to add it
+2. Click a task to mark it complete (strikethrough)
+3. Press Backspace on an empty input to delete the last task
+4. See a count of remaining tasks
+
+## Constraints
+
+- Pure HTML/CSS/JS
+- Data stored in localStorage
+- Must work without a mouse (keyboard accessible)
+- Minimal design, monospace font
+- No frameworks`,
+};
+
+// ── Utilities ─────────────────────────────────────────────
+
+function setStatus(el, cls, msg) {
+  el.className = 'status ' + cls;
+  el.textContent = msg;
+}
+
+function clearStatus(el) {
+  el.className = 'status';
+  el.textContent = '';
+}
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, data: await res.json() };
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function truncateEmail(email) {
+  const at = email.indexOf('@');
+  if (at <= 6) return email;
+  return email.slice(0, 6) + '...' + email.slice(at);
+}
+
+// ── Email section ─────────────────────────────────────────
+
+function renderEmailSection() {
+  if (configuredEmail && emailExpanded === false) {
+    // Collapsed
+    $('email-collapsed').style.display = '';
+    $('email-expanded').style.display = 'none';
+    $('email-display').textContent = truncateEmail(configuredEmail);
+  } else {
+    // Expanded
+    $('email-collapsed').style.display = 'none';
+    $('email-expanded').style.display = '';
+    // Show [done] button only if we have a configured email (editing mode)
+    $('btn-done-email').style.display = configuredEmail ? '' : 'none';
+  }
+}
+
+function expandEmail() {
+  emailExpanded = true;
+  $('email').value = configuredEmail;
+  $('password').value = '';
+  renderEmailSection();
+  $('password').focus();
+}
+
+function collapseEmail() {
+  emailExpanded = false;
+  renderEmailSection();
+}
+
+// ── Spec quality hints ────────────────────────────────────
+
+function setHint(id, pass) {
+  const el = $(id);
+  el.className = 'hint ' + (pass ? 'pass' : 'fail');
+  el.querySelector('.hint-icon').textContent = pass ? '\u2713' : '-';
+}
+
+function checkSpecQuality(text) {
+  const t = text || '';
+
+  // 1. Has a product description
+  const hasDescription = t.length >= 50 && (
+    /## (?:what it does|description|overview|about)/i.test(t) ||
+    /(?:is a|that |which |app |tool |site |page |website )/i.test(t)
+  );
+
+  // 2. Has a user interaction
+  const hasInteraction =
+    /user\s+(?:opens|clicks|types|sees|can|enters|selects|taps|views|will|should)/i.test(t) ||
+    /## (?:core interaction|user interaction|how it works|features)/i.test(t) ||
+    /(?:click|tap|enter|submit|select|type|open|press)\s/i.test(t);
+
+  // 3. Specific enough to build
+  const hasSpecificity = t.length >= 100 && (
+    /## (?:constraints|success criteria|requirements|tech)/i.test(t) ||
+    /(?:must|should|require)\s/i.test(t) ||
+    /API|HTML|CSS|JS|database|responsive|mobile|localStorage|no framework/i.test(t)
+  );
+
+  setHint('hint-description', hasDescription);
+  setHint('hint-interaction', hasInteraction);
+  setHint('hint-specificity', hasSpecificity);
+}
+
+// ── Templates ─────────────────────────────────────────────
+
+function populateTemplate(name) {
+  const spec = $('spec');
+  if (spec.value.trim() && !confirm('Replace current spec with template?')) return;
+  spec.value = TEMPLATES[name];
+  checkSpecQuality(spec.value);
+  spec.focus();
+}
+
+// ── Test connection ───────────────────────────────────────
+
+async function testConnection() {
+  const btn = $('btn-test');
+  const status = $('test-status');
+  const email = $('email').value.trim();
+  const password = $('password').value.replace(/\s/g, '');
+
+  if (!email || !password) {
+    setStatus(status, 'err', 'Enter email and password first.');
+    return;
+  }
+
+  btn.disabled = true;
+  setStatus(status, 'working', 'Saving credentials and testing...');
+
+  try {
+    const save = await post('/save-config', {
+      email: email,
+      password: password,
+      spec: $('spec').value,
+    });
+    if (!save.ok) {
+      setStatus(status, 'err', save.data.error || 'Save failed.');
+      return;
+    }
+
+    const res = await post('/test-email', {});
+    if (res.ok) {
+      setStatus(status, 'ok', res.data.message);
+      cachedPassword = password;
+      configuredEmail = email;
+    } else {
+      setStatus(status, 'err', res.data.error);
+    }
+  } catch (e) {
+    setStatus(status, 'err', 'Server not reachable. Is setup-server.py running?');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Save ──────────────────────────────────────────────────
+
+async function saveConfig() {
+  const btn = $('btn-save');
+  const status = $('save-status');
+  const spec = $('spec').value;
+
+  if (!spec.trim()) {
+    setStatus(status, 'err', 'Product spec is required.');
+    return;
+  }
+
+  // Determine email + password source
+  let email, password;
+
+  if ($('email-expanded').style.display !== 'none') {
+    // Email section is expanded — use form fields
+    email = $('email').value.trim();
+    password = $('password').value.replace(/\s/g, '');
+    if (!email) {
+      setStatus(status, 'err', 'Email address is required.');
+      return;
+    }
+    if (!password) {
+      setStatus(status, 'err', 'App Password is required.');
+      return;
+    }
+  } else {
+    // Email section is collapsed — use cached values if available
+    email = configuredEmail;
+    password = cachedPassword;
+    // If no cached password, that's fine — server accepts spec-only saves
+  }
+
+  btn.disabled = true;
+  setStatus(status, 'working', 'Saving...');
+
+  try {
+    const body = { spec };
+    if (email && password) {
+      body.email = email;
+      body.password = password;
+    }
+    const res = await post('/save-config', body);
+    if (res.ok) {
+      cachedPassword = password;
+      configuredEmail = email;
+      emailExpanded = false;
+      renderEmailSection();
+      clearStatus(status);
+      $('section-next').style.display = '';
+      $('section-next').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      setStatus(status, 'err', res.data.error || 'Save failed.');
+    }
+  } catch (e) {
+    setStatus(status, 'err', 'Server not reachable. Is setup-server.py running?');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/current-config');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (data.email) {
+      configuredEmail = data.email;
+      $('email').value = data.email;
+      emailExpanded = false;
+    }
+    if (data.spec) {
+      $('spec').value = data.spec;
+      checkSpecQuality(data.spec);
+    }
+
+    renderEmailSection();
+  } catch (e) {
+    // Server not running — show unconfigured state
+    renderEmailSection();
+  }
+}
+
+// Wire up events
+$('btn-test').addEventListener('click', testConnection);
+$('btn-save').addEventListener('click', saveConfig);
+$('btn-edit-email').addEventListener('click', expandEmail);
+$('btn-done-email').addEventListener('click', collapseEmail);
+$('spec').addEventListener('input', debounce(() => checkSpecQuality($('spec').value), 300));
+
+document.querySelectorAll('.template-btn').forEach(btn => {
+  btn.addEventListener('click', () => populateTemplate(btn.dataset.template));
+});
+
+// Clear cached password if email field changes (security)
+$('email').addEventListener('input', () => { cachedPassword = null; });
+
+loadConfig();
+</script>
+</body>
+</html>

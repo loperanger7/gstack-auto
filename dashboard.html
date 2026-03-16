@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstack-auto — results</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+
+<div class="nav">
+  <div>
+    <h1>gstack-auto</h1>
+    <p class="subtitle">results</p>
+  </div>
+  <a href="/setup" class="nav-link">setup &rarr;</a>
+</div>
+
+<div id="runs"></div>
+
+<!-- ── COMPARE RUNS ────────────────────────────────────── -->
+<section id="section-compare" style="display:none">
+  <h2>Compare Runs</h2>
+  <div class="compare-controls">
+    <select id="diff-a"></select>
+    <span class="compare-vs">vs</span>
+    <select id="diff-b"></select>
+    <button type="button" id="btn-compare">Compare</button>
+  </div>
+  <div id="diff-output" class="diff-output"></div>
+</section>
+
+<p class="footer">localhost only &mdash; results never leave this machine</p>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────
+//
+//   Dashboard State Machine
+//   ───────────────────────
+//   Load → GET /results
+//     ├─ no runs    → EMPTY (link to /setup)
+//     ├─ in progress→ PROGRESS (poll every 5s)
+//     │    └─ all scored → transition to RESULTS
+//     └─ all scored → RESULTS (stop polling)
+//
+//   Card interactions:
+//     [Preview]        → expand/collapse iframe below card
+//     [Desktop|Mobile] → toggle iframe viewport width
+//     [Build on this]  → expand/collapse command panel
+//     <details>        → show/hide narrative / highlight
+//
+
+let runs = [];
+let pollInterval = null;
+let expandedPreview = null;
+let expandedBuild = null;
+
+const PHASE_NAMES = {
+  '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
+  '04': 'Review',     '05': 'Ship',        '06': 'QA',
+  '07': 'Fix Plan',   '08': 'Fix',         '09': 'Fix Review',
+  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Score',
+};
+const TOTAL_PHASES = 12;
+
+// ── Helpers ───────────────────────────────────────────────
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function runLabel(id) {
+  return 'Run ' + id.split('-')[1].toUpperCase();
+}
+
+// ── Score Bars ────────────────────────────────────────────
+
+function scoreBar(label, value) {
+  const pct = (value / 10) * 100;
+  const cls = value >= 8 ? 'high' : value >= 6 ? 'mid' : 'low';
+  return '<div class="score-bar">' +
+    '<span class="score-bar-label">' + esc(label) + '</span>' +
+    '<div class="score-bar-track">' +
+      '<div class="score-bar-fill score-' + cls + '" style="width:' + pct + '%"></div>' +
+    '</div>' +
+    '<span class="score-bar-value">' + value + '</span>' +
+  '</div>';
+}
+
+// ── Card Templates ────────────────────────────────────────
+
+function scoredCard(run, isWinner) {
+  const s = run.scores;
+  const label = runLabel(run.id);
+  return '<div class="card' + (isWinner ? ' winner' : '') + '" data-run="' + esc(run.id) + '">' +
+    '<div class="card-header">' +
+      '<span class="card-title">' +
+        (isWinner ? '<span class="winner-badge">\u2605 WINNER</span> ' : '') +
+        esc(label) +
+      '</span>' +
+      '<span class="card-score">' + s.average + '<span class="score-max">/10</span></span>' +
+    '</div>' +
+    '<div class="score-bars">' +
+      scoreBar('Functionality', s.functionality) +
+      scoreBar('Code Quality', s.code_quality) +
+      scoreBar('Test Coverage', s.test_coverage) +
+      scoreBar('UX Polish', s.ux_polish) +
+      scoreBar('Spec Adherence', s.spec_adherence) +
+    '</div>' +
+    '<div class="card-meta">' +
+      '<span>Bugs: ' + s.bugs_remaining + '</span>' +
+      '<span>Fix cycles: ' + s.fix_cycles_used + '/3</span>' +
+    '</div>' +
+    '<details class="narrative"><summary>Why I built it this way</summary>' +
+      '<p class="narrative-text"></p>' +
+    '</details>' +
+    '<details class="code-highlight"><summary>Code highlight</summary>' +
+      '<p class="highlight-text"></p>' +
+    '</details>' +
+    '<div class="card-actions">' +
+      (run.has_output
+        ? '<button type="button" class="btn-preview" data-run="' + esc(run.id) + '">Preview</button>'
+        : '') +
+      '<button type="button" class="btn-build" data-run="' + esc(run.id) + '">Build on this</button>' +
+    '</div>' +
+    '<div class="preview-container" id="preview-' + esc(run.id) + '" style="display:none"></div>' +
+    '<div class="build-panel" id="build-' + esc(run.id) + '" style="display:none"></div>' +
+  '</div>';
+}
+
+function progressCard(run) {
+  const label = runLabel(run.id);
+  const phases = run.phases_completed || [];
+  const latest = phases[phases.length - 1] || '';
+  const m = latest.match(/phase-(\d+)/);
+  const phaseNum = m ? m[1] : null;
+  const phaseName = phaseNum ? PHASE_NAMES[phaseNum] : '';
+
+  let dots = '';
+  for (let i = 1; i <= TOTAL_PHASES; i++) {
+    const num = String(i).padStart(2, '0');
+    const done = phases.some(function(p) { return p.indexOf('phase-' + num) !== -1; });
+    dots += '<span class="phase-dot' + (done ? ' done' : '') + '" title="Phase ' + num + ': ' + (PHASE_NAMES[num] || '') + '"></span>';
+  }
+
+  return '<div class="card in-progress" data-run="' + esc(run.id) + '">' +
+    '<div class="card-header">' +
+      '<span class="card-title">' + esc(label) + '</span>' +
+      '<span class="card-phase">Phase ' + (phaseNum || '?') + ': ' + esc(phaseName) + '</span>' +
+    '</div>' +
+    '<div class="phase-progress">' + dots + '</div>' +
+  '</div>';
+}
+
+// ── Render ────────────────────────────────────────────────
+
+function render(data) {
+  const container = document.getElementById('runs');
+
+  if (data.runs.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state">' +
+        '<p>No pipeline results yet.</p>' +
+        '<p><a href="/setup">Go to setup</a> to configure your spec and run the pipeline.</p>' +
+      '</div>';
+    document.getElementById('section-compare').style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = data.runs.map(function(run, i) {
+    return run.status === 'scored' ? scoredCard(run, i === 0) : progressCard(run);
+  }).join('');
+
+  // Fill in AI-generated text safely (textContent, never innerHTML)
+  data.runs.forEach(function(run) {
+    if (run.status !== 'scored') return;
+    var card = container.querySelector('[data-run="' + run.id + '"]');
+    if (!card) return;
+    var narr = card.querySelector('.narrative-text');
+    if (narr) narr.textContent = run.scores.narrative || '';
+    var hl = card.querySelector('.highlight-text');
+    if (hl) hl.textContent = run.scores.highlight || '';
+  });
+
+  wireCardEvents();
+  updateCompareSelectors();
+}
+
+// ── Card Interactions ─────────────────────────────────────
+
+function wireCardEvents() {
+  document.querySelectorAll('.btn-preview').forEach(function(btn) {
+    btn.addEventListener('click', function() { togglePreview(btn.dataset.run); });
+  });
+  document.querySelectorAll('.btn-build').forEach(function(btn) {
+    btn.addEventListener('click', function() { toggleBuild(btn.dataset.run); });
+  });
+}
+
+function togglePreview(runId) {
+  var container = document.getElementById('preview-' + runId);
+  if (!container) return;
+
+  // Collapse previous preview if different
+  if (expandedPreview && expandedPreview !== runId) {
+    var prev = document.getElementById('preview-' + expandedPreview);
+    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+  }
+
+  if (container.style.display === 'none') {
+    container.style.display = '';
+    container.innerHTML =
+      '<div class="viewport-toggle">' +
+        '<button type="button" class="viewport-btn active" data-viewport="desktop" data-run="' + esc(runId) + '">Desktop</button>' +
+        '<button type="button" class="viewport-btn" data-viewport="mobile" data-run="' + esc(runId) + '">Mobile</button>' +
+      '</div>' +
+      '<iframe class="preview-frame" src="/output/' + esc(runId) + '/index.html" sandbox="allow-scripts allow-same-origin"></iframe>';
+    expandedPreview = runId;
+
+    container.querySelectorAll('.viewport-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { toggleViewport(runId, btn.dataset.viewport); });
+    });
+  } else {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    expandedPreview = null;
+  }
+}
+
+function toggleViewport(runId, viewport) {
+  var container = document.getElementById('preview-' + runId);
+  if (!container) return;
+  var iframe = container.querySelector('.preview-frame');
+  var btns = container.querySelectorAll('.viewport-btn');
+  btns.forEach(function(b) { b.classList.toggle('active', b.dataset.viewport === viewport); });
+  if (iframe) iframe.classList.toggle('mobile', viewport === 'mobile');
+}
+
+function toggleBuild(runId) {
+  var panel = document.getElementById('build-' + runId);
+  if (!panel) return;
+
+  if (expandedBuild && expandedBuild !== runId) {
+    var prev = document.getElementById('build-' + expandedBuild);
+    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+  }
+
+  if (panel.style.display === 'none') {
+    var path = 'output/' + runId + '/';
+    panel.style.display = '';
+    panel.innerHTML =
+      '<p class="build-label">Continue building on this run:</p>' +
+      '<pre class="command-block">cd ' + esc(path) + '</pre>' +
+      '<p class="build-label">Then open Conductor and describe what to add:</p>' +
+      '<pre class="command-block">Add [your feature] to this weather app</pre>' +
+      '<p class="build-path">Source files: ' + esc(path) + '</p>';
+    expandedBuild = runId;
+  } else {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    expandedBuild = null;
+  }
+}
+
+// ── Compare / Diff ────────────────────────────────────────
+
+function updateCompareSelectors() {
+  var scored = runs.filter(function(r) { return r.status === 'scored'; });
+  var section = document.getElementById('section-compare');
+
+  if (scored.length < 2) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  ['diff-a', 'diff-b'].forEach(function(id, i) {
+    var sel = document.getElementById(id);
+    sel.innerHTML = scored.map(function(r) {
+      return '<option value="' + esc(r.id) + '">' + esc(runLabel(r.id)) + '</option>';
+    }).join('');
+    if (scored[i]) sel.value = scored[i].id;
+  });
+}
+
+async function compareDiff() {
+  var a = document.getElementById('diff-a').value;
+  var b = document.getElementById('diff-b').value;
+  var output = document.getElementById('diff-output');
+
+  if (!a || !b || a === b) {
+    output.textContent = 'Select two different runs to compare.';
+    return;
+  }
+
+  output.textContent = 'Loading diff...';
+
+  try {
+    var res = await fetch('/diff?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b));
+    var data = await res.json();
+
+    if (!res.ok) {
+      output.textContent = data.error || 'Diff failed.';
+      return;
+    }
+
+    if (!data.diffs || data.diffs.length === 0) {
+      output.textContent = 'Files are identical.';
+      return;
+    }
+
+    // Render diff with colored lines (textContent for each line — no XSS)
+    output.innerHTML = '';
+    data.diffs.forEach(function(d) {
+      var header = document.createElement('div');
+      header.className = 'diff-file-header';
+      header.textContent = d.file;
+      output.appendChild(header);
+
+      d.diff.split('\n').forEach(function(line) {
+        var el = document.createElement('div');
+        el.className = 'diff-line';
+        if (line.charAt(0) === '+' && !line.startsWith('+++')) el.className += ' diff-add';
+        else if (line.charAt(0) === '-' && !line.startsWith('---')) el.className += ' diff-del';
+        else if (line.startsWith('@@')) el.className += ' diff-hunk';
+        el.textContent = line;
+        output.appendChild(el);
+      });
+    });
+  } catch (e) {
+    output.textContent = 'Server not reachable.';
+  }
+}
+
+// ── Polling ───────────────────────────────────────────────
+
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(async function() {
+    try {
+      var res = await fetch('/results');
+      var data = await res.json();
+      runs = data.runs;
+      render(data);
+      if (data.status === 'ready') {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    } catch (e) { /* network blip — keep trying */ }
+  }, 5000);
+}
+
+// ── Init ──────────────────────────────────────────────────
+
+async function load() {
+  try {
+    var res = await fetch('/results');
+    var data = await res.json();
+    runs = data.runs;
+    render(data);
+    if (data.status === 'in_progress') startPolling();
+  } catch (e) {
+    document.getElementById('runs').innerHTML =
+      '<div class="empty-state">' +
+        '<p>Server not reachable.</p>' +
+        '<p>Start it with: <code>python3 scripts/setup-server.py</code></p>' +
+      '</div>';
+  }
+}
+
+document.getElementById('btn-compare').addEventListener('click', compareDiff);
+load();
+</script>
+</body>
+</html>
