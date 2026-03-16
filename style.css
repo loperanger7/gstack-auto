@@ -1,7 +1,7 @@
 /* gstack-auto — design system
  *
- * Shared styles for setup.html and dashboard.html.
- * One file, one truth. Every color, every spacing, every component.
+ * Single source of truth for Mission Control (index.html).
+ * Every color, every spacing, every component.
  */
 
 /* ── Reset & Variables ──────────────────────────────── */
@@ -106,7 +106,8 @@ label {
 }
 
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+input[type="number"] {
   display: block;
   width: 100%;
   padding: 8px 10px;
@@ -313,6 +314,152 @@ button.primary:hover:not(:disabled) {
 }
 
 .empty-state a:hover { color: var(--accent); }
+
+/* ── Gear Button ───────────────────────────────────────── */
+
+.gear-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.gear-btn:hover { color: var(--accent); }
+
+.gear-btn.active {
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+/* ── Config Panel ──────────────────────────────────────── */
+
+.config-panel {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.config-panel.open {
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.config-panel.closed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Config Row (runs / rounds / style) ────────────────── */
+
+.config-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.config-field {
+  flex: 1;
+  min-width: 80px;
+}
+
+.config-field-wide {
+  flex: 2;
+  min-width: 160px;
+}
+
+/* ── Preset Bar ────────────────────────────────────────── */
+
+.preset-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.preset-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preset-btn {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 4px 10px;
+  background: var(--bg);
+}
+
+/* ── Style Preview ─────────────────────────────────────── */
+
+.style-preview {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.style-quote {
+  font-size: 12px;
+  color: var(--accent-dim);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.style-principles {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.style-principles li::before {
+  content: '\2022 ';
+  color: var(--accent-dim);
+}
+
+/* ── Run Again Bar ─────────────────────────────────────── */
+
+.run-again-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn-run-again {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-run-again:hover {
+  background: #d4ff33;
+  border-color: #d4ff33;
+}
+
+.run-again-hint {
+  font-size: 11px;
+  color: var(--accent-dim);
+}
 
 /* ════════════════════════════════════════════════════════
    SETUP PAGE
