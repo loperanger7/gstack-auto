@@ -17,5 +17,13 @@ scoring_dimensions:
 # Score penalty for exhausting max_fix_cycles without clearing bugs
 unresolved_bugs_penalty: 2.0
 
-# Gmail recipient (user provides in product-spec.md or here)
-notify_email: ""
+# Email notification configuration
+# Set method to "file-only" to skip email and just save results to disk.
+email:
+  to: ""
+  method: "smtp"
+  smtp:
+    host: "smtp.gmail.com"
+    port: 587
+    username: "$PATTAYA_SMTP_USER"
+    password: "$PATTAYA_SMTP_PASS"
