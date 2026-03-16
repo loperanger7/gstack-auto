@@ -45,11 +45,11 @@ Once installed, open Conductor. It will walk you through signing in and connecti
 
 ### 2. Install gstack
 
-gstack-auto is built on top of gstack (a skill system for Conductor). Open a Conductor workspace and run:
+gstack-auto is built on top of [gstack](https://github.com/garrytan/gstack) (a skill system for Claude Code). **Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+.
 
-```
-/install gh:garrytan/gstack
-```
+Open Claude Code and paste this. Claude will do the rest:
+
+> Install gstack: run `git clone https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` then add a "gstack" section to CLAUDE.md that says to use the /browse skill from gstack for all web browsing, never use mcp\_\_claude-in-chrome\_\_\* tools, and lists the available skills: /plan-ceo-review, /plan-eng-review, /review, /ship, /browse, /qa, /setup-browser-cookies, /retro. Then ask the user if they also want to add gstack to the current project so teammates get it.
 
 ### 3. Set Up Email
 

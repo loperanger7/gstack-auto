@@ -55,8 +55,6 @@
 
 let runs = [];
 let pollInterval = null;
-let expandedPreview = null;
-let expandedBuild = null;
 
 const PHASE_NAMES = {
   '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
@@ -206,12 +204,6 @@ function togglePreview(runId) {
   var container = document.getElementById('preview-' + runId);
   if (!container) return;
 
-  // Collapse previous preview if different
-  if (expandedPreview && expandedPreview !== runId) {
-    var prev = document.getElementById('preview-' + expandedPreview);
-    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-  }
-
   if (container.style.display === 'none') {
     container.style.display = '';
     container.innerHTML =
@@ -220,7 +212,6 @@ function togglePreview(runId) {
         '<button type="button" class="viewport-btn" data-viewport="mobile" data-run="' + esc(runId) + '">Mobile</button>' +
       '</div>' +
       '<iframe class="preview-frame" src="/output/' + esc(runId) + '/index.html" sandbox="allow-scripts allow-same-origin"></iframe>';
-    expandedPreview = runId;
 
     container.querySelectorAll('.viewport-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { toggleViewport(runId, btn.dataset.viewport); });
@@ -228,7 +219,6 @@ function togglePreview(runId) {
   } else {
     container.style.display = 'none';
     container.innerHTML = '';
-    expandedPreview = null;
   }
 }
 
@@ -245,11 +235,6 @@ function toggleBuild(runId) {
   var panel = document.getElementById('build-' + runId);
   if (!panel) return;
 
-  if (expandedBuild && expandedBuild !== runId) {
-    var prev = document.getElementById('build-' + expandedBuild);
-    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-  }
-
   if (panel.style.display === 'none') {
     var path = 'output/' + runId + '/';
     panel.style.display = '';
@@ -259,11 +244,9 @@ function toggleBuild(runId) {
       '<p class="build-label">Then open Conductor and describe what to add:</p>' +
       '<pre class="command-block">Add [your feature] to this weather app</pre>' +
       '<p class="build-path">Source files: ' + esc(path) + '</p>';
-    expandedBuild = runId;
   } else {
     panel.style.display = 'none';
     panel.innerHTML = '';
-    expandedBuild = null;
   }
 }
 
