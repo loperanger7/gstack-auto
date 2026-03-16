@@ -60,6 +60,15 @@ Future runs consult this history to bias toward successful approaches.
 Risk of overfitting to past successes.
 **Effort: M**
 
+### Custom inline style principles
+Allow `style: custom` with a `style_principles:` multi-line block in
+config.yml instead of referencing a built-in profile. For users whose
+engineering philosophy doesn't map to a named engineer. Requires parsing
+multi-line YAML values and handling the precedence when both `style:` and
+`style_principles:` are set.
+**Effort: S**
+**Depends on:** Style inspiration feature (v0.1.4.0)
+
 ## P3 — Low Priority
 
 ### Auto-probe email on setup page load
