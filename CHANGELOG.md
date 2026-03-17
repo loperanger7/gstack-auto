@@ -2,6 +2,16 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.7.1] - 2026-03-16
+
+### Fixed
+- Pipeline now detects existing winner output from prior runs and starts in iteration mode instead of greenfield — enables cross-invocation iteration
+- Final round winner is now committed to git (previously only intermediate rounds were committed, so winner code was lost between conversations)
+- Removed `output/` from `.gitignore` so winner code persists in the repository
+
+### Changed
+- Pipeline config defaults: parallel_runs 5→3, rounds 10→7
+
 ## [0.1.7.0] - 2026-03-16
 
 ### Added
