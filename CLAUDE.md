@@ -120,9 +120,26 @@ and a warning is shown: "Email disabled — results will be saved to disk only."
 Initialize round state:
 - `current_round` = 1
 - `total_rounds` = R (from config or prompt override)
-- `mode` = "greenfield"
-- `existing_code_summary` = "" (empty for round 1)
 - `round_results` = [] (accumulates across rounds)
+
+**Detect prior winner output (cross-invocation iteration):**
+
+Check if `output/` exists and contains files from a prior pipeline run:
+
+```bash
+test -d "output" && find output -type f | head -1 | grep -q . && echo "HAS_OUTPUT" || echo "NO_OUTPUT"
+```
+
+If `HAS_OUTPUT`:
+- `mode` = "iteration"
+- `existing_code_summary` = output of `ls -la output/` + first 5 lines
+  of each source file (enough context for the phase prompts)
+- Tell the user: "Found existing output from prior run. Starting in
+  iteration mode — agents will improve the existing code, not rewrite it."
+
+If `NO_OUTPUT`:
+- `mode` = "greenfield"
+- `existing_code_summary` = ""
 
 **For each round (1 through R), execute Steps 2a–2f:**
 
@@ -226,7 +243,7 @@ Store this round's results in `round_results`:
 
 ### Step 2f: Winner Carry-Forward
 
-If this is NOT the final round:
+**For EVERY round (including the final round):**
 
 1. Identify the winner's worktree path (returned by the Agent tool).
 2. **Verify the worktree exists and has output/:**
@@ -254,12 +271,13 @@ If this is NOT the final round:
    ```bash
    git log --oneline -1
    ```
-6. Update mode for next round:
+
+**If this is NOT the final round**, also update mode for next round:
    - `mode` = "iteration"
    - `existing_code_summary` = output of `ls -la output/` + first 5 lines
      of each source file (enough context for the phase prompts)
 
-**Then continue to the next round (back to Step 2a).**
+   **Then continue to the next round (back to Step 2a).**
 
 ### Step 3: Final Report
 

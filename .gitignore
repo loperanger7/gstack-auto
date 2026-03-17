@@ -1,6 +1,5 @@
 # Pattaya
 .context/
-output/
 results-history.json
 *.log
 
