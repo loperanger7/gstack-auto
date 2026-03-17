@@ -2,6 +2,32 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.9.0] - 2026-03-17
+
+### Added
+- Design review pipeline: phase 12 (design audit) and phase 13 (design fix) inserted before scoring
+- AI Slop detection: 30-item condensed checklist catching purple gradients, 3-column grids, and generic AI patterns
+- DESIGN.md generation: phase 12 extracts design system (fonts, colors, spacing) from rendered output
+- Design style profiles: `pipeline/design-styles/` with dieter-rams, brutalist, and playful philosophies
+- Design Quality as 6th scoring dimension (10% weight) with letter-grade rubric
+- Dual weight tables: 6-dim weights when design_quality present, 5-dim for backward compatibility
+- AI Slop badge and design system preview (color dots + font name) in Mission Control score cards
+- Design Report Card section in email template with per-category grades
+- `design_review` and `design_style` config options in pipeline/config.yml
+- `{DESIGN_STYLE_NAME}` and `{DESIGN_STYLE_PRINCIPLES}` template variables for phases 12-13
+- Auto-detect skip: design phases skipped when output has no .html files
+- Before/after screenshot capture in phase 13 (design fix)
+- Font upgrade detection with pairing recommendations by product type
+
+### Changed
+- Retro/scoring moved from phase 12 to phase 14
+- Pipeline diagram updated: Phase 1-6 → bug-fix → design 12-13 → Score 14
+- Validation suite expanded from 171 to 200 checks (design phases, styles, config)
+- `buildPrompt()` now includes design_quality when present in clipboard text
+
+### Fixed
+- Dangling markdown code fence in CLAUDE.md after score.json schema
+
 ## [0.1.8.0] - 2026-03-17
 
 ### Added
