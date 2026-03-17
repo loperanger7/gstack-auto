@@ -2,6 +2,24 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.8.0] - 2026-03-17
+
+### Added
+- Environment Variables section in Mission Control — dynamic key-value rows for API keys and secrets
+- Generic env var management: add, edit, delete keys from the web UI with values stored in `.env`
+- Sentinel protocol: only modified keys are sent on save; untouched saved values are never exposed or overwritten
+- Duplicate key name prevention and PATTAYA_ prefix rejection in the frontend
+- `{ENV_VARS}` template variable — pipeline agents receive user-configured API keys during QA testing
+- `--port` flag for setup-server.py (used by tests)
+- Smoke test suite (`tests/test-env-vars.py`) — 6 tests covering save, load, round-trip, SMTP coexistence, deletion, and prefix blocking
+
+### Fixed
+- `.env` write safety: `save_config()` now uses read-modify-write instead of overwriting the entire file, so saving SMTP credentials no longer clobbers user env vars (and vice versa)
+- Delete handler in env var UI correctly preserves the deletion signal for saved keys
+
+### Changed
+- Pre-flight checks now collect non-PATTAYA_ env vars from `.env` and pass them to pipeline agents
+
 ## [0.1.7.1] - 2026-03-16
 
 ### Fixed
