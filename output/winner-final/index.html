@@ -73,7 +73,7 @@
       transition: border-color .15s, background .15s, transform .1s;
     }
     .btn:hover { border-color: var(--accent); background: var(--accent-glow); }
-    .btn:active { transform: scale(0.97); }
+    .btn:active { opacity: 0.85; }
     .btn-accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
     .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
     .btn-danger { border-color: var(--danger); color: var(--danger); }
@@ -148,15 +148,6 @@
       border-radius: var(--radius);
       padding: 20px 24px;
       position: relative;
-      overflow: hidden;
-      animation: spotlightPulse 3s ease-in-out infinite;
-    }
-    .spotlight-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 50% 0%, var(--accent-glow), transparent 70%);
-      pointer-events: none;
     }
     .spotlight-label {
       font-size: 0.65rem;
@@ -197,13 +188,10 @@
       font-weight: 700;
       font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
     }
-    @keyframes spotlightPulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(16,185,129,0.1); }
-      50% { box-shadow: 0 0 30px rgba(16,185,129,0.2); }
-    }
+    /* Removed: spotlightPulse — decorative animation with no functional purpose */
 
     /* Summary strip */
-    .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
     .summary-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
       transition: border-color .2s;
@@ -224,7 +212,7 @@
     .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
 
     /* Section header */
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
     .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
     .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
 
@@ -255,7 +243,7 @@
     }
 
     /* Fight Grid */
-    .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
     .fight-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -266,26 +254,17 @@
       gap: 12px;
       transition: border-color .2s, box-shadow .2s, transform .15s;
       opacity: 0;
-      transform: translateY(12px);
-      animation: cardEnter 0.35s ease-out forwards;
+      animation: cardEnter 0.2s ease-out forwards;
       position: relative;
     }
-    .fight-card:hover { border-color: var(--muted); transform: translateY(-1px); }
+    .fight-card:hover { border-color: var(--muted); }
     .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
     .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
     .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
     .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
 
-    /* Tier-based card glow on hover */
-    .fight-card[data-tier="lock"]:hover   { box-shadow: 0 0 16px rgba(16,185,129,0.2), 0 2px 12px rgba(0,0,0,0.2); }
-    .fight-card[data-tier="lean"]:hover   { box-shadow: 0 0 16px rgba(59,130,246,0.2), 0 2px 12px rgba(0,0,0,0.2); }
-    .fight-card[data-tier="tossup"]:hover { box-shadow: 0 0 16px rgba(245,158,11,0.2), 0 2px 12px rgba(0,0,0,0.2); }
-    .fight-card[data-tier="upset"]:hover  { box-shadow: 0 0 20px rgba(239,68,68,0.25), 0 2px 12px rgba(0,0,0,0.2); }
-    .fight-card[data-tier="upset"]        { animation: cardEnter 0.35s ease-out forwards, upsetPulse 2.5s ease-in-out 0.4s infinite; }
-    @keyframes upsetPulse {
-      0%, 100% { box-shadow: 0 0 0 rgba(239,68,68,0); }
-      50% { box-shadow: 0 0 12px rgba(239,68,68,0.15); }
-    }
+    /* Uniform hover — functional feedback, not decoration */
+    .fight-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
     /* Focus ring for keyboard nav */
     .fight-card:focus-visible {
@@ -295,17 +274,15 @@
     .fight-card:focus { outline: none; }
 
     @keyframes cardEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .tier-badge {
       font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
       padding: 3px 7px; border-radius: 3px; flex-shrink: 0;
-      transition: transform .15s;
     }
-    .fight-card:hover .tier-badge { transform: scale(1.05); }
     .tier-lock   { background: rgba(16,185,129,0.15); color: var(--lock); }
     .tier-lean   { background: rgba(59,130,246,0.15);  color: var(--lean); }
     .tier-tossup { background: rgba(245,158,11,0.15);  color: var(--tossup); }
@@ -335,7 +312,7 @@
     .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
 
-    /* CSS-based upset warning indicator (replaces emoji) */
+    /* CSS-based upset warning indicator */
     .upset-warning {
       font-size: 0.72rem;
       color: var(--danger);
@@ -344,7 +321,6 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      animation: pulse 2s ease-in-out infinite;
     }
     .upset-warning-icon {
       display: inline-block;
@@ -366,7 +342,7 @@
       font-weight: 800;
       line-height: 1;
     }
-    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+    /* Removed: pulse keyframe — static indicator is clearer (Rams: don't animate to distract) */
 
     /* Source detail popover */
     .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); cursor: pointer; position: relative; }
