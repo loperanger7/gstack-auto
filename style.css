@@ -805,6 +805,61 @@ button.primary:hover:not(:disabled) {
   flex-shrink: 0;
 }
 
+/* ── Design Meta (AI Slop badge, font tag, color dots) ── */
+
+.card-design-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.ai-slop-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ai-slop-badge.slop-clean {
+  background: #0a1a1a;
+  border: 1px solid #1a3333;
+  color: var(--cyan);
+}
+
+.ai-slop-badge.slop-ok {
+  background: #0d1220;
+  border: 1px solid #1a2540;
+  color: var(--blue);
+}
+
+.ai-slop-badge.slop-flag {
+  background: #1a0a0a;
+  border: 1px solid #331a1a;
+  color: var(--red);
+}
+
+.design-font-tag {
+  color: var(--text-dim);
+}
+
+.design-color-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
 /* ── Narrative & Highlight ──────────────────────────── */
 
 .card details {

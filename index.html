@@ -259,9 +259,10 @@ var PHASE_NAMES = {
   '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
   '04': 'Review',     '05': 'Ship',        '06': 'QA',
   '07': 'Fix Plan',   '08': 'Fix',         '09': 'Fix Review',
-  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Score',
+  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Design Review',
+  '13': 'Design Fix', '14': 'Score',
 };
-var TOTAL_PHASES = 12;
+var TOTAL_PHASES = 14;
 
 // ── Utilities ────────────────────────────────────────────
 
@@ -693,6 +694,26 @@ function scoreBar(label, value) {
   '</div>';
 }
 
+// ── Design Helpers ───────────────────────────────────────
+
+function aiSlopClass(grade) {
+  if (!grade) return '';
+  var g = grade.charAt(0);
+  if (g === 'A') return 'slop-clean';
+  if (g === 'B') return 'slop-ok';
+  return 'slop-flag';
+}
+
+function colorDots(colors) {
+  if (!colors || !colors.length) return '';
+  var html = '';
+  var max = Math.min(colors.length, 6);
+  for (var i = 0; i < max; i++) {
+    html += '<span class="color-dot" style="background:' + esc(colors[i]) + '"></span>';
+  }
+  return html;
+}
+
 // ── Card Templates ───────────────────────────────────────
 
 function scoredCard(run, isWinner) {
@@ -712,7 +733,17 @@ function scoredCard(run, isWinner) {
       scoreBar('Test Coverage', s.test_coverage) +
       scoreBar('UX Polish', s.ux_polish) +
       scoreBar('Spec Adherence', s.spec_adherence) +
+      (s.design_quality != null ? scoreBar('Design Quality', s.design_quality) : '') +
     '</div>' +
+    (s.design_quality != null
+      ? '<div class="card-design-meta">' +
+          '<span class="ai-slop-badge ' + aiSlopClass(s.ai_slop_grade) + '">' +
+            'AI Slop: ' + (s.ai_slop_grade || '?') +
+          '</span>' +
+          (s.design_fonts ? '<span class="design-font-tag">' + esc(s.design_fonts) + '</span>' : '') +
+          (s.design_colors ? '<span class="design-color-dots">' + colorDots(s.design_colors) + '</span>' : '') +
+        '</div>'
+      : '') +
     '<div class="card-meta">' +
       '<span>Bugs: ' + s.bugs_remaining + '</span>' +
       '<span>Fix cycles: ' + s.fix_cycles_used + '/3</span>' +
@@ -894,12 +925,13 @@ function buildPrompt(runId) {
   var lines = ['The codebase for ' + name + ' is in ' + path + '.'];
   if (run && run.scores) {
     var s = run.scores;
-    lines.push('It scores ' + s.average + '/10 — ' +
-      'Functionality: ' + s.functionality + ', ' +
+    var dims = 'Functionality: ' + s.functionality + ', ' +
       'Code Quality: ' + s.code_quality + ', ' +
       'Tests: ' + s.test_coverage + ', ' +
       'UX: ' + s.ux_polish + ', ' +
-      'Spec Adherence: ' + s.spec_adherence + '.');
+      'Spec Adherence: ' + s.spec_adherence;
+    if (s.design_quality != null) dims += ', Design: ' + s.design_quality;
+    lines.push('It scores ' + s.average + '/10 — ' + dims + '.');
   }
   lines.push('');
   lines.push('[Describe what to build next]');
