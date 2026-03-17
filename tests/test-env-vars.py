@@ -127,6 +127,18 @@ def main():
         passed += 1
         print('PASS: PATTAYA_ prefix blocked')
 
+        # Test 7: Per-row save — single-key POST without spec field
+        res = post('/save-config', {
+            'env_vars': {'SINGLE_KEY': 'single-val-789'},
+        })
+        assert res.get('message') == 'Saved.', f'Test 7 failed: {res}'
+        with open(ENV_PATH) as f:
+            env_text = f.read()
+        assert 'SINGLE_KEY=single-val-789' in env_text, f'Test 7a failed: SINGLE_KEY not in .env'
+        assert 'ODDS_API_KEY=test-key-123' in env_text, f'Test 7b failed: other key lost after single-key save'
+        passed += 1
+        print('PASS: per-row single-key save round-trip')
+
         print(f'\n{passed}/{passed + failed} tests passed')
         sys.exit(0 if failed == 0 else 1)
 

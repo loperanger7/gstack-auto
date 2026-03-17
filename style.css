@@ -417,11 +417,47 @@ button.primary:hover:not(:disabled) {
   flex: 1;
   min-width: 100px;
   text-transform: uppercase;
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 13px;
+  transition: border-color 0.15s;
 }
 
 .env-row input[type="password"] {
   flex: 2;
   min-width: 140px;
+}
+
+.env-row .btn-save-env {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--accent-dim);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.env-row .btn-save-env:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+.env-row .env-error-label {
+  color: #f85149;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.env-row .env-dup-label {
+  color: #e3b341;
+  font-size: 0.8em;
+  white-space: nowrap;
 }
 
 .env-row .btn-delete-env {

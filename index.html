@@ -506,6 +506,65 @@ function makeEnvRow(key, saved) {
   nameInput.value = key || '';
   nameInput.spellcheck = false;
   nameInput.autocomplete = 'off';
+
+  var valInput = document.createElement('input');
+  valInput.type = 'password';
+  valInput.autocomplete = 'off';
+  valInput.placeholder = saved ? '(value set)' : 'value';
+
+  var saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn-save-env';
+  saveBtn.textContent = '✓ Save';
+  saveBtn.style.display = 'none';
+
+  var badge = document.createElement('span');
+  badge.className = 'env-set-badge';
+  badge.textContent = saved ? 'saved' : '';
+
+  var errLabel = document.createElement('span');
+  errLabel.className = 'env-error-label';
+  errLabel.style.display = 'none';
+
+  var dupLabel = document.createElement('span');
+  dupLabel.className = 'env-dup-label';
+  dupLabel.textContent = 'duplicate';
+  dupLabel.style.display = 'none';
+
+  var delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'btn-delete-env';
+  delBtn.textContent = 'x';
+
+  function updateSaveBtn() {
+    var hasKey = nameInput.value.trim().length > 0;
+    var hasVal = valInput.value.length > 0;
+    var hasDup = dupLabel.style.display !== 'none';
+    saveBtn.style.display = (hasKey && hasVal && !hasDup) ? '' : 'none';
+  }
+
+  function checkDuplicate() {
+    var myKey = nameInput.value.trim();
+    if (!myKey) {
+      dupLabel.style.display = 'none';
+      nameInput.style.borderColor = '';
+      updateSaveBtn();
+      return;
+    }
+    var container = row.parentNode;
+    if (!container) return;
+    var rows = container.querySelectorAll('.env-row');
+    var isDup = false;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i] === row) continue;
+      var otherKey = rows[i].querySelector('input[type="text"]');
+      if (otherKey && otherKey.value.trim() === myKey) { isDup = true; break; }
+    }
+    dupLabel.style.display = isDup ? '' : 'none';
+    nameInput.style.borderColor = isDup ? '#f85149' : '';
+    updateSaveBtn();
+  }
+
   nameInput.addEventListener('input', function() {
     var oldKey = row.dataset.key;
     nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
@@ -517,32 +576,68 @@ function makeEnvRow(key, saved) {
       saved = false;
       badge.textContent = '';
       valInput.value = '';
-      valInput.placeholder = 'enter value';
+      valInput.placeholder = 'value';
     }
     row.dataset.key = newKey;
+    errLabel.style.display = 'none';
+    checkDuplicate();
   });
 
-  var valInput = document.createElement('input');
-  valInput.type = 'password';
-  valInput.autocomplete = 'off';
-  if (saved) {
-    valInput.placeholder = '(value set)';
-  } else {
-    valInput.placeholder = 'value';
-  }
+  nameInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); valInput.focus(); }
+  });
+
   valInput.addEventListener('input', function() {
     var k = row.dataset.key;
     if (k) envVarDirty[k] = valInput.value;
+    errLabel.style.display = 'none';
+    updateSaveBtn();
   });
 
-  var badge = document.createElement('span');
-  badge.className = 'env-set-badge';
-  badge.textContent = saved ? 'saved' : '';
+  valInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && saveBtn.style.display !== 'none' && !saveBtn.disabled) {
+      e.preventDefault();
+      saveBtn.click();
+    }
+  });
 
-  var delBtn = document.createElement('button');
-  delBtn.type = 'button';
-  delBtn.className = 'btn-delete-env';
-  delBtn.textContent = 'x';
+  saveBtn.addEventListener('click', function() {
+    var k = nameInput.value.trim();
+    var v = valInput.value;
+    if (!k || !v) return;
+    saveBtn.disabled = true;
+    var payload = { env_vars: {} };
+    payload.env_vars[k] = v;
+    fetch('/save-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data && data.message === 'Saved.') {
+          envVarState[k] = true;
+          delete envVarDirty[k];
+          saved = true;
+          row.dataset.key = k;
+          badge.textContent = 'saved';
+          valInput.value = '';
+          valInput.placeholder = '(value set)';
+          saveBtn.style.display = 'none';
+          saveBtn.disabled = false;
+          errLabel.style.display = 'none';
+        } else {
+          errLabel.textContent = (data && data.error) || 'Save failed.';
+          errLabel.style.display = '';
+          saveBtn.disabled = false;
+        }
+      })
+      .catch(function() {
+        errLabel.textContent = 'Save failed.';
+        errLabel.style.display = '';
+        saveBtn.disabled = false;
+      });
+  });
+
   delBtn.addEventListener('click', function() {
     var k = row.dataset.key;
     if (k && envVarState[k]) {
@@ -556,7 +651,10 @@ function makeEnvRow(key, saved) {
 
   row.appendChild(nameInput);
   row.appendChild(valInput);
+  row.appendChild(saveBtn);
   row.appendChild(badge);
+  row.appendChild(errLabel);
+  row.appendChild(dupLabel);
   row.appendChild(delBtn);
   return row;
 }
