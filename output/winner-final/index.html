@@ -1497,6 +1497,20 @@ async function run(force) {
     upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
     if (force) cache.clearAll();
 
+    // Offline detection: try cached data if navigator says offline
+    if (typeof navigator.onLine!=='undefined'&&!navigator.onLine) {
+      var cachedPoly=cache.read(POLY_CACHE_KEY);
+      var cachedOdds=cache.read(ODDS_CACHE_KEY);
+      if (cachedPoly||cachedOdds) {
+        addBanner('warn','Offline','Showing cached data. Connect to the internet and refresh for live odds.', false);
+        var merged=mergeResults(cachedPoly, cachedOdds);
+        var computed=merged.map(computeFight).filter(Boolean);
+        renderSpotlight(computed); renderSummary(computed); renderFights(computed);
+        lastUpdEl.textContent='Cached data (offline)'; lastUpdEl.classList.remove('hidden');
+        return;
+      }
+    }
+
     var apiKey=loadKey();
     if (!apiKey) addBanner('info','No Odds API key','Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
 
@@ -1851,6 +1865,9 @@ clearKeyBtn.addEventListener('click',function(){
 });
 refreshBtn.addEventListener('click',function(){run(true);});
 apiKeyInput.addEventListener('keydown',function(e){ if(e.key==='Enter')applyKeyBtn.click(); });
+
+// Auto-refresh when coming back online
+window.addEventListener('online', function(){ addBanner('success','Back online','Refreshing data...'); run(true); });
 
 document.addEventListener('DOMContentLoaded',function(){
   runSelfTests();
