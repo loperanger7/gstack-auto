@@ -13,8 +13,10 @@ import http.server
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from urllib.parse import parse_qs, urlparse
 
 PORT_RANGE = (8080, 8081, 8082)
@@ -254,6 +256,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     GET  /current-config→ { email, spec, parallel_runs, rounds, style }
     POST /save-config   → write .env, config.yml, product-spec.md
     POST /test-email    → run send-email.py --probe
+    POST /new-project   → clear runs, output, spec → return to SETUP
+    POST /create-repo   → validate, create GitHub repo, push winner, enable Pages
     """
 
     def log_message(self, fmt, *args):
@@ -323,7 +327,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def get_results(self):
         if not os.path.isdir(RUNS_DIR):
-            self.respond(200, {'runs': [], 'status': 'no_runs'})
+            self.respond(200, {
+                'runs': [], 'status': 'no_runs',
+                'spec_title': '', 'style_name': '',
+                'round_history': [], 'has_winner_output': False,
+            })
             return
 
         runs = []
@@ -498,6 +506,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.save_config()
         elif self.path == '/test-email':
             self.test_email()
+        elif self.path == '/new-project':
+            self.new_project()
+        elif self.path == '/create-repo':
+            self.create_repo()
         else:
             self.send_error(404)
 
@@ -567,6 +579,175 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.respond(400, {'error': 'SMTP connection timed out after 10s.'})
         except FileNotFoundError:
             self.respond(500, {'error': 'send-email.py not found.'})
+
+    def new_project(self):
+        """Clear project state and return to SETUP. Preserves config and credentials."""
+        try:
+            if os.path.isdir(RUNS_DIR):
+                shutil.rmtree(RUNS_DIR)
+                sys.stderr.write('Cleared .context/runs/\n')
+            if os.path.isdir(OUTPUT_ROOT):
+                shutil.rmtree(OUTPUT_ROOT)
+                sys.stderr.write('Cleared output/\n')
+            write_file(SPEC_PATH, '')
+            self.respond(200, {'message': 'Project cleared.'})
+        except PermissionError as e:
+            self.respond(500, {'error': f'Permission denied: {e.filename}'})
+
+    def create_repo(self):
+        """Create a GitHub repo from winner-final output.
+
+        Flow (local-first to avoid orphan repos):
+          1. Validate inputs
+          2. Copy winner-final → tmpdir, git init + commit (local only)
+          3. gh repo create (creates remote)
+          4. git push (fills remote)
+          5. gh api to enable Pages (optional, non-fatal)
+          6. Clean up tmpdir (always, via finally)
+        """
+        REPO_NAME_RE = re.compile(r'^[a-zA-Z0-9._-]{1,100}$')
+
+        try:
+            data = self.read_body()
+        except (json.JSONDecodeError, ValueError):
+            self.respond(400, {'error': 'Invalid request body.'})
+            return
+
+        repo_name = (data.get('repo_name') or '').strip()
+        enable_pages = bool(data.get('enable_pages', True))
+
+        # ── Validate at the boundary ────────────────────────
+        if not repo_name or not REPO_NAME_RE.match(repo_name):
+            self.respond(400, {
+                'error': 'Invalid repo name. Use letters, numbers, hyphens, '
+                         'underscores, dots. Max 100 characters.'
+            })
+            return
+
+        winner_dir = os.path.join(OUTPUT_ROOT, 'winner-final')
+        if not os.path.isdir(winner_dir) or not os.listdir(winner_dir):
+            self.respond(400, {
+                'error': 'No winner output to publish. Run the pipeline first.'
+            })
+            return
+
+        if not shutil.which('gh'):
+            self.respond(400, {
+                'error': 'gh CLI not found. Install it: https://cli.github.com'
+            })
+            return
+
+        visibility = '--public' if enable_pages else '--private'
+        tmpdir = tempfile.mkdtemp(prefix='pattaya-repo-')
+
+        try:
+            # ── Step 1: Local prep (fail before creating anything remote) ──
+            for item in os.listdir(winner_dir):
+                src = os.path.join(winner_dir, item)
+                dst = os.path.join(tmpdir, item)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+
+            def run_git(*args, timeout=30):
+                return subprocess.run(
+                    ['git'] + list(args),
+                    cwd=tmpdir, capture_output=True, text=True, timeout=timeout,
+                )
+
+            r = run_git('init')
+            if r.returncode != 0:
+                self.respond(500, {'error': f'git init failed: {r.stderr.strip()}'})
+                return
+
+            run_git('config', 'user.email', 'pattaya@gstack-auto')
+            run_git('config', 'user.name', 'gstack-auto')
+            run_git('add', '.')
+            r = run_git('commit', '-m', 'Initial commit — built by gstack-auto')
+            if r.returncode != 0:
+                self.respond(500, {'error': f'git commit failed: {r.stderr.strip()}'})
+                return
+
+            # ── Step 2: Create remote repo ────────────────────
+            r = subprocess.run(
+                ['gh', 'repo', 'create', repo_name, visibility,
+                 '--description', 'Built by gstack-auto'],
+                capture_output=True, text=True, timeout=30,
+            )
+            if r.returncode != 0:
+                stderr = r.stderr.strip().lower()
+                if 'already exists' in stderr or 'name already' in stderr:
+                    self.respond(409, {
+                        'error': f'Repository "{repo_name}" already exists.'
+                    })
+                elif 'auth' in stderr or 'login' in stderr:
+                    self.respond(400, {
+                        'error': 'GitHub not authenticated. Run: gh auth login'
+                    })
+                else:
+                    self.respond(400, {
+                        'error': f'Failed to create repo: {r.stderr.strip()}'
+                    })
+                return
+
+            repo_url = r.stdout.strip()
+            if not repo_url:
+                repo_url = f'https://github.com/{repo_name}'
+            sys.stderr.write(f'Created repo: {repo_url}\n')
+
+            # ── Step 3: Push ──────────────────────────────────
+            remote_url = repo_url
+            if not remote_url.endswith('.git'):
+                remote_url += '.git'
+            run_git('remote', 'add', 'origin', remote_url)
+            run_git('branch', '-M', 'main')
+            r = run_git('push', '-u', 'origin', 'main', timeout=60)
+            if r.returncode != 0:
+                self.respond(500, {
+                    'error': f'Push failed: {r.stderr.strip()}. '
+                             f'Repo was created at {repo_url} — '
+                             'you may want to delete it manually.'
+                })
+                return
+
+            # ── Step 4: Enable GitHub Pages (non-fatal) ───────
+            result = {'message': 'Repository created.', 'repo_url': repo_url}
+            if enable_pages:
+                parts = repo_url.rstrip('/').split('/')
+                if len(parts) >= 2:
+                    owner_repo = parts[-2] + '/' + parts[-1]
+                    r = subprocess.run(
+                        ['gh', 'api', f'repos/{owner_repo}/pages',
+                         '--method', 'POST',
+                         '-f', 'build_type=legacy',
+                         '-f', 'source[branch]=main',
+                         '-f', 'source[path]=/'],
+                        capture_output=True, text=True, timeout=15,
+                    )
+                    if r.returncode == 0:
+                        result['pages_url'] = (
+                            f'https://{parts[-2]}.github.io/{parts[-1]}/'
+                        )
+                    else:
+                        sys.stderr.write(
+                            f'Pages API failed: {r.stderr.strip()}\n'
+                        )
+                        result['pages_warning'] = (
+                            'GitHub Pages could not be enabled automatically. '
+                            'Enable it in repo Settings > Pages.'
+                        )
+
+            self.respond(200, result)
+
+        except subprocess.TimeoutExpired:
+            self.respond(504, {
+                'error': 'GitHub request timed out. Try again.'
+            })
+        except Exception as e:
+            self.respond(500, {'error': f'Unexpected error: {e}'})
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def main():
