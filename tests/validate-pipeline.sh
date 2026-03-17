@@ -189,6 +189,27 @@ if grep -q '<style>' "index.html" 2>/dev/null; then
 else
   pass "index.html has no inline styles"
 fi
+# New Project + Create Repo buttons
+if grep -q 'btn-new-project' "index.html" 2>/dev/null; then
+  pass "index.html has New Project button"
+else
+  fail "index.html missing New Project button"
+fi
+if grep -q 'btn-create-repo' "index.html" 2>/dev/null; then
+  pass "index.html has Create Repo button"
+else
+  fail "index.html missing Create Repo button"
+fi
+if grep -q 'create-repo-panel' "index.html" 2>/dev/null; then
+  pass "index.html has Create Repo panel"
+else
+  fail "index.html missing Create Repo panel"
+fi
+if grep -q 'repo-pages' "index.html" 2>/dev/null; then
+  pass "index.html has GitHub Pages checkbox"
+else
+  fail "index.html missing GitHub Pages checkbox"
+fi
 # Backward compat: setup.html and dashboard.html still exist for redirects
 for f in "setup.html" "dashboard.html"; do
   if [ -f "$f" ]; then
@@ -277,6 +298,35 @@ else
       fail "GET /current-config missing $field"
     fi
   done
+
+  # POST /new-project — should return 200 even with nothing to clear
+  # Save spec first so we can restore after the destructive test
+  _saved_spec=""
+  if [ -f "product-spec.md" ]; then _saved_spec=$(cat product-spec.md); fi
+  np_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' "$BASE/new-project")
+  if [ "$np_code" = "200" ]; then
+    pass "POST /new-project returns 200"
+  else
+    fail "POST /new-project returned $np_code (expected 200)"
+  fi
+  # Restore spec so subsequent tests pass
+  if [ -n "$_saved_spec" ]; then echo "$_saved_spec" > product-spec.md; fi
+
+  # POST /create-repo — invalid name returns 400
+  cr_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d '{"repo_name":"invalid name with spaces"}' "$BASE/create-repo")
+  if [ "$cr_code" = "400" ]; then
+    pass "POST /create-repo rejects invalid name (400)"
+  else
+    fail "POST /create-repo returned $cr_code for invalid name (expected 400)"
+  fi
+
+  # POST /create-repo — missing winner output returns 400
+  cr_code2=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d '{"repo_name":"test-repo"}' "$BASE/create-repo")
+  if [ "$cr_code2" = "400" ]; then
+    pass "POST /create-repo rejects when no winner output (400)"
+  else
+    fail "POST /create-repo returned $cr_code2 without winner (expected 400)"
+  fi
 fi
 
 if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true; fi
