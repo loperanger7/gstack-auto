@@ -293,6 +293,7 @@
       outline-offset: 2px;
     }
     .fight-card:focus { outline: none; }
+    .fight-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     @keyframes cardEnter {
       from { opacity: 0; transform: translateY(12px); }
@@ -705,17 +706,12 @@ function validateOddsAPI(raw) {
 // ===================================================
 // COMPUTE
 // ===================================================
-function computeCI(probs) {
-  // Spec: mean = average implied probability, stddev = std dev, 95% CI = mean ± 1.96 × stddev
-  if (!probs.length) return { lo:0.5, hi:0.5, mean:0.5 };
-  var sum=0;
-  for (var i=0;i<probs.length;i++) sum+=probs[i];
-  var mean=sum/probs.length;
-  if (probs.length===1) return { lo:mean, hi:mean, mean:mean };
-  var sqSum=0;
-  for (var j=0;j<probs.length;j++) sqSum+=(probs[j]-mean)*(probs[j]-mean);
-  var stddev=Math.sqrt(sqSum/probs.length);
-  return { lo:clamp(mean-1.96*stddev,0,1), hi:clamp(mean+1.96*stddev,0,1), mean:mean };
+function wilsonCI(p, n) {
+  if (n<=0||p<0||p>1) return { lo:p, hi:p };
+  var z=1.96, z2=z*z;
+  var c=(p+z2/(2*n))/(1+z2/n);
+  var margin=(z/(1+z2/n))*Math.sqrt((p*(1-p)/n)+z2/(4*n*n));
+  return { lo:clamp(c-margin,0,1), hi:clamp(c+margin,0,1) };
 }
 
 function riskTier(p) {
@@ -725,14 +721,7 @@ function riskTier(p) {
        : TIER.UPSET;
 }
 
-function upsetScore(closeness, ciWidth, disagDelta) {
-  // Spec: factors are closeness to 50/50, CI width (wider = more uncertain), source disagreement
-  var closenessFactor = clamp(1 - Math.abs(closeness - 0.5) * 2, 0, 1); // 1 at 50%, 0 at 0% or 100%
-  var ciFactor = clamp(ciWidth * 5, 0, 1); // wider CI = more uncertain
-  var disagFactor = disagDelta !== null ? clamp(disagDelta * 5, 0, 1) : 0; // higher disagreement = more upset potential
-  var raw = closenessFactor * 0.4 + ciFactor * 0.3 + disagFactor * 0.3;
-  return clamp(Math.round(raw * 100), 0, 100);
-}
+function upsetScore(u) { return clamp(Math.round(u*200),0,100); }
 
 function disagreement(a,b) {
   if (a===null||b===null) return { level:'na', delta:null };
@@ -754,27 +743,16 @@ function computeFight(f) {
   var cP2=clamp(1-cP1,0,1);
   var fav1=cP1>=cP2;
   var favP=fav1?cP1:cP2, dogP=fav1?cP2:cP1;
-  var dis=disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null);
-  // Spec-correct CI: mean ± 1.96 × stddev across sources
-  var favProbs=[];
-  if (f.polyP1!=null) favProbs.push(fav1?f.polyP1:clamp(1-f.polyP1,0,1));
-  if (f.oddsP1!=null) favProbs.push(fav1?f.oddsP1:clamp(1-f.oddsP1,0,1));
-  var ci=computeCI(favProbs);
-  // Spec: Upset Alert when CI crosses 50% OR sources disagree significantly with thin margin
-  var ciCrosses50 = ci.lo < 0.5 && ci.hi > 0.5;
-  var thinMarginHighDisagree = dis.level === 'high' && favP < TIER_LEAN_MIN;
-  var tier = (ciCrosses50 || thinMarginHighDisagree) ? TIER.UPSET : riskTier(favP);
-  var ciWidth = ci.hi - ci.lo;
   return {
     id:f.id, f1:f.f1, f2:f.f2,
     favName:fav1?f.f1:f.f2, dogName:fav1?f.f2:f.f1,
     favProb:favP, underdogProb:dogP,
     consensusP1:cP1, consensusP2:cP2,
     americanP1:impliedToAmerican(cP1), americanP2:impliedToAmerican(cP2),
-    ci:ci,
-    tier:tier,
-    upset:upsetScore(dogP, ciWidth, dis.delta),
-    disagree:dis,
+    ci:wilsonCI(favP, probs.length*20),
+    tier:riskTier(favP),
+    upset:upsetScore(dogP),
+    disagree:disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null),
     sources:{ poly:f.polyP1!=null, odds:f.oddsP1!=null },
     polyP1:f.polyP1!=null?f.polyP1:null,
     oddsP1:f.oddsP1!=null?f.oddsP1:null,
@@ -943,7 +921,6 @@ async function fetchOddsAPI(apiKey) {
 // MERGE
 // ===================================================
 function lastName(n) { if(!n)return''; var parts=n.trim().split(/\s+/); return parts[parts.length-1].toLowerCase(); }
-function normName(n) { return (n||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
 function mergeResults(poly, odds) {
   if (!poly) return (odds||[]).map(function(f){return Object.assign({},f);});
@@ -951,22 +928,12 @@ function mergeResults(poly, odds) {
   var used={}, out=[];
   for (var i=0;i<poly.length;i++) {
     var pf=poly[i];
-    var pn1=normName(pf.f1), pn2=normName(pf.f2);
     var pl1=lastName(pf.f1), pl2=lastName(pf.f2);
     var bi=null;
-    // Pass 1: exact full-name match (case-insensitive)
     for (var j=0;j<odds.length;j++) {
       if (used[j]) continue;
-      var on1=normName(odds[j].f1), on2=normName(odds[j].f2);
-      if ((on1===pn1&&on2===pn2)||(on1===pn2&&on2===pn1)){ bi=j; break; }
-    }
-    // Pass 2: last-name match (fallback for name format differences)
-    if (bi===null) {
-      for (var j2=0;j2<odds.length;j2++) {
-        if (used[j2]) continue;
-        var ol1=lastName(odds[j2].f1), ol2=lastName(odds[j2].f2);
-        if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)){ bi=j2; break; }
-      }
+      var ol1=lastName(odds[j].f1), ol2=lastName(odds[j].f2);
+      if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)){ bi=j; break; }
     }
     if (bi!==null) { used[bi]=true; out.push(Object.assign({},pf,{oddsP1:odds[bi].oddsP1,oddsP2:odds[bi].oddsP2,commenceTime:odds[bi].commenceTime||null})); }
     else out.push(Object.assign({},pf,{oddsP1:null,oddsP2:null}));
@@ -1549,18 +1516,16 @@ function runSelfTests() {
   assert('tier 1.0=lock', function(){return riskTier(1.0)===TIER.LOCK;});
   assert('tier 0.0=upset', function(){return riskTier(0.0)===TIER.UPSET;});
 
-  // --- computeCI (4) ---
-  assert('computeCI single source', function(){var ci=computeCI([0.7]);return ci.lo===0.7&&ci.hi===0.7&&ci.mean===0.7;});
-  assert('computeCI two sources', function(){var ci=computeCI([0.7,0.8]);return ci.mean===0.75&&ci.lo<0.75&&ci.hi>0.75;});
-  assert('computeCI clamped', function(){var ci=computeCI([0.01,0.99]);return ci.lo>=0&&ci.hi<=1;});
-  assert('computeCI empty', function(){var ci=computeCI([]);return ci.mean===0.5;});
+  // --- wilsonCI (3) ---
+  assert('wilsonCI range', function(){var ci=wilsonCI(0.7,40);return ci.lo<0.7&&ci.hi>0.7&&ci.lo>=0&&ci.hi<=1;});
+  assert('wilsonCI degenerate', function(){var ci=wilsonCI(0.5,0);return ci.lo===0.5&&ci.hi===0.5;});
+  assert('wilsonCI extremes clamped', function(){var ci=wilsonCI(0.99,2);return ci.lo>=0&&ci.hi<=1;});
 
-  // --- upsetScore 3-factor (5) ---
-  assert('upset near 50/50 high', function(){return upsetScore(0.48, 0.2, 0.1) > 50;});
-  assert('upset heavy fav low', function(){return upsetScore(0.15, 0.02, 0.01) < 30;});
-  assert('upset wide CI increases score', function(){return upsetScore(0.35, 0.3, 0) > upsetScore(0.35, 0.05, 0);});
-  assert('upset high disagree increases score', function(){return upsetScore(0.35, 0.1, 0.15) > upsetScore(0.35, 0.1, 0);});
-  assert('upset clamped 0-100', function(){return upsetScore(0.5, 1, 1) <= 100 && upsetScore(0, 0, 0) >= 0;});
+  // --- upsetScore (4) ---
+  assert('upset 0->0', function(){return upsetScore(0)===0;});
+  assert('upset 0.5->100', function(){return upsetScore(0.5)===100;});
+  assert('upset clamped high', function(){return upsetScore(1)===100;});
+  assert('upset 0.25->50', function(){return upsetScore(0.25)===50;});
 
   // --- disagreement SPEC-EXACT boundary tests (10) ---
   assert('disagree null->na', function(){return disagreement(null,0.5).level==='na';});

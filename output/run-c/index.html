@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://clob.polymarket.com https://api.the-odds-api.com; img-src data:; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://clob.polymarket.com https://api.the-odds-api.com; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'">
   <title>UFC Odds Risk Intel Dashboard</title>
   <style>
     :root {
@@ -22,6 +22,8 @@
       --lean: #3b82f6;
       --tossup: #f59e0b;
       --upset: #ef4444;
+      --fav-color: #10b981;
+      --dog-color: #f97316;
       --radius: 8px;
       --radius-sm: 4px;
     }
@@ -36,22 +38,6 @@
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-
-    /* Skip-to-content link */
-    .skip-link {
-      position: absolute;
-      top: -40px;
-      left: 0;
-      background: var(--accent);
-      color: #000;
-      padding: 8px 16px;
-      z-index: 200;
-      font-weight: 600;
-      font-size: 0.85rem;
-      border-radius: 0 0 var(--radius-sm) 0;
-      transition: top 0.2s;
-    }
-    .skip-link:focus { top: 0; }
 
     /* Layout */
     .page { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
@@ -94,12 +80,6 @@
     .btn-danger:hover { background: rgba(239,68,68,0.1); }
     .btn[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
-    /* Focus-visible for keyboard navigation */
-    .btn:focus-visible, .key-panel input:focus-visible, .banner-close:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
     /* API Key Panel */
     .key-panel {
       background: var(--surface);
@@ -129,7 +109,6 @@
     }
     .key-panel input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
     .key-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
-    .key-error { font-size: 0.75rem; color: var(--danger); margin-top: 4px; display: none; }
 
     /* Banners */
     .banner {
@@ -161,20 +140,67 @@
     .banner-close:hover { opacity: 1; }
     #banners { margin-bottom: 8px; }
 
-    /* Offline banner */
-    .offline-banner {
-      background: rgba(239,68,68,0.12);
-      border: 1px solid var(--danger);
-      color: var(--danger);
-      padding: 8px 14px;
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
-      font-weight: 600;
-      text-align: center;
-      margin-bottom: 10px;
-      display: none;
+    /* Fight Spotlight */
+    .spotlight-section { margin-bottom: 20px; }
+    .spotlight-card {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      animation: spotlightPulse 3s ease-in-out infinite;
     }
-    .offline-banner.visible { display: block; }
+    .spotlight-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-glow), transparent 70%);
+      pointer-events: none;
+    }
+    .spotlight-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .spotlight-matchup {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .spotlight-reason {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .spotlight-stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .spotlight-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .spotlight-stat-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .spotlight-stat-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    }
+    @keyframes spotlightPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(16,185,129,0.1); }
+      50% { box-shadow: 0 0 30px rgba(16,185,129,0.2); }
+    }
 
     /* Summary strip */
     .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
@@ -202,6 +228,32 @@
     .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
     .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
 
+    /* Event group header */
+    .event-group-header {
+      grid-column: 1 / -1;
+      padding: 8px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .event-group-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .event-group-count {
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 6px;
+    }
+
     /* Fight Grid */
     .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
     .fight-card {
@@ -216,12 +268,31 @@
       opacity: 0;
       transform: translateY(12px);
       animation: cardEnter 0.35s ease-out forwards;
+      position: relative;
     }
-    .fight-card:hover { border-color: var(--muted); box-shadow: 0 2px 12px rgba(0,0,0,0.2); transform: translateY(-1px); }
+    .fight-card:hover { border-color: var(--muted); transform: translateY(-1px); }
     .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
     .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
     .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
     .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
+
+    /* Tier-based card glow on hover */
+    .fight-card[data-tier="lock"]:hover   { box-shadow: 0 0 16px rgba(16,185,129,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="lean"]:hover   { box-shadow: 0 0 16px rgba(59,130,246,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="tossup"]:hover { box-shadow: 0 0 16px rgba(245,158,11,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="upset"]:hover  { box-shadow: 0 0 20px rgba(239,68,68,0.25), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="upset"]        { animation: cardEnter 0.35s ease-out forwards, upsetPulse 2.5s ease-in-out 0.4s infinite; }
+    @keyframes upsetPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(239,68,68,0); }
+      50% { box-shadow: 0 0 12px rgba(239,68,68,0.15); }
+    }
+
+    /* Focus ring for keyboard nav */
+    .fight-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .fight-card:focus { outline: none; }
 
     @keyframes cardEnter {
       from { opacity: 0; transform: translateY(12px); }
@@ -243,6 +314,9 @@
     .fight-matchup { flex: 1; }
     .fighter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .fighter-name { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+    .fighter-name-fav { color: var(--fav-color); font-weight: 700; }
+    .fighter-name-dog { color: var(--dog-color); font-weight: 500; }
+    .fighter-name-even { color: var(--muted); font-weight: 500; }
     .fighter-prob { margin-left: auto; font-size: 0.85rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
     .fighter-odds { margin-left: 6px; font-size: 0.72rem; color: var(--muted); flex-shrink: 0; font-weight: 500; }
     .vs-divider { font-size: 0.65rem; color: var(--muted); padding: 0 4px; }
@@ -260,12 +334,42 @@
     .meter-value { color: var(--text); font-weight: 600; }
     .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
-    .upset-warning { font-size: 0.72rem; color: var(--danger); font-weight: 600; margin-top: 2px; animation: pulse 2s ease-in-out infinite; }
+
+    /* CSS-based upset warning indicator (replaces emoji) */
+    .upset-warning {
+      font-size: 0.72rem;
+      color: var(--danger);
+      font-weight: 600;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .upset-warning-icon {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--danger);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .upset-warning-icon::before {
+      content: '!';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+    }
     @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
-    .merge-confidence { font-size: 0.65rem; color: var(--warn); font-style: italic; margin-top: 2px; }
-
-    .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); }
+    /* Source detail popover */
+    .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); cursor: pointer; position: relative; }
     .disagree-level { font-weight: 600; }
     .disagree-low  { color: var(--accent); }
     .disagree-med  { color: var(--warn); }
@@ -278,6 +382,37 @@
     }
     .source-tag-ok  { border-color: var(--accent); color: var(--accent); }
     .source-tag-err { border-color: var(--danger); color: var(--danger); opacity: 0.7; }
+
+    .source-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      z-index: 20;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      animation: popoverIn 0.15s ease-out;
+    }
+    .source-popover.visible { display: block; }
+    @keyframes popoverIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .source-popover-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .source-popover-row:last-child { border-bottom: none; }
+    .source-popover-name { color: var(--muted); }
+    .source-popover-value { font-weight: 600; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+    .source-popover-note { color: var(--muted); font-style: italic; font-size: 0.65rem; margin-top: 4px; }
+
+    /* Focus-within shows popover for keyboard users */
+    .disagree-row:focus-within .source-popover { display: block; }
 
     .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--muted); }
     .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -319,13 +454,16 @@
     .selftest-pass { color: var(--accent); }
     .selftest-fail { color: var(--danger); font-weight: 600; }
 
-    /* Reduced motion */
+    /* prefers-reduced-motion: disable all animations */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
+      .fight-card { opacity: 1; transform: none; }
+      .fight-card[data-tier="upset"] { box-shadow: 0 0 0 1px var(--upset); }
+      .spotlight-card { box-shadow: 0 0 0 2px var(--accent); }
     }
 
     /* Responsive */
@@ -350,17 +488,13 @@
   </style>
 </head>
 <body>
-<a href="#fightGrid" class="skip-link">Skip to fight cards</a>
 <div class="page">
-  <div id="offlineBanner" class="offline-banner" role="alert" aria-live="assertive">
-    You are offline. Showing cached data if available.
-  </div>
   <header>
     <div>
       <span class="logo">UFC Odds Risk Intel<span class="logo-sub">Dashboard</span></span>
     </div>
     <div class="header-meta">
-      <span class="quota-badge hidden" id="quotaBadge" title="Odds API requests remaining" aria-label="API quota remaining"></span>
+      <span class="quota-badge hidden" id="quotaBadge" title="Odds API requests remaining"></span>
       <span class="last-updated hidden" id="lastUpdated"></span>
       <button class="btn" id="refreshBtn" type="button">Refresh</button>
     </div>
@@ -369,9 +503,8 @@
   <div class="key-panel">
     <div>
       <label for="apiKeyInput">The Odds API Key <span style="color:var(--muted)">(optional)</span></label>
-      <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="new-password" spellcheck="false" maxlength="200" aria-describedby="keyHint keyError">
-      <div class="key-hint" id="keyHint">Stored in localStorage only, never logged. Without it, Polymarket data only.</div>
-      <div class="key-error" id="keyError" role="alert" aria-live="polite"></div>
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="new-password" spellcheck="false" maxlength="200">
+      <div class="key-hint">Stored in localStorage only, never logged. Without it, Polymarket data only.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-accent" id="applyKeyBtn" type="button">Apply Key</button>
@@ -381,38 +514,40 @@
 
   <div id="banners" role="status" aria-live="polite"></div>
 
+  <div id="spotlightSection" class="spotlight-section hidden"></div>
+
   <div class="summary-strip">
     <div class="summary-card">
-      <div class="summary-title" id="safestTitle">Safest Bets</div>
+      <div class="summary-title">Safest Bets</div>
       <div class="loading-state" id="safestLoading" style="padding:20px 0;">
-        <div class="spinner" style="width:18px;height:18px;border-width:2px;" role="status" aria-label="Loading safest bets"></div>
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
       </div>
-      <ul class="summary-list hidden" id="safestList" role="list" aria-labelledby="safestTitle"></ul>
+      <ul class="summary-list hidden" id="safestList" role="list"></ul>
       <p class="summary-empty hidden" id="safestEmpty">No lock-tier fights found.</p>
     </div>
     <div class="summary-card">
-      <div class="summary-title" id="upsetTitle">Upset Watch</div>
+      <div class="summary-title">Upset Watch</div>
       <div class="loading-state" id="upsetLoading" style="padding:20px 0;">
-        <div class="spinner" style="width:18px;height:18px;border-width:2px;" role="status" aria-label="Loading upset watch"></div>
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
       </div>
-      <ul class="summary-list hidden" id="upsetList" role="list" aria-labelledby="upsetTitle"></ul>
+      <ul class="summary-list hidden" id="upsetList" role="list"></ul>
       <p class="summary-empty hidden" id="upsetEmpty">No high-upset-potential fights found.</p>
     </div>
   </div>
 
   <div class="section-header">
-    <span class="section-title" id="fightCardsTitle">Fight Cards</span>
-    <span class="count-badge hidden" id="fightCount" aria-label="Number of fights"></span>
+    <span class="section-title">Fight Cards</span>
+    <span class="count-badge hidden" id="fightCount"></span>
   </div>
-  <div id="fightGrid" class="fight-grid" role="list" aria-labelledby="fightCardsTitle">
+  <div id="fightGrid" class="fight-grid" role="list">
     <div class="loading-state" id="mainLoading" style="grid-column:1/-1;">
-      <div class="spinner" role="status" aria-label="Loading fight data"></div>
+      <div class="spinner"></div>
       <span class="loading-text">Fetching live odds&hellip;</span>
     </div>
   </div>
-  <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;" aria-hidden="true"></div>
+  <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;"></div>
 </div>
-<div class="selftest-bar hidden" id="selftestBar" role="status" aria-label="Self-test results"></div>
+<div class="selftest-bar hidden" id="selftestBar"></div>
 
 <script>
 'use strict';
@@ -435,9 +570,6 @@ var TIER               = { LOCK:'lock', LEAN:'lean', TOSSUP:'tossup', UPSET:'ups
 var BANNER_AUTO_DISMISS_MS = 12000;
 var POLY_MAX_PAGES     = 3;
 var POLY_PAGE_SIZE     = 50;
-var API_KEY_PATTERN    = /^[0-9a-fA-F]{32}$/;
-var RETRY_DELAY_MS     = 2000;
-var MAX_RETRIES        = 1;
 
 // Spec-exact thresholds
 var DISAGREE_LOW_MAX   = 0.03;  // <3% = Strong Consensus
@@ -451,6 +583,9 @@ var TIER_TOSSUP_MIN    = 0.45;  // 45-59% = Toss-Up
 
 var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
 
+// Touch detection
+var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
 // ===================================================
 // SAFE GUARDS
 // ===================================================
@@ -460,18 +595,7 @@ function clamp(v,lo,hi){ var n=safeNum(v); return n===null?lo:Math.max(lo,Math.m
 function sanitize(s) { if(typeof s!=='string')return'Unknown'; return s.replace(/[\x00-\x1f\x7f]/g,'').trim().slice(0,100)||'Unknown'; }
 
 // ===================================================
-// DJB2 HASH (cache integrity)
-// ===================================================
-function djb2(str) {
-  var hash = 5381;
-  for (var i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) & 0xFFFFFFFF;
-  }
-  return hash.toString(36);
-}
-
-// ===================================================
-// CACHE (with checksum integrity)
+// CACHE
 // ===================================================
 var cache = (function() {
   var avail = null;
@@ -483,21 +607,8 @@ var cache = (function() {
   }
   function write(key, data) {
     if (!ok()) return;
-    var payload = JSON.stringify(data);
-    var checksum = djb2(payload);
-    var entry = JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), checksum:checksum, data:data });
-    try {
-      sessionStorage.setItem(key, entry);
-    } catch(e) {
-      // QuotaExceededError — clear all and retry once
-      if (e && e.name === 'QuotaExceededError') {
-        try {
-          sessionStorage.removeItem(POLY_CACHE_KEY);
-          sessionStorage.removeItem(ODDS_CACHE_KEY);
-          sessionStorage.setItem(key, entry);
-        } catch(e2) { /* give up, continue without cache */ }
-      }
-    }
+    try { sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data })); }
+    catch(e){}
   }
   function read(key) {
     if (!ok()) return null;
@@ -507,31 +618,16 @@ var cache = (function() {
     if (!entry||typeof entry!=='object'||entry.version!==CACHE_VERSION) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
     var ts=safeNum(entry.ts); var now=Date.now();
     if (ts===null||ts>now||now-ts>CACHE_TTL_MS) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
-    // Checksum verification
-    if (entry.checksum) {
-      var payload = JSON.stringify(entry.data);
-      if (djb2(payload) !== entry.checksum) {
-        try{sessionStorage.removeItem(key);}catch(e2){}
-        return null;
-      }
-    }
     return entry.data!==undefined?entry.data:null;
   }
   function remove(key) { if(!ok())return; try{sessionStorage.removeItem(key);}catch(e){} }
   function clearAll() { remove(POLY_CACHE_KEY); remove(ODDS_CACHE_KEY); }
-  return { write:write, read:read, remove:remove, clearAll:clearAll, _ok:ok };
+  return { write:write, read:read, remove:remove, clearAll:clearAll };
 })();
 
 // ===================================================
 // VALIDATORS
 // ===================================================
-function validateApiKeyFormat(key) {
-  if (typeof key !== 'string') return false;
-  var trimmed = key.trim();
-  if (!trimmed) return false;
-  return API_KEY_PATTERN.test(trimmed);
-}
-
 function parsePolyPage(raw) {
   if (!raw||typeof raw!=='object'||!Array.isArray(raw.data)) return null;
   var fights=[];
@@ -578,6 +674,7 @@ function validateOddsAPI(raw) {
     if (!home||!away) continue;
     if (!Array.isArray(ev.bookmakers)||!ev.bookmakers.length) continue;
     var sh=0,sa=0,cnt=0;
+    var commenceTime=safeStr(ev.commence_time)||null;
     for (var b=0;b<ev.bookmakers.length;b++) {
       var bk=ev.bookmakers[b];
       if (!bk||!Array.isArray(bk.markets)) continue;
@@ -600,7 +697,7 @@ function validateOddsAPI(raw) {
     }
     if (!cnt) continue;
     var fid=safeStr(ev.id||'')||('odds-'+fights.length);
-    fights.push({ id:fid, f1:sanitize(home), f2:sanitize(away), oddsP1:clamp(sh/cnt,0,1), oddsP2:clamp(sa/cnt,0,1) });
+    fights.push({ id:fid, f1:sanitize(home), f2:sanitize(away), oddsP1:clamp(sh/cnt,0,1), oddsP2:clamp(sa/cnt,0,1), commenceTime:commenceTime });
   }
   return fights;
 }
@@ -608,12 +705,17 @@ function validateOddsAPI(raw) {
 // ===================================================
 // COMPUTE
 // ===================================================
-function wilsonCI(p, n) {
-  if (n<=0||p<0||p>1) return { lo:p, hi:p };
-  var z=1.96, z2=z*z;
-  var c=(p+z2/(2*n))/(1+z2/n);
-  var margin=(z/(1+z2/n))*Math.sqrt((p*(1-p)/n)+z2/(4*n*n));
-  return { lo:clamp(c-margin,0,1), hi:clamp(c+margin,0,1) };
+function computeCI(probs) {
+  // Spec: mean = average implied probability, stddev = std dev, 95% CI = mean ± 1.96 × stddev
+  if (!probs.length) return { lo:0.5, hi:0.5, mean:0.5 };
+  var sum=0;
+  for (var i=0;i<probs.length;i++) sum+=probs[i];
+  var mean=sum/probs.length;
+  if (probs.length===1) return { lo:mean, hi:mean, mean:mean };
+  var sqSum=0;
+  for (var j=0;j<probs.length;j++) sqSum+=(probs[j]-mean)*(probs[j]-mean);
+  var stddev=Math.sqrt(sqSum/probs.length);
+  return { lo:clamp(mean-1.96*stddev,0,1), hi:clamp(mean+1.96*stddev,0,1), mean:mean };
 }
 
 function riskTier(p) {
@@ -623,7 +725,14 @@ function riskTier(p) {
        : TIER.UPSET;
 }
 
-function upsetScore(u) { return clamp(Math.round(u*200),0,100); }
+function upsetScore(closeness, ciWidth, disagDelta) {
+  // Spec: factors are closeness to 50/50, CI width (wider = more uncertain), source disagreement
+  var closenessFactor = clamp(1 - Math.abs(closeness - 0.5) * 2, 0, 1); // 1 at 50%, 0 at 0% or 100%
+  var ciFactor = clamp(ciWidth * 5, 0, 1); // wider CI = more uncertain
+  var disagFactor = disagDelta !== null ? clamp(disagDelta * 5, 0, 1) : 0; // higher disagreement = more upset potential
+  var raw = closenessFactor * 0.4 + ciFactor * 0.3 + disagFactor * 0.3;
+  return clamp(Math.round(raw * 100), 0, 100);
+}
 
 function disagreement(a,b) {
   if (a===null||b===null) return { level:'na', delta:null };
@@ -645,57 +754,106 @@ function computeFight(f) {
   var cP2=clamp(1-cP1,0,1);
   var fav1=cP1>=cP2;
   var favP=fav1?cP1:cP2, dogP=fav1?cP2:cP1;
+  var dis=disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null);
+  // Spec-correct CI: mean ± 1.96 × stddev across sources
+  var favProbs=[];
+  if (f.polyP1!=null) favProbs.push(fav1?f.polyP1:clamp(1-f.polyP1,0,1));
+  if (f.oddsP1!=null) favProbs.push(fav1?f.oddsP1:clamp(1-f.oddsP1,0,1));
+  var ci=computeCI(favProbs);
+  // Spec: Upset Alert when CI crosses 50% OR sources disagree significantly with thin margin
+  var ciCrosses50 = ci.lo < 0.5 && ci.hi > 0.5;
+  var thinMarginHighDisagree = dis.level === 'high' && favP < TIER_LEAN_MIN;
+  var tier = (ciCrosses50 || thinMarginHighDisagree) ? TIER.UPSET : riskTier(favP);
+  var ciWidth = ci.hi - ci.lo;
   return {
     id:f.id, f1:f.f1, f2:f.f2,
     favName:fav1?f.f1:f.f2, dogName:fav1?f.f2:f.f1,
     favProb:favP, underdogProb:dogP,
     consensusP1:cP1, consensusP2:cP2,
     americanP1:impliedToAmerican(cP1), americanP2:impliedToAmerican(cP2),
-    ci:wilsonCI(favP, probs.length*20),
-    tier:riskTier(favP),
-    upset:upsetScore(dogP),
-    disagree:disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null),
+    ci:ci,
+    tier:tier,
+    upset:upsetScore(dogP, ciWidth, dis.delta),
+    disagree:dis,
     sources:{ poly:f.polyP1!=null, odds:f.oddsP1!=null },
-    mergeConfidence:f._mergeConfidence||'high'
+    polyP1:f.polyP1!=null?f.polyP1:null,
+    oddsP1:f.oddsP1!=null?f.oddsP1:null,
+    commenceTime:f.commenceTime||null
   };
 }
 
 // ===================================================
-// FETCH — retry wrapper with AbortController lifecycle
+// SPOTLIGHT — pick the most interesting fight
 // ===================================================
-var _activeController = null;
-
-function fetchWithRetry(url, opts, retryOn5xx) {
-  var attempts = 0;
-  var maxAttempts = retryOn5xx ? (1 + MAX_RETRIES) : 1;
-
-  function attempt() {
-    attempts++;
-    return fetch(url, opts).then(function(resp) {
-      if (retryOn5xx && resp.status >= 500 && attempts < maxAttempts) {
-        return new Promise(function(resolve) {
-          setTimeout(function() { resolve(attempt()); }, RETRY_DELAY_MS);
-        });
-      }
-      return resp;
-    }, function(err) {
-      // Network error — retry if allowed
-      if (retryOn5xx && attempts < maxAttempts && !(err && err.name === 'AbortError')) {
-        return new Promise(function(resolve) {
-          setTimeout(function() { resolve(attempt()); }, RETRY_DELAY_MS);
-        });
-      }
-      throw err;
-    });
+function identifySpotlight(computed) {
+  if (!computed.length) return null;
+  // Priority 1: Upset Alert with highest disagreement
+  var upsets = computed.filter(function(f){ return f.tier === TIER.UPSET; });
+  if (upsets.length) {
+    upsets.sort(function(a,b){ return b.upset - a.upset; });
+    return { fight: upsets[0], reason: 'Upset Alert — the underdog has a real shot' };
   }
+  // Priority 2: Highest disagreement across all fights
+  var withDis = computed.filter(function(f){ return f.disagree.delta !== null; });
+  if (withDis.length) {
+    withDis.sort(function(a,b){ return (b.disagree.delta||0) - (a.disagree.delta||0); });
+    if (withDis[0].disagree.delta > 0.03) {
+      return { fight: withDis[0], reason: 'Books disagree most on this fight' };
+    }
+  }
+  // Priority 3: Lock with lowest favProb (closest to dropping tier)
+  var locks = computed.filter(function(f){ return f.tier === TIER.LOCK; });
+  if (locks.length) {
+    locks.sort(function(a,b){ return a.favProb - b.favProb; });
+    return { fight: locks[0], reason: 'Closest lock to the lean line' };
+  }
+  // Fallback: first fight
+  return { fight: computed[0], reason: 'Featured fight' };
+}
 
-  return attempt();
+// ===================================================
+// EVENT GROUPING — cluster fights by commence_time
+// ===================================================
+function groupByEvent(computed) {
+  var hasDate = computed.some(function(f){ return f.commenceTime; });
+  if (!hasDate) {
+    // Check if only poly data (no dates)
+    var allPoly = computed.every(function(f){ return !f.sources.odds; });
+    return [{ name: allPoly ? 'UFC Markets' : 'Upcoming UFC', fights: computed }];
+  }
+  // Group by date (YYYY-MM-DD from commence_time)
+  var groups = {};
+  var order = [];
+  for (var i = 0; i < computed.length; i++) {
+    var f = computed[i];
+    var dateKey = f.commenceTime ? f.commenceTime.slice(0, 10) : 'unknown';
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+      order.push(dateKey);
+    }
+    groups[dateKey].push(f);
+  }
+  order.sort();
+  return order.map(function(key) {
+    var label = key === 'unknown' ? 'Upcoming UFC' : formatEventDate(key);
+    return { name: label, fights: groups[key] };
+  });
+}
+
+function formatEventDate(isoDate) {
+  try {
+    var d = new Date(isoDate + 'T00:00:00Z');
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return 'UFC — ' + months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+  } catch(e) {
+    return 'Upcoming UFC';
+  }
 }
 
 // ===================================================
 // FETCH - Polymarket with pagination
 // ===================================================
-async function fetchPolymarket(signal) {
+async function fetchPolymarket() {
   var cached=cache.read(POLY_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, fromCache:true };
 
@@ -703,34 +861,19 @@ async function fetchPolymarket(signal) {
   var cursor=null;
 
   for (var page=0; page<POLY_MAX_PAGES; page++) {
-    var timer; var timerCtrl=new AbortController();
-    // Chain our abort with the parent signal
-    if (signal && signal.aborted) return { fights:null, error:'Request cancelled' };
-    timer=setTimeout(function(){timerCtrl.abort();},FETCH_TIMEOUT_MS);
-
-    // Create a combined signal: abort if either parent or timeout fires
-    var fetchSignal = timerCtrl.signal;
-    if (signal) {
-      var onAbort = function(){ timerCtrl.abort(); };
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
-
+    var ctrl=new AbortController();
+    var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
     try {
       var params=new URLSearchParams({ tag_slug:'ufc', active:'true', limit:String(POLY_PAGE_SIZE) });
       if (cursor) params.set('next_cursor', cursor);
 
       var resp;
       try {
-        resp=await fetchWithRetry(POLY_BASE+'/markets?'+params,
-          { signal:fetchSignal, headers:{'Accept':'application/json'} }, true);
+        resp=await fetch(POLY_BASE+'/markets?'+params,
+          { signal:ctrl.signal, headers:{'Accept':'application/json'} });
       } catch(e) {
-        if (e && e.name === 'AbortError') {
-          if (signal && signal.aborted) return { fights:null, error:null }; // silently discard
-          if (allFights.length) break;
-          return { fights:null, error:'Polymarket timed out (>8s)' };
-        }
         if (allFights.length) break;
-        return { fights:null, error:'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
+        return { fights:null, error:e&&e.name==='AbortError'?'Polymarket timed out (>8s)':'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
       }
       if (!resp.ok) {
         if (allFights.length) break;
@@ -768,31 +911,20 @@ async function fetchPolymarket(signal) {
   return { fights:deduped, error:null, fromCache:false };
 }
 
-async function fetchOddsAPI(apiKey, signal) {
+async function fetchOddsAPI(apiKey) {
   var key=typeof apiKey==='string'?apiKey.trim():'';
   if (!key) return { fights:null, error:'No API key', quotaRemaining:null };
   var cached=cache.read(ODDS_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, quotaRemaining:null, fromCache:true };
-
-  var timerCtrl=new AbortController();
-  if (signal && signal.aborted) return { fights:null, error:null, quotaRemaining:null };
-  var timer=setTimeout(function(){timerCtrl.abort();},FETCH_TIMEOUT_MS);
-
-  if (signal) {
-    signal.addEventListener('abort', function(){ timerCtrl.abort(); }, { once: true });
-  }
-
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
   try {
     var p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', bookmakers:'draftkings,fanduel' });
     var resp;
     try {
-      resp=await fetchWithRetry(ODDS_BASE+'/?'+p,{ signal:timerCtrl.signal, headers:{'Accept':'application/json'} }, true);
+      resp=await fetch(ODDS_BASE+'/?'+p,{ signal:ctrl.signal, headers:{'Accept':'application/json'} });
     } catch(e) {
-      if (e && e.name === 'AbortError') {
-        if (signal && signal.aborted) return { fights:null, error:null, quotaRemaining:null };
-        return { fights:null, error:'Odds API timed out (>8s)', quotaRemaining:null };
-      }
-      return { fights:null, error:'Odds API network error: '+String(e&&e.message||e).slice(0,120), quotaRemaining:null };
+      return { fights:null, error:e&&e.name==='AbortError'?'Odds API timed out (>8s)':'Odds API network error: '+String(e&&e.message||e).slice(0,120), quotaRemaining:null };
     }
     var qr=resp.headers.get('x-requests-remaining');
     var quota=qr!==null?parseInt(qr,10):null;
@@ -808,56 +940,38 @@ async function fetchOddsAPI(apiKey, signal) {
 }
 
 // ===================================================
-// MERGE (improved: full-name first, then last-name with disambiguation)
+// MERGE
 // ===================================================
 function lastName(n) { if(!n)return''; var parts=n.trim().split(/\s+/); return parts[parts.length-1].toLowerCase(); }
-function fullName(n) { return (n||'').trim().toLowerCase(); }
+function normName(n) { return (n||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
 function mergeResults(poly, odds) {
   if (!poly) return (odds||[]).map(function(f){return Object.assign({},f);});
   if (!odds) return poly.map(function(f){return Object.assign({},f);});
   var used={}, out=[];
-
   for (var i=0;i<poly.length;i++) {
     var pf=poly[i];
-    var pf1=fullName(pf.f1), pf2=fullName(pf.f2);
+    var pn1=normName(pf.f1), pn2=normName(pf.f2);
+    var pl1=lastName(pf.f1), pl2=lastName(pf.f2);
     var bi=null;
-    var confidence='high';
-
-    // Pass 1: full-name match (highest confidence)
+    // Pass 1: exact full-name match (case-insensitive)
     for (var j=0;j<odds.length;j++) {
       if (used[j]) continue;
-      var of1=fullName(odds[j].f1), of2=fullName(odds[j].f2);
-      if ((of1===pf1&&of2===pf2)||(of1===pf2&&of2===pf1)){ bi=j; confidence='high'; break; }
+      var on1=normName(odds[j].f1), on2=normName(odds[j].f2);
+      if ((on1===pn1&&on2===pn2)||(on1===pn2&&on2===pn1)){ bi=j; break; }
     }
-
-    // Pass 2: last-name match with disambiguation
+    // Pass 2: last-name match (fallback for name format differences)
     if (bi===null) {
-      var pl1=lastName(pf.f1), pl2=lastName(pf.f2);
-      var candidates=[];
-      for (var k=0;k<odds.length;k++) {
-        if (used[k]) continue;
-        var ol1=lastName(odds[k].f1), ol2=lastName(odds[k].f2);
-        if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)) candidates.push(k);
-      }
-      if (candidates.length===1) {
-        bi=candidates[0];
-        confidence='medium';
-      } else if (candidates.length>1) {
-        // Multiple last-name matches — ambiguous, flag low confidence, pick first
-        bi=candidates[0];
-        confidence='low';
+      for (var j2=0;j2<odds.length;j2++) {
+        if (used[j2]) continue;
+        var ol1=lastName(odds[j2].f1), ol2=lastName(odds[j2].f2);
+        if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)){ bi=j2; break; }
       }
     }
-
-    if (bi!==null) {
-      used[bi]=true;
-      out.push(Object.assign({},pf,{oddsP1:odds[bi].oddsP1,oddsP2:odds[bi].oddsP2,_mergeConfidence:confidence}));
-    } else {
-      out.push(Object.assign({},pf,{oddsP1:null,oddsP2:null,_mergeConfidence:'high'}));
-    }
+    if (bi!==null) { used[bi]=true; out.push(Object.assign({},pf,{oddsP1:odds[bi].oddsP1,oddsP2:odds[bi].oddsP2,commenceTime:odds[bi].commenceTime||null})); }
+    else out.push(Object.assign({},pf,{oddsP1:null,oddsP2:null}));
   }
-  for (var m=0;m<odds.length;m++) { if(!used[m]) out.push(Object.assign({},odds[m],{polyP1:null,polyP2:null,_mergeConfidence:'high'})); }
+  for (var k=0;k<odds.length;k++) { if(!used[k]) out.push(Object.assign({},odds[k],{polyP1:null,polyP2:null})); }
   return out;
 }
 
@@ -869,8 +983,10 @@ var bannersEl=$('banners'), fightGridEl=$('fightGrid'), mainLoadEl=$('mainLoadin
     fightCountEl=$('fightCount'), safestListEl=$('safestList'), safestEmptyEl=$('safestEmpty'),
     safestLoadEl=$('safestLoading'), upsetListEl=$('upsetList'), upsetEmptyEl=$('upsetEmpty'),
     upsetLoadEl=$('upsetLoading'), lastUpdEl=$('lastUpdated'), quotaBadgeEl=$('quotaBadge'),
-    skeletonGridEl=$('skeletonGrid'), offlineBannerEl=$('offlineBanner'),
-    keyErrorEl=$('keyError');
+    skeletonGridEl=$('skeletonGrid'), spotlightEl=$('spotlightSection');
+
+// Track open popovers globally for dismiss
+var activePopover = null;
 
 function clearBanners() { while(bannersEl.firstChild)bannersEl.removeChild(bannersEl.firstChild); }
 
@@ -907,9 +1023,6 @@ function pct(p) { return Math.round(p*100)+'%'; }
 function makeBar(prob,tier) {
   var cm={lock:'var(--lock)',lean:'var(--lean)',tossup:'var(--tossup)',upset:'var(--upset)'};
   var w=document.createElement('div'); w.className='prob-bar-wrap';
-  w.setAttribute('role','meter'); w.setAttribute('aria-valuenow', Math.round(prob*100));
-  w.setAttribute('aria-valuemin','0'); w.setAttribute('aria-valuemax','100');
-  w.setAttribute('aria-label','Win probability');
   var f=document.createElement('div'); f.className='prob-bar-fill';
   f.style.width=pct(clamp(prob,0,1)); f.style.background=cm[tier]||'var(--accent)';
   w.appendChild(f); return w;
@@ -917,11 +1030,8 @@ function makeBar(prob,tier) {
 
 function makeCIBar(ci,favP) {
   var row=document.createElement('div'); row.className='ci-row';
-  row.setAttribute('aria-label','95% confidence interval from '+pct(ci.lo)+' to '+pct(ci.hi));
   var lo=document.createElement('span'); lo.textContent=pct(ci.lo); row.appendChild(lo);
   var tr=document.createElement('div'); tr.className='ci-track'; tr.style.flex='1';
-  tr.setAttribute('role','meter'); tr.setAttribute('aria-valuenow', Math.round(favP*100));
-  tr.setAttribute('aria-valuemin', Math.round(ci.lo*100)); tr.setAttribute('aria-valuemax', Math.round(ci.hi*100));
   var fl=document.createElement('div'); fl.className='ci-fill';
   fl.style.left=(clamp(ci.lo,0,1)*100)+'%'; fl.style.width=((clamp(ci.hi,0,1)-clamp(ci.lo,0,1))*100)+'%';
   tr.appendChild(fl);
@@ -939,27 +1049,60 @@ function makeMeter(u, dogName) {
   var rv=document.createElement('span'); rv.className='meter-value'; rv.textContent=String(clamp(u,0,100)); lr.appendChild(rv);
   w.appendChild(lr);
   var tr=document.createElement('div'); tr.className='meter-track';
-  tr.setAttribute('role','meter'); tr.setAttribute('aria-valuenow', clamp(u,0,100));
-  tr.setAttribute('aria-valuemin','0'); tr.setAttribute('aria-valuemax','100');
-  tr.setAttribute('aria-label','Upset potential meter');
   var fl=document.createElement('div'); fl.className='meter-fill'; fl.style.width=clamp(u,0,100)+'%';
   var pct100=clamp(u,0,100); fl.style.background=pct100<30?'var(--lock)':pct100<60?'var(--warn)':'var(--danger)';
   tr.appendChild(fl); w.appendChild(tr);
 
-  // Upset warning when meter >= 50
+  // Upset warning when meter >= 50 (CSS-based icon instead of emoji)
   if (pct100>=UPSET_WARN_THRESHOLD && dogName) {
     var warn=document.createElement('div');
     warn.className='upset-warning';
-    warn.setAttribute('role','alert');
-    warn.textContent='\u26A0\uFE0F ' + sanitize(dogName) + ' can win this';
+    var icon=document.createElement('span');
+    icon.className='upset-warning-icon';
+    icon.setAttribute('aria-hidden','true');
+    warn.appendChild(icon);
+    var txt=document.createElement('span');
+    txt.textContent=sanitize(dogName) + ' can win this';
+    warn.appendChild(txt);
     w.appendChild(warn);
   }
 
   return w;
 }
 
-function makeDisagreeRow(dis,sources) {
+function makeSourcePopover(c) {
+  var pop=document.createElement('div');
+  pop.className='source-popover';
+  pop.setAttribute('role','tooltip');
+
+  if (c.sources.poly) {
+    var r1=document.createElement('div'); r1.className='source-popover-row';
+    var n1=document.createElement('span'); n1.className='source-popover-name'; n1.textContent='Polymarket'; r1.appendChild(n1);
+    var v1=document.createElement('span'); v1.className='source-popover-value'; v1.textContent=pct(c.polyP1 != null ? c.polyP1 : 0); r1.appendChild(v1);
+    pop.appendChild(r1);
+  }
+  if (c.sources.odds) {
+    var r2=document.createElement('div'); r2.className='source-popover-row';
+    var n2=document.createElement('span'); n2.className='source-popover-name'; n2.textContent='Odds API (DK/FD)'; r2.appendChild(n2);
+    var v2=document.createElement('span'); v2.className='source-popover-value'; v2.textContent=pct(c.oddsP1 != null ? c.oddsP1 : 0); r2.appendChild(v2);
+    pop.appendChild(r2);
+  }
+
+  var sourceCount = (c.sources.poly ? 1 : 0) + (c.sources.odds ? 1 : 0);
+  if (sourceCount === 1) {
+    var note=document.createElement('div');
+    note.className='source-popover-note';
+    note.textContent='Single source — no cross-validation available';
+    pop.appendChild(note);
+  }
+
+  return pop;
+}
+
+function makeDisagreeRow(dis,sources,fightData) {
   var row=document.createElement('div'); row.className='disagree-row';
+  row.setAttribute('tabindex','0');
+  row.setAttribute('aria-label','Source agreement details. Activate to show breakdown.');
   var left=document.createElement('div'); left.style.cssText='display:flex;flex-direction:column;gap:2px;';
   var lm={low:'Strong Consensus',med:'Some Disagreement',high:'Books Disagree Significantly',na:'Single Source'};
   var lc={low:'disagree-low',med:'disagree-med',high:'disagree-high',na:'disagree-na'};
@@ -969,27 +1112,93 @@ function makeDisagreeRow(dis,sources) {
   var tg=document.createElement('div'); tg.className='source-tags';
   var pt=document.createElement('span'); pt.className='source-tag '+(sources.poly?'source-tag-ok':'source-tag-err'); pt.textContent='Poly'; tg.appendChild(pt);
   var ot=document.createElement('span'); ot.className='source-tag '+(sources.odds?'source-tag-ok':'source-tag-err'); ot.textContent='Odds'; tg.appendChild(ot);
-  row.appendChild(tg); return row;
+  row.appendChild(tg);
+
+  // Source detail popover
+  if (fightData) {
+    var popover = makeSourcePopover(fightData);
+    row.appendChild(popover);
+
+    if (IS_TOUCH) {
+      // Touch: click to toggle
+      row.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isVisible = popover.classList.contains('visible');
+        dismissActivePopover();
+        if (!isVisible) {
+          popover.classList.add('visible');
+          activePopover = popover;
+        }
+      });
+    } else {
+      // Desktop: hover to reveal
+      row.addEventListener('mouseenter', function() {
+        dismissActivePopover();
+        popover.classList.add('visible');
+        activePopover = popover;
+      });
+      row.addEventListener('mouseleave', function() {
+        popover.classList.remove('visible');
+        if (activePopover === popover) activePopover = null;
+      });
+    }
+
+    // Keyboard: Enter/Space to toggle
+    row.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        var isVisible = popover.classList.contains('visible');
+        dismissActivePopover();
+        if (!isVisible) {
+          popover.classList.add('visible');
+          activePopover = popover;
+        }
+      } else if (e.key === 'Escape') {
+        popover.classList.remove('visible');
+        if (activePopover === popover) activePopover = null;
+      }
+    });
+  }
+
+  return row;
 }
+
+function dismissActivePopover() {
+  if (activePopover) {
+    activePopover.classList.remove('visible');
+    activePopover = null;
+  }
+}
+
+// Dismiss popover on outside click
+document.addEventListener('click', function() { dismissActivePopover(); });
 
 function renderCard(c, index) {
   var card=document.createElement('div'); card.className='fight-card'; card.setAttribute('data-tier',c.tier); card.setAttribute('role','listitem');
-  card.setAttribute('aria-label', c.f1 + ' vs ' + c.f2 + ', ' + c.tier + ' tier');
+  card.setAttribute('tabindex','0');
   card.style.animationDelay=(index * 0.06) + 's';
   var hdr=document.createElement('div'); hdr.className='fight-header';
   var mu=document.createElement('div'); mu.className='fight-matchup';
 
+  // Determine fav/dog for coloring
+  var f1IsFav = c.consensusP1 >= c.consensusP2;
+  var isEven = Math.abs(c.consensusP1 - c.consensusP2) < 0.01;
+
   var r1=document.createElement('div'); r1.className='fighter-row';
-  var n1=document.createElement('span'); n1.className='fighter-name'; n1.textContent=c.f1; r1.appendChild(n1);
+  var n1=document.createElement('span');
+  n1.className='fighter-name' + (isEven ? ' fighter-name-even' : (f1IsFav ? ' fighter-name-fav' : ' fighter-name-dog'));
+  n1.textContent=c.f1; r1.appendChild(n1);
   var p1=document.createElement('span'); p1.className='fighter-prob'; p1.textContent=pct(c.consensusP1); r1.appendChild(p1);
   var a1=formatAmerican(c.americanP1);
   if (a1) { var od1=document.createElement('span'); od1.className='fighter-odds'; od1.textContent=a1; r1.appendChild(od1); }
   mu.appendChild(r1); mu.appendChild(makeBar(c.consensusP1,c.tier));
 
-  var vs=document.createElement('div'); vs.className='vs-divider'; vs.setAttribute('aria-hidden','true'); vs.textContent='vs'; mu.appendChild(vs);
+  var vs=document.createElement('div'); vs.className='vs-divider'; vs.textContent='vs'; mu.appendChild(vs);
 
   var r2=document.createElement('div'); r2.className='fighter-row';
-  var n2=document.createElement('span'); n2.className='fighter-name'; n2.textContent=c.f2; r2.appendChild(n2);
+  var n2=document.createElement('span');
+  n2.className='fighter-name' + (isEven ? ' fighter-name-even' : (f1IsFav ? ' fighter-name-dog' : ' fighter-name-fav'));
+  n2.textContent=c.f2; r2.appendChild(n2);
   var p2=document.createElement('span'); p2.className='fighter-prob'; p2.textContent=pct(c.consensusP2); r2.appendChild(p2);
   var a2=formatAmerican(c.americanP2);
   if (a2) { var od2=document.createElement('span'); od2.className='fighter-odds'; od2.textContent=a2; r2.appendChild(od2); }
@@ -997,22 +1206,94 @@ function renderCard(c, index) {
 
   var tb=document.createElement('span');
   var tl={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
-  tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier;
-  tb.setAttribute('aria-label','Risk tier: '+(tl[c.tier]||c.tier));
-  hdr.appendChild(tb);
+  tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
   card.appendChild(hdr);
   card.appendChild(makeCIBar(c.ci,c.favProb));
   card.appendChild(makeMeter(c.upset, c.dogName));
+  card.appendChild(makeDisagreeRow(c.disagree,c.sources,c));
 
-  // Low-confidence merge warning
-  if (c.mergeConfidence==='low') {
-    var mcw=document.createElement('div'); mcw.className='merge-confidence';
-    mcw.textContent='\u26A0 Low-confidence match (same last name, different fighters possible)';
-    card.appendChild(mcw);
-  }
+  // Keyboard: Enter on card scrolls to popover area
+  card.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dismissActivePopover();
+    }
+  });
 
-  card.appendChild(makeDisagreeRow(c.disagree,c.sources));
   return card;
+}
+
+function renderSpotlight(computed) {
+  spotlightEl.innerHTML = '';
+  var spot = identifySpotlight(computed);
+  if (!spot) { spotlightEl.classList.add('hidden'); return; }
+
+  spotlightEl.classList.remove('hidden');
+  var card = document.createElement('div');
+  card.className = 'spotlight-card';
+
+  var label = document.createElement('div');
+  label.className = 'spotlight-label';
+  label.textContent = 'Fight Spotlight';
+  card.appendChild(label);
+
+  var matchup = document.createElement('div');
+  matchup.className = 'spotlight-matchup';
+  matchup.textContent = spot.fight.f1 + ' vs ' + spot.fight.f2;
+  card.appendChild(matchup);
+
+  var reason = document.createElement('div');
+  reason.className = 'spotlight-reason';
+  reason.textContent = spot.reason;
+  card.appendChild(reason);
+
+  var stats = document.createElement('div');
+  stats.className = 'spotlight-stats';
+
+  // Tier stat
+  var tierStat = document.createElement('div');
+  tierStat.className = 'spotlight-stat';
+  var tierLabel = document.createElement('span');
+  tierLabel.className = 'spotlight-stat-label';
+  tierLabel.textContent = 'Tier';
+  tierStat.appendChild(tierLabel);
+  var tierVal = document.createElement('span');
+  tierVal.className = 'spotlight-stat-value';
+  var tierNames = {lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
+  tierVal.textContent = tierNames[spot.fight.tier] || spot.fight.tier;
+  tierVal.style.color = 'var(--' + spot.fight.tier + ')';
+  tierStat.appendChild(tierVal);
+  stats.appendChild(tierStat);
+
+  // Fav prob stat
+  var favStat = document.createElement('div');
+  favStat.className = 'spotlight-stat';
+  var favLabel = document.createElement('span');
+  favLabel.className = 'spotlight-stat-label';
+  favLabel.textContent = 'Favorite';
+  favStat.appendChild(favLabel);
+  var favVal = document.createElement('span');
+  favVal.className = 'spotlight-stat-value';
+  favVal.style.color = 'var(--fav-color)';
+  favVal.textContent = spot.fight.favName + ' ' + pct(spot.fight.favProb);
+  favStat.appendChild(favVal);
+  stats.appendChild(favStat);
+
+  // Upset score stat
+  var upsetStat = document.createElement('div');
+  upsetStat.className = 'spotlight-stat';
+  var upsetLabel = document.createElement('span');
+  upsetLabel.className = 'spotlight-stat-label';
+  upsetLabel.textContent = 'Upset Score';
+  upsetStat.appendChild(upsetLabel);
+  var upsetVal = document.createElement('span');
+  upsetVal.className = 'spotlight-stat-value';
+  upsetVal.textContent = spot.fight.upset + '/100';
+  upsetVal.style.color = spot.fight.upset >= 50 ? 'var(--danger)' : 'var(--warn)';
+  upsetStat.appendChild(upsetVal);
+  stats.appendChild(upsetStat);
+
+  card.appendChild(stats);
+  spotlightEl.appendChild(card);
 }
 
 function showSkeletons(count) {
@@ -1069,7 +1350,7 @@ function renderSummary(computed) {
 function renderFights(computed) {
   mainLoadEl.classList.add('hidden');
   hideSkeletons();
-  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state');
+  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
   for(var r=0;r<old.length;r++) old[r].remove();
   if (!computed.length) {
     fightCountEl.classList.add('hidden');
@@ -1079,7 +1360,30 @@ function renderFights(computed) {
   fightCountEl.classList.remove('hidden'); fightCountEl.textContent=computed.length+' fight'+(computed.length!==1?'s':'');
   var to={lock:0,lean:1,tossup:2,upset:3};
   var sorted=computed.slice().sort(function(a,b){ var ta=to[a.tier]!==undefined?to[a.tier]:4, tb=to[b.tier]!==undefined?to[b.tier]:4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
-  for (var i=0;i<sorted.length;i++) fightGridEl.appendChild(renderCard(sorted[i], i));
+
+  // Group by event
+  var groups = groupByEvent(sorted);
+  var cardIndex = 0;
+
+  for (var g = 0; g < groups.length; g++) {
+    // Insert event group header if multiple groups
+    if (groups.length > 1) {
+      var gh = document.createElement('div');
+      gh.className = 'event-group-header';
+      var gn = document.createElement('span');
+      gn.className = 'event-group-name';
+      gn.textContent = groups[g].name;
+      gh.appendChild(gn);
+      var gc = document.createElement('span');
+      gc.className = 'event-group-count';
+      gc.textContent = groups[g].fights.length + ' fight' + (groups[g].fights.length !== 1 ? 's' : '');
+      gh.appendChild(gc);
+      fightGridEl.appendChild(gh);
+    }
+    for (var i = 0; i < groups[g].fights.length; i++) {
+      fightGridEl.appendChild(renderCard(groups[g].fights[i], cardIndex++));
+    }
+  }
 }
 
 function updateQuotaBadge(quota) {
@@ -1095,27 +1399,14 @@ function updateQuotaBadge(quota) {
 function showAllFailed() {
   mainLoadEl.classList.add('hidden');
   hideSkeletons();
+  spotlightEl.classList.add('hidden');
   safestLoadEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
   upsetLoadEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
   addBanner('danger','No data available','All data sources failed. Check your network and API key, then refresh.', false);
-  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state');
+  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
   for(var r=0;r<old.length;r++) old[r].remove();
   var em=document.createElement('div'); em.className='empty-state'; em.textContent='No data available \u2014 see error above.'; fightGridEl.appendChild(em);
 }
-
-// ===================================================
-// OFFLINE DETECTION
-// ===================================================
-function updateOfflineStatus() {
-  if (navigator.onLine) {
-    offlineBannerEl.classList.remove('visible');
-  } else {
-    offlineBannerEl.classList.add('visible');
-  }
-}
-
-window.addEventListener('online', updateOfflineStatus);
-window.addEventListener('offline', updateOfflineStatus);
 
 // ===================================================
 // KEY MANAGEMENT
@@ -1131,62 +1422,23 @@ function updateKeyUI() {
   else { clearKeyBtn.classList.add('hidden'); apiKeyInput.placeholder='Paste your API key\u2026'; }
 }
 
-function showKeyError(msg) {
-  keyErrorEl.textContent = msg;
-  keyErrorEl.style.display = msg ? 'block' : 'none';
-}
-
 // ===================================================
 // MAIN ORCHESTRATION
 // ===================================================
 var isRunning=false;
 
 async function run(force) {
-  if (isRunning) {
-    // Cancel in-flight request and schedule a new run
-    if (_activeController) {
-      _activeController.abort();
-      _activeController = null;
-    }
-    isRunning = false;
-    setTimeout(function() { run(force); }, 0);
-    return;
-  }
+  if (isRunning) return;
   isRunning=true;
   refreshBtn.setAttribute('disabled','');
 
-  // Create a new AbortController for this run
-  if (_activeController) _activeController.abort();
-  _activeController = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  var signal = _activeController ? _activeController.signal : null;
-
   try {
     clearBanners();
-    updateOfflineStatus();
-
-    // If offline, try to show cached data
-    if (!navigator.onLine) {
-      var cachedPoly = cache.read(POLY_CACHE_KEY);
-      var cachedOdds = cache.read(ODDS_CACHE_KEY);
-      if (cachedPoly || cachedOdds) {
-        var merged = mergeResults(cachedPoly, cachedOdds);
-        var computed = merged.map(computeFight).filter(Boolean);
-        renderSummary(computed);
-        renderFights(computed);
-        mainLoadEl.classList.add('hidden');
-        hideSkeletons();
-        addBanner('warn', 'Offline', 'Showing cached data. Reconnect to refresh.', false);
-        lastUpdEl.textContent='Cached (offline)'; lastUpdEl.classList.remove('hidden');
-        return;
-      }
-      showAllFailed();
-      return;
-    }
-
-    var oldCards=fightGridEl.querySelectorAll('.fight-card,.empty-state');
+    var oldCards=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
     for(var r=0;r<oldCards.length;r++) oldCards[r].remove();
     mainLoadEl.classList.remove('hidden');
     showSkeletons(6);
+    spotlightEl.classList.add('hidden');
     safestLoadEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
     upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
     if (force) cache.clearAll();
@@ -1195,13 +1447,9 @@ async function run(force) {
     if (!apiKey) addBanner('info','No Odds API key','Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
 
     var results=await Promise.all([
-      fetchPolymarket(signal),
-      apiKey?fetchOddsAPI(apiKey, signal):Promise.resolve({fights:null,error:null,quotaRemaining:null})
+      fetchPolymarket(),
+      apiKey?fetchOddsAPI(apiKey):Promise.resolve({fights:null,error:null,quotaRemaining:null})
     ]);
-
-    // Check if aborted during fetch
-    if (signal && signal.aborted) return;
-
     var polyRes=results[0], oddsRes=results[1];
 
     if (polyRes.error) addBanner('warn','Polymarket unavailable',polyRes.error, false);
@@ -1216,6 +1464,7 @@ async function run(force) {
     var merged=mergeResults(polyRes.fights, oddsRes.fights);
     var computed=merged.map(computeFight).filter(Boolean);
 
+    renderSpotlight(computed);
     renderSummary(computed);
     renderFights(computed);
 
@@ -1227,13 +1476,12 @@ async function run(force) {
     if (cachedSources.length) addBanner('info',null,'Using cached data: '+cachedSources.join(', ')+' (15-min TTL). Click Refresh to force reload.');
   } finally {
     isRunning=false;
-    _activeController=null;
     refreshBtn.removeAttribute('disabled');
   }
 }
 
 // ===================================================
-// RUNTIME SELF-TESTS (80+)
+// RUNTIME SELF-TESTS (55+)
 // ===================================================
 function runSelfTests() {
   var results=[];
@@ -1269,45 +1517,6 @@ function runSelfTests() {
   assert('sanitize truncates 100', function(){return sanitize("x".repeat(200)).length===100;});
   assert('sanitize(null)==="Unknown"', function(){return sanitize(null)==="Unknown";});
 
-  // --- djb2 hash (3) ---
-  assert('djb2 deterministic', function(){return djb2('hello')===djb2('hello');});
-  assert('djb2 different for different input', function(){return djb2('hello')!==djb2('world');});
-  assert('djb2 returns string', function(){return typeof djb2('test')==='string';});
-
-  // --- cache write/read with checksum (3) ---
-  assert('cache write/read cycle', function(){
-    cache.write('__test_ck', {a:1});
-    var v=cache.read('__test_ck');
-    cache.remove('__test_ck');
-    return v&&v.a===1;
-  });
-  assert('cache detects corruption', function(){
-    cache.write('__test_corrupt', {b:2});
-    // Tamper with the stored data
-    try {
-      var raw=sessionStorage.getItem('__test_corrupt');
-      var entry=JSON.parse(raw);
-      entry.data={b:999}; // corrupt the data without updating checksum
-      sessionStorage.setItem('__test_corrupt',JSON.stringify(entry));
-    }catch(e){}
-    var v=cache.read('__test_corrupt');
-    cache.remove('__test_corrupt');
-    return v===null; // corrupted data should return null
-  });
-  assert('cache expired data returns null', function(){
-    try {
-      sessionStorage.setItem('__test_exp', JSON.stringify({version:CACHE_VERSION,ts:1,data:'old',checksum:djb2('"old"')}));
-    }catch(e){}
-    var v=cache.read('__test_exp');
-    return v===null;
-  });
-
-  // --- validateApiKeyFormat (4) ---
-  assert('validateApiKeyFormat valid 32-hex', function(){return validateApiKeyFormat('0123456789abcdef0123456789abcdef');});
-  assert('validateApiKeyFormat rejects short', function(){return !validateApiKeyFormat('0123456789abcdef');});
-  assert('validateApiKeyFormat rejects non-hex', function(){return !validateApiKeyFormat('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz');});
-  assert('validateApiKeyFormat trims whitespace', function(){return validateApiKeyFormat('  0123456789abcdef0123456789abcdef  ');});
-
   // --- americanToImplied (4) ---
   assert('american -200 -> ~0.667', function(){var v=americanToImplied(-200);return v!==null&&Math.abs(v-0.6667)<0.01;});
   assert('american +150 -> 0.4', function(){var v=americanToImplied(150);return v!==null&&Math.abs(v-0.4)<0.01;});
@@ -1326,7 +1535,7 @@ function runSelfTests() {
   assert('formatAmerican negative', function(){return formatAmerican(-200)==='-200';});
   assert('formatAmerican null', function(){return formatAmerican(null)==='';});
 
-  // --- riskTier SPEC-EXACT boundary tests (12) ---
+  // --- riskTier SPEC-EXACT boundary tests (8) ---
   assert('tier 0.80=lock', function(){return riskTier(0.80)===TIER.LOCK;});
   assert('tier 0.75=lock (boundary)', function(){return riskTier(0.75)===TIER.LOCK;});
   assert('tier 0.749=lean (just below lock)', function(){return riskTier(0.749)===TIER.LEAN;});
@@ -1340,16 +1549,18 @@ function runSelfTests() {
   assert('tier 1.0=lock', function(){return riskTier(1.0)===TIER.LOCK;});
   assert('tier 0.0=upset', function(){return riskTier(0.0)===TIER.UPSET;});
 
-  // --- wilsonCI (3) ---
-  assert('wilsonCI range', function(){var ci=wilsonCI(0.7,40);return ci.lo<0.7&&ci.hi>0.7&&ci.lo>=0&&ci.hi<=1;});
-  assert('wilsonCI degenerate', function(){var ci=wilsonCI(0.5,0);return ci.lo===0.5&&ci.hi===0.5;});
-  assert('wilsonCI extremes clamped', function(){var ci=wilsonCI(0.99,2);return ci.lo>=0&&ci.hi<=1;});
+  // --- computeCI (4) ---
+  assert('computeCI single source', function(){var ci=computeCI([0.7]);return ci.lo===0.7&&ci.hi===0.7&&ci.mean===0.7;});
+  assert('computeCI two sources', function(){var ci=computeCI([0.7,0.8]);return ci.mean===0.75&&ci.lo<0.75&&ci.hi>0.75;});
+  assert('computeCI clamped', function(){var ci=computeCI([0.01,0.99]);return ci.lo>=0&&ci.hi<=1;});
+  assert('computeCI empty', function(){var ci=computeCI([]);return ci.mean===0.5;});
 
-  // --- upsetScore (4) ---
-  assert('upset 0->0', function(){return upsetScore(0)===0;});
-  assert('upset 0.5->100', function(){return upsetScore(0.5)===100;});
-  assert('upset clamped high', function(){return upsetScore(1)===100;});
-  assert('upset 0.25->50', function(){return upsetScore(0.25)===50;});
+  // --- upsetScore 3-factor (5) ---
+  assert('upset near 50/50 high', function(){return upsetScore(0.48, 0.2, 0.1) > 50;});
+  assert('upset heavy fav low', function(){return upsetScore(0.15, 0.02, 0.01) < 30;});
+  assert('upset wide CI increases score', function(){return upsetScore(0.35, 0.3, 0) > upsetScore(0.35, 0.05, 0);});
+  assert('upset high disagree increases score', function(){return upsetScore(0.35, 0.1, 0.15) > upsetScore(0.35, 0.1, 0);});
+  assert('upset clamped 0-100', function(){return upsetScore(0.5, 1, 1) <= 100 && upsetScore(0, 0, 0) >= 0;});
 
   // --- disagreement SPEC-EXACT boundary tests (10) ---
   assert('disagree null->na', function(){return disagreement(null,0.5).level==='na';});
@@ -1382,48 +1593,25 @@ function runSelfTests() {
     return r&&r.favName==='B'&&r.tier===TIER.LEAN;
   });
 
-  // --- merge: full-name match (2) ---
-  assert('merge full-name match', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
-    );
-    return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6&&r[0]._mergeConfidence==='high';
-  });
-  assert('merge full-name case-insensitive', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'JOHN SMITH',f2:'BOB JONES',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'john smith',f2:'bob jones',oddsP1:0.65,oddsP2:0.35}]
-    );
-    return r.length===1&&r[0].oddsP1===0.65;
-  });
-
-  // --- merge: last-name fallback (2) ---
-  assert('merge last-name fallback', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'J. Smith',f2:'B. Jones',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
-    );
-    return r.length===1&&r[0]._mergeConfidence==='medium';
-  });
-  assert('merge same-last-name disambiguation', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'Anderson Silva',f2:'Chris Weidman',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'Alex Silva',f2:'Chris Weidman',oddsP1:0.7,oddsP2:0.3},
-       {id:'3',f1:'Anderson Silva',f2:'Chris Weidman',oddsP1:0.65,oddsP2:0.35}]
-    );
-    // Full-name match should find the correct Anderson Silva
-    return r.length===2&&r[0].oddsP1===0.65&&r[0]._mergeConfidence==='high';
-  });
-
-  // --- merge: null inputs (2) ---
+  // --- merge (4) ---
   assert('merge poly only', function(){
     var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6}],null);
+    return r.length===1&&r[0].f1==='A';
+  });
+  assert('merge odds only', function(){
+    var r=mergeResults(null,[{id:'1',f1:'A',f2:'B',oddsP1:0.6}]);
     return r.length===1&&r[0].f1==='A';
   });
   assert('merge both null->empty', function(){
     var r=mergeResults(null,null);
     return Array.isArray(r)&&r.length===0;
+  });
+  assert('merge matching fighters', function(){
+    var r=mergeResults(
+      [{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],
+      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
+    );
+    return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6;
   });
 
   // --- validatePoly (3) ---
@@ -1438,29 +1626,58 @@ function runSelfTests() {
   assert('validateOdds rejects null', function(){return validateOddsAPI(null)===null;});
   assert('validateOdds rejects string', function(){return validateOddsAPI("bad")===null;});
 
-  // --- lastName / fullName (5) ---
+  // --- lastName (3) ---
   assert('lastName single', function(){return lastName('Jones')==='jones';});
   assert('lastName multi', function(){return lastName('John Smith')==='smith';});
   assert('lastName empty', function(){return lastName('')==='';});
-  assert('fullName normalizes', function(){return fullName('  John Smith  ')==='john smith';});
-  assert('fullName empty', function(){return fullName('')==='';});
 
   // --- pct formatting (2) ---
   assert('pct 0.75 -> 75%', function(){return pct(0.75)==='75%';});
   assert('pct 0 -> 0%', function(){return pct(0)==='0%';});
 
-  // --- constant sanity checks (5) ---
+  // --- constant sanity checks (3) ---
   assert('DISAGREE_LOW_MAX is 0.03', function(){return DISAGREE_LOW_MAX===0.03;});
   assert('DISAGREE_MED_MAX is 0.08', function(){return DISAGREE_MED_MAX===0.08;});
   assert('UPSET_WARN_THRESHOLD is 50', function(){return UPSET_WARN_THRESHOLD===50;});
-  assert('API_KEY_PATTERN defined', function(){return API_KEY_PATTERN instanceof RegExp;});
-  assert('MAX_RETRIES is 1', function(){return MAX_RETRIES===1;});
 
-  // --- AbortController feature detection (1) ---
-  assert('AbortController available', function(){return typeof AbortController==='function';});
+  // === NEW TESTS (Run B additions) ===
 
-  // --- offline detection (1) ---
-  assert('navigator.onLine exists', function(){return typeof navigator.onLine==='boolean';});
+  // --- identifySpotlight (3) ---
+  assert('spotlight picks upset fight first', function(){
+    var fights = [
+      {tier:'lock',favProb:0.85,upset:20,disagree:{level:'low',delta:0.02}},
+      {tier:'upset',favProb:0.42,upset:80,disagree:{level:'high',delta:0.12}}
+    ];
+    var s = identifySpotlight(fights);
+    return s && s.fight.tier === 'upset' && s.reason.indexOf('Upset') >= 0;
+  });
+  assert('spotlight picks highest disagreement when no upsets', function(){
+    var fights = [
+      {tier:'lock',favProb:0.8,upset:10,disagree:{level:'low',delta:0.02}},
+      {tier:'lean',favProb:0.65,upset:30,disagree:{level:'high',delta:0.09}}
+    ];
+    var s = identifySpotlight(fights);
+    return s && s.fight.tier === 'lean';
+  });
+  assert('spotlight returns null for empty array', function(){
+    return identifySpotlight([]) === null;
+  });
+
+  // --- groupByEvent (1) ---
+  assert('groupByEvent groups undated as single group', function(){
+    var fights = [
+      {commenceTime:null,sources:{poly:true,odds:false}},
+      {commenceTime:null,sources:{poly:true,odds:false}}
+    ];
+    var groups = groupByEvent(fights);
+    return groups.length === 1 && groups[0].name === 'UFC Markets';
+  });
+
+  // --- fav/underdog coloring in computeFight (1) ---
+  assert('computeFight preserves polyP1 for popover', function(){
+    var r = computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:0.65,oddsP2:0.35});
+    return r && r.polyP1 === 0.7 && r.oddsP1 === 0.65;
+  });
 
   // Render results
   var bar=$('selftestBar');
@@ -1491,27 +1708,19 @@ function runSelfTests() {
 // EVENT LISTENERS
 // ===================================================
 applyKeyBtn.addEventListener('click',function(){
-  showKeyError('');
   var v=apiKeyInput.value, t=typeof v==='string'?v.trim():'';
   if (!t){addBanner('warn','API key required','Enter a valid key before applying.', false);return;}
-  if (!validateApiKeyFormat(t)){
-    showKeyError('Invalid format: expected 32-character hex string');
-    return;
-  }
   if (!saveKey(t)){addBanner('danger','Could not save key','localStorage may be blocked in this browser.', false);return;}
   apiKeyInput.value=''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
 });
 clearKeyBtn.addEventListener('click',function(){
-  showKeyError('');
   removeKey(); cache.clearAll(); apiKeyInput.value=''; updateKeyUI(); quotaBadgeEl.classList.add('hidden');
   addBanner('info','API key cleared','Odds API data will no longer be fetched.'); run(false);
 });
 refreshBtn.addEventListener('click',function(){run(true);});
 apiKeyInput.addEventListener('keydown',function(e){ if(e.key==='Enter')applyKeyBtn.click(); });
-apiKeyInput.addEventListener('input',function(){ showKeyError(''); });
 
 document.addEventListener('DOMContentLoaded',function(){
-  updateOfflineStatus();
   runSelfTests();
   updateKeyUI();
   run(false);
