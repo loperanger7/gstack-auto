@@ -2,6 +2,18 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.10.0] - 2026-03-17
+
+### Added
+- Per-row [✓ Save] button on env var rows — appears when key+value are filled, triggers immediate `/save-config` POST, disappears after save
+- Inline error label per env var row on save failure
+- Duplicate key detection with red border + "duplicate" label in real time
+- Enter key shortcut: Enter in key field focuses value field; Enter in value field triggers save
+- Test 7: per-row single-key POST round-trip server test (7/7 passing)
+
+### Fixed
+- Visual inconsistency: `.env-row input[type="text"]` (key name field) now matches password field appearance — identical padding, border, background, font, and focus transition
+
 ## [0.1.9.0] - 2026-03-17
 
 ### Added
