@@ -137,11 +137,31 @@
 
   <div id="winner-bar" class="run-again-bar" style="display:none">
     <a href="/output/winner-final/index.html" target="_blank" class="btn-run-again" id="btn-view-winner">View Winner</a>
+    <button type="button" class="btn-run-again" id="btn-create-repo">Create Repo</button>
+  </div>
+
+  <div id="create-repo-panel" class="create-repo-panel" style="display:none">
+    <div class="config-row">
+      <div class="config-field config-field-wide">
+        <label for="repo-name">Repository name</label>
+        <input type="text" id="repo-name" placeholder="my-app" spellcheck="false" autocomplete="off" pattern="[a-zA-Z0-9._-]+">
+      </div>
+    </div>
+    <label class="checkbox-label">
+      <input type="checkbox" id="repo-pages" checked>
+      Enable GitHub Pages <span class="dim">(creates a public repo)</span>
+    </label>
+    <div class="actions" style="margin-top:8px">
+      <button type="button" class="primary" id="btn-repo-submit">Create</button>
+    </div>
+    <div id="repo-status" class="status"></div>
+    <div id="repo-result" class="repo-result" style="display:none"></div>
   </div>
 
   <div id="run-again-bar" class="run-again-bar" style="display:none">
     <button type="button" class="btn-run-again" id="btn-run-again">Run the pipeline again</button>
     <span class="run-again-hint" id="run-again-hint"></span>
+    <button type="button" class="btn-secondary" id="btn-new-project">New Project</button>
   </div>
 
   <div id="runs"></div>
@@ -189,6 +209,9 @@
 //         config panel: collapsed
 //         results section: visible (score cards, diff, rounds)
 //         "run again" bar visible
+//
+//   RESULTS → [New Project] → confirm → POST /new-project → reload → SETUP
+//   RESULTS → [Create Repo] → input name → confirm → POST /create-repo → show URL
 //
 //   [CONFIGURATION bar] toggles config panel in READY/MONITORING/RESULTS
 //
@@ -786,6 +809,106 @@ function toggleBuild(runId) {
   }
 }
 
+// ── New Project ──────────────────────────────────────────
+
+async function newProject() {
+  if (!confirm('Start a new project? This clears all results and output.\nYour email, pipeline config, and credentials are preserved.')) return;
+  var btn = $('btn-new-project');
+  btn.disabled = true;
+  btn.textContent = 'Clearing...';
+  try {
+    var res = await post('/new-project', {});
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      alert(res.data.error || 'Failed to clear project.');
+      btn.disabled = false;
+      btn.textContent = 'New Project';
+    }
+  } catch (e) {
+    alert('Server not reachable.');
+    btn.disabled = false;
+    btn.textContent = 'New Project';
+  }
+}
+
+// ── Create Repo ──────────────────────────────────────────
+
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+}
+
+function toggleCreateRepo() {
+  var panel = $('create-repo-panel');
+  if (panel.style.display === 'none') {
+    panel.style.display = '';
+    var nameInput = $('repo-name');
+    if (!nameInput.value) {
+      nameInput.value = slugify(specTitle) || '';
+    }
+    nameInput.focus();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function submitCreateRepo() {
+  var nameInput = $('repo-name');
+  var name = nameInput.value.trim();
+  var status = $('repo-status');
+  var result = $('repo-result');
+
+  if (!name) {
+    setStatus(status, 'err', 'Enter a repository name.');
+    nameInput.focus();
+    return;
+  }
+  if (!/^[a-zA-Z0-9._-]{1,100}$/.test(name)) {
+    setStatus(status, 'err', 'Invalid name. Use letters, numbers, hyphens, underscores, dots.');
+    nameInput.focus();
+    return;
+  }
+
+  var enablePages = $('repo-pages').checked;
+  var visibility = enablePages ? 'public' : 'private';
+  if (!confirm('Create ' + visibility + ' repo "' + name + '" on GitHub' +
+               (enablePages ? ' with GitHub Pages?' : '?'))) return;
+
+  var btn = $('btn-repo-submit');
+  btn.disabled = true;
+  result.style.display = 'none';
+  setStatus(status, 'working', 'Creating repository...');
+
+  try {
+    var res = await post('/create-repo', {
+      repo_name: name,
+      enable_pages: enablePages,
+    });
+    if (res.ok) {
+      clearStatus(status);
+      var html = '<a href="' + esc(res.data.repo_url) + '" target="_blank">' +
+                 esc(res.data.repo_url) + '</a>';
+      if (res.data.pages_url) {
+        html += '<br><a href="' + esc(res.data.pages_url) + '" target="_blank">' +
+                esc(res.data.pages_url) + '</a>' +
+                ' <span class="dim">(may take a minute to deploy)</span>';
+      }
+      if (res.data.pages_warning) {
+        html += '<br><span class="dim">' + esc(res.data.pages_warning) + '</span>';
+      }
+      result.innerHTML = html;
+      result.style.display = '';
+      btn.textContent = '\u2713 Created';
+    } else {
+      setStatus(status, 'err', res.data.error || 'Failed to create repo.');
+      btn.disabled = false;
+    }
+  } catch (e) {
+    setStatus(status, 'err', 'Server not reachable.');
+    btn.disabled = false;
+  }
+}
+
 // ── Run Again ────────────────────────────────────────────
 
 function runAgain() {
@@ -941,6 +1064,9 @@ $('btn-edit-email').addEventListener('click', expandEmail);
 $('btn-done-email').addEventListener('click', collapseEmail);
 $('btn-compare').addEventListener('click', compareDiff);
 $('btn-run-again').addEventListener('click', runAgain);
+$('btn-new-project').addEventListener('click', newProject);
+$('btn-create-repo').addEventListener('click', toggleCreateRepo);
+$('btn-repo-submit').addEventListener('click', submitCreateRepo);
 $('spec').addEventListener('input', debounce(function() { checkSpecQuality($('spec').value); }, 300));
 $('cfg-style').addEventListener('change', renderStylePreview);
 $('email').addEventListener('input', function() { cachedPassword = null; });

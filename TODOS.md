@@ -34,11 +34,12 @@ winner's score after Step 2e. If lower, skip to Step 3 (final report).
 **Effort: S**
 **Depends on:** Multi-round pipeline (v0.2.0)
 
-### Auto-deployment with preview URLs
-After the winning run is selected, auto-deploy it (Vercel/Netlify/Railway)
-and include a live preview URL in the email. Requires detecting tech stack,
-choosing platform, configuring deploy, handling failures.
-**Effort: L**
+### Auto-deployment with preview URLs (partially done)
+GitHub Pages deployment is now available via "Create Repo" in Mission Control.
+Remaining: support additional deploy targets (Vercel, Netlify, Railway) for
+projects that need a backend or custom build step. Requires detecting tech
+stack, choosing platform, configuring deploy, handling failures.
+**Effort: M** (reduced — GitHub Pages covers the common case)
 
 ### User email reply loop
 Monitor for user's email reply containing scope expansion instructions,
@@ -79,6 +80,14 @@ line charts (no library needed — inline SVG path elements). Most useful
 when rounds > 1.
 **Effort: M**
 **Depends on:** Multi-round pipeline (v0.2.0), results-history.json persistence
+
+### Project history browser
+Let users see past projects (spec title, date, best score) and switch
+between them. `results-history.json` already accumulates this data.
+Once "New Project" exists, users will run multiple projects and want
+to revisit old ones. Needs a list view UI and archive/restore logic.
+**Effort: M**
+**Depends on:** New Project feature (v0.1.7.0)
 
 ### Keyboard shortcuts for dashboard
 Add keyboard navigation to Mission Control: `j`/`k` to move between run

@@ -487,6 +487,71 @@ button.primary:hover:not(:disabled) {
   color: var(--accent-dim);
 }
 
+.btn-secondary {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--accent-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-secondary:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Create Repo Panel ────────────────────────────────── */
+
+.create-repo-panel {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--cta);
+}
+
+.dim {
+  color: var(--accent-dim);
+}
+
+.repo-result {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--cta);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.repo-result a {
+  color: var(--cta);
+}
+
+.repo-result a:hover {
+  color: var(--cta-hover);
+}
+
 /* ════════════════════════════════════════════════════════
    SETUP PAGE
    ════════════════════════════════════════════════════════ */
