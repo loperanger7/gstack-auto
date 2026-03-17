@@ -1,1258 +1,840 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UFC Odds Risk Intel</title>
-<style>
-  /* === DESIGN SYSTEM === */
-  :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --border:    #30363d;
-    --border-hi: #58a6ff;
-    --text:      #e6edf3;
-    --muted:     #8b949e;
-    --emerald:   #10b981;
-    --emerald-d: #059669;
-    --yellow:    #d29922;
-    --orange:    #f0883e;
-    --red:       #f85149;
-    --blue:      #58a6ff;
-    --radius:    8px;
-    --mono:      'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
-    min-height: 100vh;
-  }
-
-  /* === LAYOUT === */
-  .app { max-width: 900px; margin: 0 auto; padding: 16px; }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 0 20px;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .logo-icon {
-    width: 32px; height: 32px;
-    background: var(--emerald);
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; line-height: 1;
-  }
-
-  .logo-text h1 {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-  }
-
-  .logo-text p {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  /* === KEY INPUT === */
-  .key-area {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .key-label {
-    font-size: 12px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  #key-input {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--mono);
-    padding: 6px 10px;
-    width: 200px;
-    transition: border-color 0.15s;
-  }
-  #key-input:focus { outline: none; border-color: var(--emerald); }
-  #key-input.error { border-color: var(--red); }
-
-  #key-msg {
-    font-size: 11px;
-    color: var(--red);
-    min-width: 120px;
-  }
-
-  #key-save {
-    background: var(--emerald);
-    color: #000;
-    border: none;
-    border-radius: var(--radius);
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-  #key-save:hover { background: var(--emerald-d); }
-
-  #key-clear {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 6px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  #key-clear:hover { color: var(--red); border-color: var(--red); }
-
-  /* === STATUS BAR === */
-  #status-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin: 16px 0;
-    font-size: 12px;
-    color: var(--muted);
-    flex-wrap: wrap;
-  }
-
-  .status-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
-  .status-dot.ok   { background: var(--emerald); }
-  .status-dot.err  { background: var(--red); }
-  .status-dot.warn { background: var(--yellow); }
-
-  #refresh-btn {
-    margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--muted);
-    font-size: 11px;
-    padding: 3px 8px;
-    cursor: pointer;
-    transition: color 0.15s;
-  }
-  #refresh-btn:hover { color: var(--text); border-color: var(--text); }
-
-  /* === SUMMARY PANEL === */
-  #summary-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .summary-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-  }
-
-  .summary-card h2 {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-
-  .summary-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .summary-item:last-child { border-bottom: none; }
-
-  .summary-fighter {
-    font-size: 13px;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 60%;
-  }
-
-  .summary-prob {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  /* === FIGHT GRID === */
-  #fights-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-  }
-
-  /* === FIGHT CARD === */
-  .fight-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-    transition: border-color 0.2s, transform 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .fight-card:hover { border-color: var(--border-hi); transform: translateY(-1px); }
-
-  .fight-card.tier-lock   { border-left: 3px solid var(--emerald); }
-  .fight-card.tier-lean   { border-left: 3px solid var(--blue); }
-  .fight-card.tier-tossup { border-left: 3px solid var(--yellow); }
-  .fight-card.tier-upset  { border-left: 3px solid var(--red); }
-
-  /* Upset Alert pulse — pure CSS, zero JS animation */
-  .fight-card.tier-upset {
-    animation: pulse-border 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-border {
-    0%   { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-    40%  { box-shadow: 0 0 0 4px rgba(248, 81, 73, 0.25); }
-    70%  { box-shadow: 0 0 0 8px rgba(248, 81, 73, 0.08); }
-    100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-  }
-
-  .fight-card.disagree-hi { border-color: var(--orange); }
-
-  /* === TIER BADGE === */
-  .tier-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    padding: 2px 7px;
-    border-radius: 20px;
-    margin-bottom: 10px;
-  }
-
-  .tier-badge.lock   { background: rgba(16,185,129,0.15); color: var(--emerald); }
-  .tier-badge.lean   { background: rgba(88,166,255,0.15); color: var(--blue); }
-  .tier-badge.tossup { background: rgba(210,153,34,0.15); color: var(--yellow); }
-  .tier-badge.upset  { background: rgba(248,81,73,0.15);  color: var(--red); }
-
-  /* === FIGHTER MATCHUP === */
-  .matchup {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 10px 0;
-  }
-
-  .fighter-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .fighter-name {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .fighter-name.underdog { color: var(--muted); }
-
-  .prob-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-    max-width: 80px;
-  }
-
-  .prob-bar {
-    height: 100%;
-    border-radius: 3px;
-    background: var(--emerald);
-    transition: width 0.4s ease;
-  }
-
-  .prob-num {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    min-width: 34px;
-    text-align: right;
-  }
-
-  .odds-num {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    min-width: 40px;
-    text-align: right;
-  }
-
-  /* === METRICS ROW === */
-  .metrics {
-    display: flex;
-    gap: 12px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-
-  .metric {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex: 1;
-    min-width: 70px;
-  }
-
-  .metric-label {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
-
-  .metric-value {
-    font-size: 12px;
-    font-weight: 600;
-    font-family: var(--mono);
-  }
-
-  /* === UPSET METER === */
-  .upset-meter-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .upset-meter-bar {
-    flex: 1;
-    height: 5px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .upset-meter-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--emerald), var(--yellow), var(--red));
-    transition: width 0.4s ease;
-  }
-
-  .upset-meter-num {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    min-width: 24px;
-    text-align: right;
-  }
-
-  /* === CI BAR (native meter) === */
-  .ci-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .ci-label {
-    font-size: 10px;
-    color: var(--muted);
-    min-width: 22px;
-  }
-
-  meter.ci-bar {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    border: none;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  meter.ci-bar::-webkit-meter-bar {
-    background: var(--border);
-    border: none;
-    border-radius: 3px;
-  }
-
-  meter.ci-bar::-webkit-meter-optimum-value {
-    background: var(--blue);
-    border-radius: 3px;
-  }
-
-  meter.ci-bar::-moz-meter-bar {
-    background: var(--blue);
-    border-radius: 3px;
-  }
-
-  .ci-range {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    min-width: 70px;
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  /* === DISAGREE BADGE === */
-  .disagree-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 10px;
-  }
-
-  .disagree-badge.consensus { background: rgba(16,185,129,0.1); color: var(--emerald); }
-  .disagree-badge.some      { background: rgba(210,153,34,0.1); color: var(--yellow); }
-  .disagree-badge.sig       { background: rgba(248,81,73,0.1);  color: var(--red); }
-
-  /* === SOURCE CHIPS === */
-  .sources {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-  }
-
-  .source-chip {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 10px;
-    background: rgba(88,166,255,0.1);
-    color: var(--blue);
-    font-family: var(--mono);
-  }
-
-  /* === LOADING / EMPTY / ERROR === */
-  .state-msg {
-    text-align: center;
-    padding: 48px 20px;
-    color: var(--muted);
-  }
-
-  .state-msg .icon { font-size: 36px; margin-bottom: 12px; }
-  .state-msg h3    { font-size: 15px; color: var(--text); margin-bottom: 6px; }
-  .state-msg p     { font-size: 13px; max-width: 360px; margin: 0 auto; }
-
-  .spinner {
-    width: 32px; height: 32px;
-    border: 3px solid var(--border);
-    border-top-color: var(--emerald);
-    border-radius: 50%;
-    margin: 0 auto 12px;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* === NOTICE BANNERS === */
-  .notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
-    border-radius: var(--radius);
-    font-size: 12px;
-    margin-bottom: 10px;
-  }
-
-  .notice.warn { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: var(--yellow); }
-  .notice.info { background: rgba(88,166,255,0.1);  border: 1px solid rgba(88,166,255,0.3);  color: var(--blue); }
-  .notice.err  { background: rgba(248,81,73,0.1);  border: 1px solid rgba(248,81,73,0.3);  color: var(--red); }
-
-  #notices { margin-bottom: 4px; }
-
-  /* === SECTION HEADER === */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 20px 0 10px;
-  }
-
-  .section-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-  }
-
-  .fight-count {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: var(--mono);
-  }
-
-  /* === TIMESTAMP === */
-  .timestamp {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: var(--mono);
-    margin-left: auto;
-  }
-
-  /* === KEY WARNING === */
-  .key-warning {
-    font-size: 11px;
-    color: var(--muted);
-    padding: 6px 0 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  /* === MOBILE === */
-  @media (max-width: 600px) {
-    header { flex-direction: column; align-items: flex-start; }
-    .key-area { width: 100%; }
-    #key-input { width: 100%; }
-    #summary-panel { grid-template-columns: 1fr; }
-    #fights-grid { grid-template-columns: 1fr; }
-    .metrics { gap: 8px; }
-    .metric { min-width: 60px; }
-  }
-
-  @media (max-width: 375px) {
-    .app { padding: 10px; }
-    .fight-card { padding: 10px; }
-    .fighter-name { font-size: 13px; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://clob.polymarket.com https://api.the-odds-api.com; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'">
+  <title>UFC Odds Risk Intel Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #10b981;
+      --accent-dim: #059669;
+      --accent-glow: rgba(16,185,129,0.15);
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --lock: #10b981;
+      --lean: #3b82f6;
+      --tossup: #f59e0b;
+      --upset: #ef4444;
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
+    header {
+      padding: 20px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+    .logo-sub { font-size: 0.8rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
+    .header-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .last-updated { font-size: 0.75rem; color: var(--muted); }
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .btn:active { transform: scale(0.97); }
+    .btn-accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+    .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+    /* API Key Panel */
+    .key-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .key-panel label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .key-panel input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      width: 260px;
+      max-width: 100%;
+      font-family: monospace;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .key-panel input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .key-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* Banners */
+    .banner {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.83rem;
+      margin-bottom: 10px;
+      border-left: 3px solid transparent;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      animation: bannerIn .3s ease;
+    }
+    @keyframes bannerIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .banner-warn   { background: rgba(245,158,11,0.08); border-color: var(--warn);   color: var(--warn);   }
+    .banner-danger { background: rgba(239,68,68,0.08);  border-color: var(--danger); color: var(--danger); }
+    .banner-info   { background: rgba(59,130,246,0.08); border-color: var(--info);   color: var(--info);   }
+    .banner-success{ background: var(--accent-glow);    border-color: var(--accent); color: var(--accent); }
+    .banner-icon { flex-shrink: 0; font-size: 0.95rem; margin-top: 0.05em; }
+    .banner-body { flex: 1; }
+    .banner-title { font-weight: 600; margin-bottom: 2px; }
+    #banners { margin-bottom: 8px; }
+
+    /* Summary strip */
+    .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; transition: border-color .2s; }
+    .summary-card:hover { border-color: var(--muted); }
+    .summary-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+    .summary-empty { color: var(--muted); font-size: 0.82rem; font-style: italic; }
+    .summary-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .summary-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+    .summary-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .summary-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
+
+    /* Skeleton loading */
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, rgba(48,54,61,0.6) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: var(--radius-sm);
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-line { height: 14px; margin-bottom: 8px; }
+    .skeleton-line:last-child { margin-bottom: 0; width: 60%; }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .skeleton-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .skeleton-bar { height: 4px; border-radius: 2px; }
+    .skeleton-meter { height: 6px; border-radius: 3px; }
+    .skeleton-badge { width: 56px; height: 22px; border-radius: 3px; flex-shrink: 0; }
+    .skeleton-text-sm { height: 12px; border-radius: 2px; }
+    .skeleton-text-md { height: 16px; border-radius: 3px; }
+
+    /* Section header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+    /* Fight Grid */
+    .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .fight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .2s, transform .2s, box-shadow .2s;
+      animation: cardIn .4s ease both;
+    }
+    .fight-card:hover { border-color: var(--muted); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
+    .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
+    .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
+    .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Upset Alert pulse */
+    .fight-card[data-tier="upset"] {
+      animation: cardIn .4s ease both, pulseUpset 2.5s ease-in-out infinite;
+    }
+    @keyframes pulseUpset {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      50% { box-shadow: 0 0 12px 2px rgba(239,68,68,0.15); }
+    }
+    .fight-card[data-tier="upset"]:hover {
+      box-shadow: 0 4px 16px rgba(239,68,68,0.25);
+    }
+
+    .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .tier-badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; padding: 3px 7px; border-radius: 3px; flex-shrink: 0; transition: transform .15s; }
+    .fight-card:hover .tier-badge { transform: scale(1.05); }
+    .tier-lock   { background: rgba(16,185,129,0.15); color: var(--lock); }
+    .tier-lean   { background: rgba(59,130,246,0.15);  color: var(--lean); }
+    .tier-tossup { background: rgba(245,158,11,0.15);  color: var(--tossup); }
+    .tier-upset  { background: rgba(239,68,68,0.15);   color: var(--upset); }
+
+    .fight-matchup { flex: 1; }
+    .fighter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .fighter-name { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+    .fighter-prob { margin-left: auto; font-size: 0.85rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+    .fighter-odds { font-size: 0.72rem; color: var(--muted); flex-shrink: 0; margin-left: 4px; font-family: monospace; }
+    .vs-divider { font-size: 0.65rem; color: var(--muted); padding: 0 4px; }
+
+    .prob-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+    .prob-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .6s cubic-bezier(0.22,1,0.36,1); width: 0; }
+
+    .ci-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .ci-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; position: relative; overflow: visible; }
+    .ci-fill { position: absolute; height: 100%; background: rgba(16,185,129,0.35); border-radius: 3px; transition: left .5s ease, width .5s ease; }
+    .ci-center { position: absolute; width: 2px; height: 10px; top: -2px; background: var(--accent); border-radius: 1px; transition: left .5s ease; }
+
+    .meter-row { display: flex; flex-direction: column; gap: 4px; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); }
+    .meter-value { color: var(--text); font-weight: 600; }
+    .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .meter-fill { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(0.22,1,0.36,1); width: 0; }
+
+    /* Source detail tooltip on hover */
+    .source-detail {
+      display: flex; gap: 8px; font-size: 0.68rem; color: var(--muted);
+      max-height: 0; overflow: hidden; opacity: 0;
+      transition: max-height .3s ease, opacity .3s ease, padding .3s ease;
+      padding-top: 0; padding-bottom: 0;
+    }
+    .fight-card:hover .source-detail,
+    .fight-card:focus-within .source-detail {
+      max-height: 60px; opacity: 1; padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .source-detail-item { display: flex; flex-direction: column; gap: 1px; }
+    .source-detail-label { font-weight: 600; font-size: 0.62rem; text-transform: uppercase; letter-spacing: .05em; }
+    .source-detail-value { font-size: 0.75rem; color: var(--text); }
+
+    .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); }
+    .disagree-level { font-weight: 600; }
+    .disagree-low  { color: var(--accent); }
+    .disagree-med  { color: var(--warn); }
+    .disagree-high { color: var(--danger); }
+    .disagree-na   { color: var(--muted); }
+    .source-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .source-tag { font-size: 0.65rem; padding: 1px 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
+    .source-tag-ok  { border-color: var(--accent); color: var(--accent); }
+    .source-tag-err { border-color: var(--danger); color: var(--danger); opacity: 0.7; }
+
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 0.9rem; }
+    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .summary-strip { grid-template-columns: 1fr; }
+      .fight-grid { grid-template-columns: 1fr; }
+      .key-panel { flex-direction: column; align-items: flex-start; }
+      .key-panel input { width: 100%; }
+      .header-meta { width: 100%; justify-content: flex-start; }
+      .fight-card:hover { transform: none; }
+      .source-detail { max-height: 60px; opacity: 1; padding-top: 6px; border-top: 1px solid var(--border); }
+    }
+    @media (max-width: 400px) {
+      .page { padding: 0 10px 48px; }
+      .fight-card { padding: 12px; }
+    }
+    .btn, .key-panel input, button { min-height: 44px; }
+    @media (min-width: 601px) {
+      .btn, button { min-height: 32px; }
+      .key-panel input { min-height: 32px; }
+    }
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
-<div class="app">
+<div class="page">
   <header>
-    <div class="logo">
-      <div class="logo-icon">&#x1F94A;</div>
-      <div class="logo-text">
-        <h1>UFC Odds Risk Intel</h1>
-        <p>Polymarket + Sportsbook consensus</p>
-      </div>
-    </div>
     <div>
-      <div class="key-area">
-        <span class="key-label">Odds API Key</span>
-        <input id="key-input" type="password" placeholder="Enter key for DK/FD odds" autocomplete="off" spellcheck="false">
-        <button id="key-save">Save</button>
-        <button id="key-clear">Clear</button>
-      </div>
-      <div class="key-warning">Key stored in localStorage only</div>
-      <div id="key-msg"></div>
+      <span class="logo">UFC Odds Risk Intel<span class="logo-sub">Dashboard</span></span>
+    </div>
+    <div class="header-meta">
+      <span class="last-updated hidden" id="lastUpdated"></span>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
     </div>
   </header>
 
-  <div id="status-bar">
-    <span class="status-dot" id="poly-dot"></span>
-    <span id="poly-status">Polymarket</span>
-    <span class="status-dot" id="odds-dot"></span>
-    <span id="odds-status">Odds API</span>
-    <span class="timestamp" id="cache-ts"></span>
-    <button id="refresh-btn">Refresh</button>
-  </div>
-
-  <div id="notices"></div>
-
-  <div id="summary-panel" style="display:none">
-    <div class="summary-card">
-      <h2>Safest Bets</h2>
-      <div id="safest-list"></div>
+  <div class="key-panel">
+    <div>
+      <label for="apiKeyInput">The Odds API Key <span style="color:var(--muted)">(optional)</span></label>
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="off" spellcheck="false" maxlength="200">
+      <div class="key-hint">Stored in localStorage only, never logged. Without it, Polymarket data only.</div>
     </div>
-    <div class="summary-card">
-      <h2>Upset Watch</h2>
-      <div id="upset-list"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-accent" id="applyKeyBtn" type="button">Apply Key</button>
+      <button class="btn btn-danger hidden" id="clearKeyBtn" type="button">Clear API Key</button>
     </div>
   </div>
 
-  <div class="section-header" id="section-hdr" style="display:none">
-    <span class="section-title">All Fights</span>
-    <span class="fight-count" id="fight-count"></span>
+  <div id="banners" role="status" aria-live="polite"></div>
+
+  <div class="summary-strip">
+    <div class="summary-card">
+      <div class="summary-title">Safest Bets</div>
+      <div id="safestSkeleton">
+        <div class="skeleton skeleton-line" style="width:80%;"></div>
+        <div class="skeleton skeleton-line" style="width:65%;"></div>
+        <div class="skeleton skeleton-line" style="width:45%;"></div>
+      </div>
+      <ul class="summary-list hidden" id="safestList" role="list"></ul>
+      <p class="summary-empty hidden" id="safestEmpty">No lock-tier fights found.</p>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Upset Watch</div>
+      <div id="upsetSkeleton">
+        <div class="skeleton skeleton-line" style="width:75%;"></div>
+        <div class="skeleton skeleton-line" style="width:60%;"></div>
+        <div class="skeleton skeleton-line" style="width:50%;"></div>
+      </div>
+      <ul class="summary-list hidden" id="upsetList" role="list"></ul>
+      <p class="summary-empty hidden" id="upsetEmpty">No high-upset-potential fights found.</p>
+    </div>
   </div>
 
-  <div id="fights-grid"></div>
+  <div class="section-header">
+    <span class="section-title">Fight Cards</span>
+    <span class="count-badge hidden" id="fightCount"></span>
+  </div>
+  <div id="fightGrid" class="fight-grid" role="list">
+    <div id="mainSkeleton" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">
+      <div class="skeleton-card"><div class="skeleton-header"><div><div class="skeleton skeleton-text-md" style="width:140px;"></div><div class="skeleton skeleton-text-sm" style="width:80px;margin-top:6px;"></div></div><div class="skeleton skeleton-badge"></div></div><div class="skeleton skeleton-bar" style="width:100%;margin-top:4px;"></div><div class="skeleton skeleton-text-sm" style="width:60px;margin-top:8px;"></div><div class="skeleton skeleton-meter" style="width:100%;"></div></div>
+      <div class="skeleton-card"><div class="skeleton-header"><div><div class="skeleton skeleton-text-md" style="width:120px;"></div><div class="skeleton skeleton-text-sm" style="width:90px;margin-top:6px;"></div></div><div class="skeleton skeleton-badge"></div></div><div class="skeleton skeleton-bar" style="width:100%;margin-top:4px;"></div><div class="skeleton skeleton-text-sm" style="width:60px;margin-top:8px;"></div><div class="skeleton skeleton-meter" style="width:100%;"></div></div>
+      <div class="skeleton-card"><div class="skeleton-header"><div><div class="skeleton skeleton-text-md" style="width:150px;"></div><div class="skeleton skeleton-text-sm" style="width:70px;margin-top:6px;"></div></div><div class="skeleton skeleton-badge"></div></div><div class="skeleton skeleton-bar" style="width:100%;margin-top:4px;"></div><div class="skeleton skeleton-text-sm" style="width:60px;margin-top:8px;"></div><div class="skeleton skeleton-meter" style="width:100%;"></div></div>
+    </div>
+  </div>
 </div>
 
 <script>
-"use strict";
+'use strict';
 
-// === CONSTANTS ===
-const CACHE_VERSION  = "ufc-odds-v1";
-const CACHE_TTL_MS   = 15 * 60 * 1000;
-const POLY_BASE      = "https://clob.polymarket.com";
-const ODDS_BASE      = "https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds/";
-const ODDS_PARAMS    = "regions=us&markets=h2h&bookmakers=draftkings,fanduel";
-const LS_KEY_NAME    = "oddsApiKey";
-const TIER_LOCK      = "Lock";
-const TIER_LEAN      = "Lean";
-const TIER_TOSSUP    = "Toss-Up";
-const TIER_UPSET     = "Upset Alert";
-const DISAGREE_NONE  = "Strong Consensus";
-const DISAGREE_SOME  = "Some Disagreement";
-const DISAGREE_SIG   = "Significant Disagreement";
+// ===================================================
+// CONSTANTS
+// ===================================================
+const CACHE_VERSION      = 'v1';
+const CACHE_TTL_MS       = 15 * 60 * 1000;
+const FETCH_TIMEOUT_MS   = 8000;
+const POLY_CACHE_KEY     = 'pattaya-poly-v1';
+const ODDS_CACHE_KEY     = 'pattaya-odds-v1';
+const ODDS_API_LS_KEY    = 'pattaya-odds-api-key';
+const PROB_SUM_MAX       = 0.10;
+const QUOTA_WARN         = 50;
+const POLY_BASE          = 'https://clob.polymarket.com';
+const ODDS_BASE          = 'https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds';
+const TIER = { LOCK:'lock', LEAN:'lean', TOSSUP:'tossup', UPSET:'upset' };
 
-const COPY = {
-  loading:       "Fetching live fight data...",
-  empty:         "No Active UFC Markets Found",
-  emptyDetail:   "No active UFC markets found on Polymarket or via Odds API. Check back closer to event day.",
-  polyOk:        "Polymarket live",
-  polyFail:      "Polymarket unavailable",
-  polyEmpty:     "No active UFC markets on Polymarket",
-  polyRateLimit: "Polymarket rate-limited -- try again in a moment",
-  oddsOk:        (n) => `Odds API live (${n} bookmakers)`,
-  oddsFail:      "Odds API unavailable",
-  oddsNoKey:     "Add API key for DraftKings/FanDuel odds",
-  oddsAuth:      "Invalid Odds API key -- key cleared",
-  oddsCors:      "Odds API blocked by CORS -- key saved but data unavailable in browser",
-  noKey:         "No Odds API key -- showing Polymarket only",
-  cached:        (ts) => `Cached at ${ts}`,
-  live:          "Live data",
-  singleSource:  "single source",
-};
+// ===================================================
+// SAFE GUARDS
+// ===================================================
+function safeNum(v)  { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function safeStr(v)  { if (typeof v !== 'string') return null; const s=v.trim(); return s.length?s:null; }
+function clamp(v,lo,hi){ const n=safeNum(v); return n===null?lo:Math.max(lo,Math.min(hi,n)); }
+function sanitize(s) { if(typeof s!=='string')return'Unknown'; return s.replace(/[\x00-\x1f\x7f]/g,'').trim().slice(0,100)||'Unknown'; }
 
-// === CACHE ===
-const Cache = {
-  _key(tag) { return `${CACHE_VERSION}:${tag}`; },
+// ===================================================
+// CACHE
+// ===================================================
+const cache = (() => {
+  let avail = null;
+  function ok() {
+    if (avail !== null) return avail;
+    try { sessionStorage.setItem('__p','1'); sessionStorage.removeItem('__p'); avail=true; }
+    catch(_){ avail=false; }
+    return avail;
+  }
+  function write(key, data) {
+    if (!ok()) return;
+    try { sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data })); }
+    catch(_){}
+  }
+  function read(key) {
+    if (!ok()) return null;
+    let raw; try { raw=sessionStorage.getItem(key); } catch(_){ return null; }
+    if (!raw) return null;
+    let e; try { e=JSON.parse(raw); } catch(_){ try{sessionStorage.removeItem(key);}catch(_){} return null; }
+    if (!e||typeof e!=='object'||e.version!==CACHE_VERSION) { try{sessionStorage.removeItem(key);}catch(_){} return null; }
+    const ts=safeNum(e.ts); const now=Date.now();
+    if (ts===null||ts>now||now-ts>CACHE_TTL_MS) { try{sessionStorage.removeItem(key);}catch(_){} return null; }
+    return e.data??null;
+  }
+  function remove(key) { if(!ok())return; try{sessionStorage.removeItem(key);}catch(_){} }
+  function clearAll() { remove(POLY_CACHE_KEY); remove(ODDS_CACHE_KEY); }
+  return { write, read, remove, clearAll };
+})();
 
-  get(tag) {
-    try {
-      const raw = sessionStorage.getItem(this._key(tag));
-      if (!raw) return null;
-      const obj = JSON.parse(raw);
-      if (!obj || obj.version !== CACHE_VERSION) { this.clear(tag); return null; }
-      if (Date.now() - obj.ts > CACHE_TTL_MS)    { this.clear(tag); return null; }
-      return obj.data;
-    } catch { return null; }
-  },
+// ===================================================
+// VALIDATORS
+// ===================================================
+function validatePolymarket(raw) {
+  if (!raw||typeof raw!=='object'||!Array.isArray(raw.data)) return null;
+  const fights=[];
+  for (const item of raw.data) {
+    if (!item||typeof item!=='object') continue;
+    if (!Array.isArray(item.outcomes)||item.outcomes.length<2) continue;
+    if (!Array.isArray(item.outcomePrices)||item.outcomePrices.length<2) continue;
+    const f1=safeStr(item.outcomes[0]), f2=safeStr(item.outcomes[1]);
+    if (!f1||!f2) continue;
+    const p1r=parseFloat(item.outcomePrices[0]), p2r=parseFloat(item.outcomePrices[1]);
+    if (!isFinite(p1r)||!isFinite(p2r)||p1r<0||p1r>1||p2r<0||p2r>1) continue;
+    const sum=p1r+p2r, dev=Math.abs(sum-1);
+    if (dev>PROB_SUM_MAX) continue;
+    const n=dev>0?sum:1;
+    const id=safeStr(item.conditionId||item.id||'')||`poly-${fights.length}`;
+    fights.push({ id, f1:sanitize(f1), f2:sanitize(f2), polyP1:clamp(p1r/n,0,1), polyP2:clamp(p2r/n,0,1) });
+  }
+  return fights;
+}
 
-  set(tag, data) {
-    try {
-      sessionStorage.setItem(this._key(tag), JSON.stringify({ version: CACHE_VERSION, ts: Date.now(), data }));
-    } catch { /* quota exceeded */ }
-  },
+function americanToImplied(a) {
+  const n=safeNum(a); if(n===null||n===0)return null;
+  return n>0 ? 100/(n+100) : Math.abs(n)/(Math.abs(n)+100);
+}
 
-  clear(tag) {
-    try { sessionStorage.removeItem(this._key(tag)); } catch {}
-  },
+function impliedToAmerican(p) {
+  if (p===null||p===undefined||!isFinite(p)||p<=0||p>=1) return null;
+  return p>=0.5 ? Math.round(-100*p/(1-p)) : Math.round(100*(1-p)/p);
+}
 
-  ts(tag) {
-    try {
-      const raw = sessionStorage.getItem(this._key(tag));
-      if (!raw) return null;
-      const obj = JSON.parse(raw);
-      return obj ? obj.ts : null;
-    } catch { return null; }
-  },
-};
+function formatAmerican(a) {
+  if (a===null||a===undefined) return '';
+  return a>0 ? '+'+a : String(a);
+}
 
-// === ADAPTERS ===
+function validateOddsAPI(raw) {
+  if (!Array.isArray(raw)) return null;
+  const fights=[];
+  for (const ev of raw) {
+    if (!ev||typeof ev!=='object') continue;
+    const home=safeStr(ev.home_team), away=safeStr(ev.away_team);
+    if (!home||!away) continue;
+    if (!Array.isArray(ev.bookmakers)||!ev.bookmakers.length) continue;
+    let sh=0,sa=0,cnt=0;
+    for (const bk of ev.bookmakers) {
+      if (!bk||!Array.isArray(bk.markets)) continue;
+      for (const mkt of bk.markets) {
+        if (!mkt||mkt.key!=='h2h'||!Array.isArray(mkt.outcomes)||mkt.outcomes.length<2) continue;
+        let hp=null,ap=null;
+        for (const oc of mkt.outcomes) {
+          if (!oc||typeof oc!=='object') continue;
+          const nm=safeStr(oc.name), pr=safeNum(oc.price); if(!nm||pr===null)continue;
+          if (nm===home) hp=americanToImplied(pr);
+          else if (nm===away) ap=americanToImplied(pr);
+        }
+        if (hp===null||ap===null) continue;
+        const s=hp+ap, d=Math.abs(s-1);
+        if (d>PROB_SUM_MAX) continue;
+        sh+=hp/s; sa+=ap/s; cnt++;
+      }
+    }
+    if (!cnt) continue;
+    const id=safeStr(ev.id||'')||`odds-${fights.length}`;
+    fights.push({ id, f1:sanitize(home), f2:sanitize(away), oddsP1:clamp(sh/cnt,0,1), oddsP2:clamp(sa/cnt,0,1) });
+  }
+  return fights;
+}
+
+// ===================================================
+// COMPUTE
+// ===================================================
+function wilsonCI(p, n) {
+  if (n<=0||p<0||p>1) return { lo:p, hi:p };
+  const z=1.96, z2=z*z;
+  const c=(p+z2/(2*n))/(1+z2/n);
+  const m=(z/(1+z2/n))*Math.sqrt((p*(1-p)/n)+z2/(4*n*n));
+  return { lo:clamp(c-m,0,1), hi:clamp(c+m,0,1) };
+}
+function riskTier(p) { return p>=0.75?TIER.LOCK:p>=0.62?TIER.LEAN:p>=0.55?TIER.TOSSUP:TIER.UPSET; }
+function upsetScore(u) { return clamp(Math.round(u*200),0,100); }
+function disagreement(a,b) {
+  if (a===null||b===null) return { level:'na', delta:null };
+  const d=Math.abs(a-b);
+  return { level:d<0.05?'low':d<0.12?'med':'high', delta:d };
+}
+
+function computeFight(f) {
+  const probs=[];
+  if (f.polyP1!=null) probs.push(f.polyP1);
+  if (f.oddsP1!=null) probs.push(f.oddsP1);
+  if (!probs.length) return null;
+  const cP1=probs.reduce((a,b)=>a+b,0)/probs.length;
+  const cP2=clamp(1-cP1,0,1);
+  const fav1=cP1>=cP2;
+  const favP=fav1?cP1:cP2, dogP=fav1?cP2:cP1;
+  return {
+    id:f.id, f1:f.f1, f2:f.f2,
+    favName:fav1?f.f1:f.f2, dogName:fav1?f.f2:f.f1,
+    favProb:favP, underdogProb:dogP,
+    consensusP1:cP1, consensusP2:cP2,
+    ci:wilsonCI(favP, probs.length*20),
+    tier:riskTier(favP),
+    upset:upsetScore(dogP),
+    disagree:disagreement(f.polyP1??null, f.oddsP1??null),
+    sources:{ poly:f.polyP1!=null, odds:f.oddsP1!=null },
+    polyP1:f.polyP1??null, polyP2:f.polyP2??null,
+    oddsP1:f.oddsP1??null, oddsP2:f.oddsP2??null,
+  };
+}
+
+// ===================================================
+// FETCH
+// ===================================================
 async function fetchPolymarket() {
+  const cached=cache.read(POLY_CACHE_KEY);
+  if (cached!==null) return { fights:cached, error:null, fromCache:true };
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),FETCH_TIMEOUT_MS);
   try {
-    const resp = await fetch(
-      `${POLY_BASE}/markets?tag_slug=ufc&closed=false&limit=50`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (resp.status === 429) return { error: "rateLimit", data: null };
-    if (!resp.ok)            return { error: "unavailable", data: null };
-
-    const json = await resp.json();
-    const markets = Array.isArray(json) ? json : (json.data || json.markets || []);
-
-    const fights = [];
-    for (const m of markets) {
-      const parsed = parsePolymarket(m);
-      if (parsed) fights.push(parsed);
+    let resp;
+    try {
+      resp=await fetch(`${POLY_BASE}/markets?tag_slug=ufc&active=true&limit=50`,
+        { signal:ctrl.signal, headers:{'Accept':'application/json'} });
+    } catch(e) {
+      return { fights:null, error:e?.name==='AbortError'?'Polymarket timed out (>8s)':`Polymarket network error: ${String(e?.message||e).slice(0,120)}` };
     }
-    return { error: null, data: fights };
-  } catch (e) {
-    return { error: "unavailable", data: null };
+    if (!resp.ok) return { fights:null, error:`Polymarket HTTP ${resp.status}` };
+    let body; try { body=await resp.json(); } catch(_){ return { fights:null, error:'Polymarket: invalid JSON' }; }
+    const fights=validatePolymarket(body);
+    if (!fights) return { fights:null, error:'Polymarket: unexpected response shape' };
+    cache.write(POLY_CACHE_KEY, fights);
+    return { fights, error:null, fromCache:false };
+  } finally { clearTimeout(t); }
+}
+
+async function fetchOddsAPI(apiKey) {
+  const key=typeof apiKey==='string'?apiKey.trim():'';
+  if (!key) return { fights:null, error:'No API key', quotaRemaining:null };
+  const cached=cache.read(ODDS_CACHE_KEY);
+  if (cached!==null) return { fights:cached, error:null, quotaRemaining:null, fromCache:true };
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),FETCH_TIMEOUT_MS);
+  try {
+    const p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', bookmakers:'draftkings,fanduel' });
+    let resp;
+    try {
+      resp=await fetch(`${ODDS_BASE}/?${p}`,{ signal:ctrl.signal, headers:{'Accept':'application/json'} });
+    } catch(e) {
+      return { fights:null, error:e?.name==='AbortError'?'Odds API timed out (>8s)':`Odds API network error: ${String(e?.message||e).slice(0,120)}`, quotaRemaining:null };
+    }
+    const qr=resp.headers.get('x-requests-remaining');
+    const quota=qr!==null?parseInt(qr,10):null;
+    if (resp.status===401||resp.status===403) return { fights:null, error:'Odds API: Invalid or unauthorized key', quotaRemaining:quota };
+    if (resp.status===422) return { fights:null, error:'Odds API: Quota exceeded', quotaRemaining:0 };
+    if (!resp.ok) return { fights:null, error:`Odds API HTTP ${resp.status}`, quotaRemaining:quota };
+    let body; try { body=await resp.json(); } catch(_){ return { fights:null, error:'Odds API: invalid JSON', quotaRemaining:quota }; }
+    const fights=validateOddsAPI(body);
+    if (!fights) return { fights:null, error:'Odds API: unexpected shape', quotaRemaining:quota };
+    cache.write(ODDS_CACHE_KEY, fights);
+    return { fights, error:null, quotaRemaining:quota, fromCache:false };
+  } finally { clearTimeout(t); }
+}
+
+// ===================================================
+// MERGE
+// ===================================================
+function lastName(n) { if(!n)return''; const p=n.trim().split(/\s+/); return p[p.length-1].toLowerCase(); }
+
+function mergeResults(poly, odds) {
+  if (!poly) return (odds||[]).map(f=>({...f}));
+  if (!odds)  return poly.map(f=>({...f}));
+  const used=new Set(), out=[];
+  for (const pf of poly) {
+    const pl1=lastName(pf.f1), pl2=lastName(pf.f2);
+    let bi=null;
+    for (let i=0;i<odds.length;i++) {
+      if (used.has(i)) continue;
+      const ol1=lastName(odds[i].f1), ol2=lastName(odds[i].f2);
+      if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)){ bi=i; break; }
+    }
+    if (bi!==null) { used.add(bi); out.push({...pf, oddsP1:odds[bi].oddsP1, oddsP2:odds[bi].oddsP2}); }
+    else out.push({...pf, oddsP1:null, oddsP2:null});
+  }
+  for (let i=0;i<odds.length;i++) { if(!used.has(i)) out.push({...odds[i], polyP1:null, polyP2:null}); }
+  return out;
+}
+
+// ===================================================
+// DOM HELPERS
+// ===================================================
+const $ = id => document.getElementById(id);
+const bannersEl=$('banners'), fightGridEl=$('fightGrid'), mainSkelEl=$('mainSkeleton'),
+      fightCountEl=$('fightCount'), safestListEl=$('safestList'), safestEmptyEl=$('safestEmpty'),
+      safestSkelEl=$('safestSkeleton'), upsetListEl=$('upsetList'), upsetEmptyEl=$('upsetEmpty'),
+      upsetSkelEl=$('upsetSkeleton'), lastUpdEl=$('lastUpdated');
+
+function clearBanners() { while(bannersEl.firstChild)bannersEl.removeChild(bannersEl.firstChild); }
+function addBanner(type,title,msg) {
+  const icons={warn:'!',danger:'X',info:'i',success:'OK'};
+  const d=document.createElement('div'); d.className=`banner banner-${type}`;
+  d.setAttribute('role',type==='danger'?'alert':'status');
+  const ic=document.createElement('span'); ic.className='banner-icon'; ic.setAttribute('aria-hidden','true'); ic.textContent=icons[type]||'i'; d.appendChild(ic);
+  const bd=document.createElement('div'); bd.className='banner-body';
+  if(title){const t=document.createElement('div');t.className='banner-title';t.textContent=title;bd.appendChild(t);}
+  if(msg){const m=document.createElement('div');m.textContent=msg;bd.appendChild(m);}
+  d.appendChild(bd); bannersEl.appendChild(d);
+}
+
+function pct(p) { return `${Math.round(p*100)}%`; }
+
+function makeBar(prob,tier) {
+  const cm={lock:'var(--lock)',lean:'var(--lean)',tossup:'var(--tossup)',upset:'var(--upset)'};
+  const w=document.createElement('div'); w.className='prob-bar-wrap';
+  const f=document.createElement('div'); f.className='prob-bar-fill';
+  f.style.background=cm[tier]||'var(--accent)';
+  w.appendChild(f);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ f.style.width=pct(clamp(prob,0,1)); }); });
+  return w;
+}
+
+function makeCIBar(ci,favP) {
+  const row=document.createElement('div'); row.className='ci-row';
+  const lo=document.createElement('span'); lo.textContent=pct(ci.lo); row.appendChild(lo);
+  const tr=document.createElement('div'); tr.className='ci-track'; tr.style.flex='1';
+  const fl=document.createElement('div'); fl.className='ci-fill';
+  fl.style.left=`${clamp(ci.lo,0,1)*100}%`; fl.style.width=`${(clamp(ci.hi,0,1)-clamp(ci.lo,0,1))*100}%`;
+  tr.appendChild(fl);
+  const cn=document.createElement('div'); cn.className='ci-center'; cn.style.left=`calc(${clamp(favP,0,1)*100}% - 1px)`; tr.appendChild(cn);
+  row.appendChild(tr);
+  const hi=document.createElement('span'); hi.textContent=pct(ci.hi); row.appendChild(hi);
+  const lb=document.createElement('span'); lb.style.cssText='font-size:0.65rem;color:var(--muted);margin-left:4px;'; lb.textContent='95% CI'; row.appendChild(lb);
+  return row;
+}
+
+function makeMeter(u) {
+  const w=document.createElement('div'); w.className='meter-row';
+  const lr=document.createElement('div'); lr.className='meter-label';
+  const ll=document.createElement('span'); ll.textContent='Upset Potential'; lr.appendChild(ll);
+  const rv=document.createElement('span'); rv.className='meter-value'; rv.textContent=String(clamp(u,0,100)); lr.appendChild(rv);
+  w.appendChild(lr);
+  const tr=document.createElement('div'); tr.className='meter-track';
+  const fl=document.createElement('div'); fl.className='meter-fill';
+  const pct100=clamp(u,0,100); fl.style.background=pct100<30?'var(--lock)':pct100<60?'var(--warn)':'var(--danger)';
+  tr.appendChild(fl); w.appendChild(tr);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ fl.style.width=`${pct100}%`; }); });
+  return w;
+}
+
+function makeSourceDetail(c) {
+  const row=document.createElement('div'); row.className='source-detail';
+  if (c.sources.poly) {
+    const item=document.createElement('div'); item.className='source-detail-item';
+    const lbl=document.createElement('span'); lbl.className='source-detail-label'; lbl.textContent='Polymarket'; item.appendChild(lbl);
+    const val=document.createElement('span'); val.className='source-detail-value';
+    val.textContent=`${pct(c.polyP1||0)} / ${pct(c.polyP2||0)}`;
+    item.appendChild(val); row.appendChild(item);
+  }
+  if (c.sources.odds) {
+    const item=document.createElement('div'); item.className='source-detail-item';
+    const lbl=document.createElement('span'); lbl.className='source-detail-label'; lbl.textContent='DK/FD Avg'; item.appendChild(lbl);
+    const val=document.createElement('span'); val.className='source-detail-value';
+    val.textContent=`${pct(c.oddsP1||0)} / ${pct(c.oddsP2||0)}`;
+    item.appendChild(val); row.appendChild(item);
+  }
+  return row;
+}
+
+function makeDisagreeRow(dis,sources) {
+  const row=document.createElement('div'); row.className='disagree-row';
+  const left=document.createElement('div'); left.style.cssText='display:flex;flex-direction:column;gap:2px;';
+  const lm={low:'Low Disagreement',med:'Moderate Disagreement',high:'High Disagreement',na:'Single Source'};
+  const lc={low:'disagree-low',med:'disagree-med',high:'disagree-high',na:'disagree-na'};
+  const lv=document.createElement('span'); lv.className=`disagree-level ${lc[dis.level]||'disagree-na'}`; lv.textContent=lm[dis.level]||'N/A'; left.appendChild(lv);
+  if (dis.delta!==null){const dl=document.createElement('span');dl.style.cssText='font-size:0.65rem;color:var(--muted);';dl.textContent=`${Math.round(dis.delta*100)}pp spread`;left.appendChild(dl);}
+  row.appendChild(left);
+  const tg=document.createElement('div'); tg.className='source-tags';
+  const pt=document.createElement('span'); pt.className=`source-tag ${sources.poly?'source-tag-ok':'source-tag-err'}`; pt.textContent='Poly'; tg.appendChild(pt);
+  const ot=document.createElement('span'); ot.className=`source-tag ${sources.odds?'source-tag-ok':'source-tag-err'}`; ot.textContent='Odds'; tg.appendChild(ot);
+  row.appendChild(tg); return row;
+}
+
+function renderCard(c, index) {
+  const card=document.createElement('div'); card.className='fight-card'; card.setAttribute('data-tier',c.tier); card.setAttribute('role','listitem');
+  card.setAttribute('tabindex','0');
+  card.style.animationDelay=`${index*0.06}s`;
+
+  const hdr=document.createElement('div'); hdr.className='fight-header';
+  const mu=document.createElement('div'); mu.className='fight-matchup';
+
+  const r1=document.createElement('div'); r1.className='fighter-row';
+  const n1=document.createElement('span'); n1.className='fighter-name'; n1.textContent=c.f1; r1.appendChild(n1);
+  const am1=impliedToAmerican(c.consensusP1);
+  if (am1!==null){const o1=document.createElement('span');o1.className='fighter-odds';o1.textContent=formatAmerican(am1);r1.appendChild(o1);}
+  const p1=document.createElement('span'); p1.className='fighter-prob'; p1.textContent=pct(c.consensusP1); r1.appendChild(p1);
+  mu.appendChild(r1); mu.appendChild(makeBar(c.consensusP1,c.tier));
+
+  const vs=document.createElement('div'); vs.className='vs-divider'; vs.textContent='vs'; mu.appendChild(vs);
+
+  const r2=document.createElement('div'); r2.className='fighter-row';
+  const n2=document.createElement('span'); n2.className='fighter-name'; n2.textContent=c.f2; r2.appendChild(n2);
+  const am2=impliedToAmerican(c.consensusP2);
+  if (am2!==null){const o2=document.createElement('span');o2.className='fighter-odds';o2.textContent=formatAmerican(am2);r2.appendChild(o2);}
+  const p2=document.createElement('span'); p2.className='fighter-prob'; p2.textContent=pct(c.consensusP2); r2.appendChild(p2);
+  mu.appendChild(r2); hdr.appendChild(mu);
+
+  const tb=document.createElement('span');
+  const tl={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
+  tb.className=`tier-badge tier-${c.tier}`; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
+  card.appendChild(hdr);
+  card.appendChild(makeCIBar(c.ci,c.favProb));
+  card.appendChild(makeMeter(c.upset));
+  card.appendChild(makeDisagreeRow(c.disagree,c.sources));
+  card.appendChild(makeSourceDetail(c));
+  return card;
+}
+
+function renderSummary(computed) {
+  safestSkelEl.classList.add('hidden'); upsetSkelEl.classList.add('hidden');
+  const safest=computed.filter(f=>f.tier===TIER.LOCK).sort((a,b)=>b.favProb-a.favProb).slice(0,5);
+  if (!safest.length) { safestEmptyEl.classList.remove('hidden'); }
+  else {
+    safestListEl.classList.remove('hidden'); while(safestListEl.firstChild)safestListEl.removeChild(safestListEl.firstChild);
+    for(const f of safest){const li=document.createElement('li');li.className='summary-item';const d=document.createElement('span');d.className='summary-dot';d.style.background='var(--lock)';li.appendChild(d);const nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.favName;li.appendChild(nm);const pr=document.createElement('span');pr.className='summary-prob';pr.textContent=pct(f.favProb);li.appendChild(pr);safestListEl.appendChild(li);}
+  }
+  const upsets=computed.filter(f=>f.tier===TIER.TOSSUP||f.tier===TIER.UPSET).sort((a,b)=>b.upset-a.upset).slice(0,5);
+  if (!upsets.length) { upsetEmptyEl.classList.remove('hidden'); }
+  else {
+    upsetListEl.classList.remove('hidden'); while(upsetListEl.firstChild)upsetListEl.removeChild(upsetListEl.firstChild);
+    for(const f of upsets){const li=document.createElement('li');li.className='summary-item';const d=document.createElement('span');d.className='summary-dot';d.style.background=f.tier===TIER.UPSET?'var(--upset)':'var(--tossup)';li.appendChild(d);const nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.dogName;li.appendChild(nm);const sc=document.createElement('span');sc.className='summary-prob';sc.textContent=`${f.upset}/100`;li.appendChild(sc);upsetListEl.appendChild(li);}
   }
 }
 
-function parsePolymarket(market) {
-  try {
-    const question = (market.question || market.title || "").trim();
-    if (!question) return null;
-
-    let fa = "", fb = "";
-    const vsMatch = question.match(/^(.+?)\s+vs\.?\s+(.+?)(?:\?|$)/i);
-    if (vsMatch) {
-      fa = vsMatch[1].trim();
-      fb = vsMatch[2].trim();
-    } else {
-      const beatMatch = question.match(/will\s+(.+?)\s+(?:beat|defeat)\s+(.+?)(?:\?|$)/i);
-      if (beatMatch) { fa = beatMatch[1].trim(); fb = beatMatch[2].trim(); }
-      else return null;
-    }
-
-    let probA = 0.5, probB = 0.5;
-    const tokens = market.tokens || market.outcomes || [];
-    if (tokens.length >= 2) {
-      const pA = parseFloat(tokens[0].price ?? tokens[0].probability ?? 0);
-      const pB = parseFloat(tokens[1].price ?? tokens[1].probability ?? 0);
-      if (!isNaN(pA) && pA > 0) {
-        const sum = pA + pB || 1;
-        probA = pA / sum;
-        probB = pB / sum;
-      }
-    } else if (market.outcomePrices) {
-      const prices = Array.isArray(market.outcomePrices)
-        ? market.outcomePrices
-        : String(market.outcomePrices).split(",").map(Number);
-      if (prices.length >= 2) {
-        const sum = prices[0] + prices[1] || 1;
-        probA = prices[0] / sum;
-        probB = prices[1] / sum;
-      }
-    }
-
-    if (probA < 0 || probA > 1 || probB < 0 || probB > 1) return null;
-
-    return {
-      fightKey: normKey(fa, fb),
-      fighterA: cleanName(fa),
-      fighterB: cleanName(fb),
-      probA, probB,
-      sources: [{ name: "Polymarket", probA, probB }],
-    };
-  } catch { return null; }
-}
-
-async function fetchOddsAPI(key) {
-  if (!key) return { error: null, data: null };
-
-  const url = `${ODDS_BASE}?apiKey=${encodeURIComponent(key)}&${ODDS_PARAMS}`;
-  try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (resp.status === 401) return { error: "auth", data: null };
-    if (resp.status === 422) return { error: "cors", data: null };
-    if (!resp.ok)            return { error: "unavailable", data: null };
-
-    const events = await resp.json();
-    if (!Array.isArray(events)) return { error: "parse", data: null };
-
-    const fights = [];
-    for (const ev of events) {
-      const parsed = parseOddsEvent(ev);
-      if (parsed) fights.push(parsed);
-    }
-    return { error: null, data: fights };
-  } catch (e) {
-    if (e.message && e.message.toLowerCase().includes("failed to fetch")) {
-      return { error: "cors", data: null };
-    }
-    return { error: "unavailable", data: null };
-  }
-}
-
-function parseOddsEvent(ev) {
-  try {
-    const bookmakers = ev.bookmakers || [];
-    if (bookmakers.length === 0) return null;
-
-    const firstOutcomes = bookmakers[0]?.markets?.[0]?.outcomes;
-    if (!firstOutcomes || firstOutcomes.length < 2) return null;
-
-    const fa = cleanName(firstOutcomes[0].name);
-    const fb = cleanName(firstOutcomes[1].name);
-    if (!fa || !fb) return null;
-
-    const sources = [];
-    for (const bk of bookmakers) {
-      const mkt = bk.markets?.[0]?.outcomes;
-      if (!mkt || mkt.length < 2) continue;
-      const pA = americanToProb(mkt[0].price);
-      const pB = americanToProb(mkt[1].price);
-      const sum = pA + pB;
-      if (sum <= 0) continue;
-      sources.push({ name: bk.title || bk.key, probA: pA / sum, probB: pB / sum });
-    }
-
-    if (sources.length === 0) return null;
-    const avgA = sources.reduce((s, x) => s + x.probA, 0) / sources.length;
-    const avgB = sources.reduce((s, x) => s + x.probB, 0) / sources.length;
-
-    return {
-      fightKey: normKey(fa, fb),
-      fighterA: fa,
-      fighterB: fb,
-      probA: avgA,
-      probB: avgB,
-      oddsA: firstOutcomes[0].price,
-      oddsB: firstOutcomes[1].price,
-      sources,
-    };
-  } catch { return null; }
-}
-
-// === NORMALIZE ===
-function cleanName(name) {
-  return (name || "").trim().replace(/\s+/g, " ");
-}
-
-function normKey(a, b) {
-  const na = a.toLowerCase().replace(/[^a-z ]/g, "").trim();
-  const nb = b.toLowerCase().replace(/[^a-z ]/g, "").trim();
-  return [na, nb].sort().join("|");
-}
-
-function americanToProb(odds) {
-  if (!odds || isNaN(odds)) return 0;
-  if (odds > 0) return 100 / (odds + 100);
-  return Math.abs(odds) / (Math.abs(odds) + 100);
-}
-
-function probToAmerican(p) {
-  if (p <= 0 || p >= 1) return "N/A";
-  if (p >= 0.5) return `-${Math.round(p / (1 - p) * 100)}`;
-  return `+${Math.round((1 - p) / p * 100)}`;
-}
-
-function mergeFeeds(polyResult, oddsResult) {
-  const map = new Map();
-
-  for (const f of (polyResult?.data || [])) {
-    if (f) map.set(f.fightKey, { ...f });
-  }
-
-  for (const f of (oddsResult?.data || [])) {
-    if (!f) continue;
-    if (map.has(f.fightKey)) {
-      const existing = map.get(f.fightKey);
-      const allSources = [...(existing.sources || []), ...(f.sources || [])];
-      const avgA = allSources.reduce((s, x) => s + x.probA, 0) / allSources.length;
-      const avgB = allSources.reduce((s, x) => s + x.probB, 0) / allSources.length;
-      map.set(f.fightKey, {
-        ...existing,
-        probA: avgA, probB: avgB,
-        oddsA: f.oddsA ?? existing.oddsA,
-        oddsB: f.oddsB ?? existing.oddsB,
-        sources: allSources,
-      });
-    } else {
-      map.set(f.fightKey, { ...f });
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-// === ANALYSIS ===
-function classifyRisk(probFavorite) {
-  if (probFavorite >= 0.75) return TIER_LOCK;
-  if (probFavorite >= 0.62) return TIER_LEAN;
-  if (probFavorite >= 0.55) return TIER_TOSSUP;
-  return TIER_UPSET;
-}
-
-function upsetScore(probFavorite, disagreeLevel) {
-  const base = (1 - probFavorite) * 100;
-  const disagreeBoost = disagreeLevel === DISAGREE_SIG ? 15 : disagreeLevel === DISAGREE_SOME ? 7 : 0;
-  return Math.min(100, Math.round(base + disagreeBoost));
-}
-
-function disagreementTier(sources) {
-  if (!sources || sources.length < 2) return DISAGREE_NONE;
-  const probs = sources.map(s => s.probA);
-  const mean  = probs.reduce((a, b) => a + b, 0) / probs.length;
-  const std   = Math.sqrt(probs.reduce((s, p) => s + (p - mean) ** 2, 0) / probs.length);
-  const pctStd = std * 100;
-  if (pctStd >= 8) return DISAGREE_SIG;
-  if (pctStd >= 3) return DISAGREE_SOME;
-  return DISAGREE_NONE;
-}
-
-function ciInterval(sources) {
-  if (!sources || sources.length < 2) return null;
-  const probs = sources.map(s => s.probA);
-  return { lo: Math.min(...probs), hi: Math.max(...probs) };
-}
-
-function analyzeAll(fights) {
-  return fights.map(f => {
-    const favIsA    = f.probA >= f.probB;
-    const probFavN  = favIsA ? f.probA : f.probB;
-    const probUndN  = favIsA ? f.probB : f.probA;
-    const disagree  = disagreementTier(f.sources);
-    const ci        = ciInterval(f.sources);
-    const tier      = classifyRisk(probFavN);
-    const upset     = upsetScore(probFavN, disagree);
-    return {
-      ...f,
-      favIsA,
-      favName:  favIsA ? f.fighterA : f.fighterB,
-      undName:  favIsA ? f.fighterB : f.fighterA,
-      probFavN,
-      probUndN,
-      disagree, ci, tier, upset,
-    };
-  });
-}
-
-// === RENDER ===
-function tierClass(tier) {
-  if (tier === TIER_LOCK)   return "lock";
-  if (tier === TIER_LEAN)   return "lean";
-  if (tier === TIER_TOSSUP) return "tossup";
-  return "upset";
-}
-
-function disagreeClass(d) {
-  if (d === DISAGREE_SIG)  return "sig";
-  if (d === DISAGREE_SOME) return "some";
-  return "consensus";
-}
-
-function pct(prob) { return `${Math.round(prob * 100)}%`; }
-
-function escHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function renderFightCard(fight) {
-  const tc     = tierClass(fight.tier);
-  const dc     = disagreeClass(fight.disagree);
-  const hiDis  = fight.disagree === DISAGREE_SIG ? " disagree-hi" : "";
-  const favColor = tc === "lock" ? "var(--emerald)" : tc === "lean" ? "var(--blue)"
-    : tc === "tossup" ? "var(--yellow)" : "var(--red)";
-
-  const uniqueSources = [...new Set(fight.sources.map(s => s.name))];
-
-  const favOddsStr = fight.favIsA
-    ? (fight.oddsA != null ? probToAmerican(fight.probA) : probToAmerican(fight.probFavN))
-    : (fight.oddsB != null ? probToAmerican(fight.probB) : probToAmerican(fight.probFavN));
-  const undOddsStr = fight.favIsA
-    ? (fight.oddsB != null ? probToAmerican(fight.probB) : probToAmerican(fight.probUndN))
-    : (fight.oddsA != null ? probToAmerican(fight.probA) : probToAmerican(fight.probUndN));
-
-  const ciEl = fight.ci
-    ? `<div class="ci-wrap" title="95% CI: ${pct(fight.ci.lo)} - ${pct(fight.ci.hi)}">
-        <span class="ci-label">CI</span>
-        <meter class="ci-bar" min="0" max="1" low="0.4" high="0.7" optimum="0.8"
-          value="${fight.probFavN.toFixed(3)}"></meter>
-        <span class="ci-range">${pct(fight.ci.lo)} - ${pct(fight.ci.hi)}</span>
-       </div>`
-    : `<div class="ci-wrap" title="${COPY.singleSource}">
-        <span class="ci-label">CI</span>
-        <meter class="ci-bar" min="0" max="1" value="${fight.probFavN.toFixed(3)}"></meter>
-        <span class="ci-range" style="color:var(--muted)">${COPY.singleSource}</span>
-       </div>`;
-
-  const sourcesHtml = uniqueSources
-    .map(n => `<span class="source-chip">${escHtml(n)}</span>`).join("");
-
-  return `
-  <div class="fight-card tier-${tc}${hiDis}">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-      <span class="tier-badge ${tc}">${escHtml(fight.tier)}</span>
-      <span class="disagree-badge ${dc}">${escHtml(fight.disagree)}</span>
-    </div>
-    <div class="matchup">
-      <div class="fighter-row">
-        <span class="fighter-name" title="${escHtml(fight.favName)}">${escHtml(fight.favName)}</span>
-        <div class="prob-bar-wrap">
-          <div class="prob-bar" style="width:${pct(fight.probFavN)}"></div>
-        </div>
-        <span class="prob-num" style="color:${favColor}">${pct(fight.probFavN)}</span>
-        <span class="odds-num">${escHtml(favOddsStr)}</span>
-      </div>
-      <div class="fighter-row">
-        <span class="fighter-name underdog" title="${escHtml(fight.undName)}">${escHtml(fight.undName)}</span>
-        <div class="prob-bar-wrap">
-          <div class="prob-bar" style="width:${pct(fight.probUndN)};background:var(--muted)"></div>
-        </div>
-        <span class="prob-num" style="color:var(--muted)">${pct(fight.probUndN)}</span>
-        <span class="odds-num">${escHtml(undOddsStr)}</span>
-      </div>
-    </div>
-    ${ciEl}
-    <div class="metrics">
-      <div class="metric">
-        <span class="metric-label">Upset Meter</span>
-        <div class="upset-meter-wrap">
-          <div class="upset-meter-bar">
-            <div class="upset-meter-fill" style="width:${fight.upset}%"></div>
-          </div>
-          <span class="upset-meter-num">${fight.upset}</span>
-        </div>
-      </div>
-      <div class="metric">
-        <span class="metric-label">Sources</span>
-        <div class="sources">${sourcesHtml}</div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderSummary(analyzed) {
-  const safest = [...analyzed]
-    .filter(f => f.tier === TIER_LOCK || f.tier === TIER_LEAN)
-    .sort((a, b) => b.probFavN - a.probFavN)
-    .slice(0, 4);
-
-  const upsets = [...analyzed]
-    .filter(f => f.upset >= 40)
-    .sort((a, b) => b.upset - a.upset)
-    .slice(0, 4);
-
-  document.getElementById("safest-list").innerHTML = safest.length
-    ? safest.map(f => `
-      <div class="summary-item">
-        <span class="summary-fighter" title="${escHtml(f.favName)}">${escHtml(f.favName)}</span>
-        <span class="summary-prob" style="color:var(--emerald)">${pct(f.probFavN)}</span>
-      </div>`).join("")
-    : '<div style="color:var(--muted);font-size:12px;padding:6px 0">No strong locks found</div>';
-
-  document.getElementById("upset-list").innerHTML = upsets.length
-    ? upsets.map(f => `
-      <div class="summary-item">
-        <span class="summary-fighter" title="${escHtml(f.undName)}">${escHtml(f.undName)}</span>
-        <span class="summary-prob" style="color:var(--red)">${f.upset}/100</span>
-      </div>`).join("")
-    : '<div style="color:var(--muted);font-size:12px;padding:6px 0">No major upsets flagged</div>';
-
-  document.getElementById("summary-panel").style.display = "grid";
-}
-
-function renderFights(analyzed) {
-  const grid = document.getElementById("fights-grid");
-  if (!analyzed || analyzed.length === 0) {
-    grid.innerHTML = `
-    <div class="state-msg" style="grid-column:1/-1">
-      <div class="icon">No data</div>
-      <h3>${COPY.empty}</h3>
-      <p>${COPY.emptyDetail}</p>
-    </div>`;
-    document.getElementById("section-hdr").style.display = "none";
+function renderFights(computed) {
+  mainSkelEl.classList.add('hidden');
+  fightGridEl.querySelectorAll('.fight-card,.empty-state').forEach(e=>e.remove());
+  if (!computed.length) {
+    fightCountEl.classList.add('hidden');
+    const em=document.createElement('div'); em.className='empty-state'; em.textContent='No active UFC markets found. Check back closer to fight night.'; fightGridEl.appendChild(em);
     return;
   }
-
-  document.getElementById("section-hdr").style.display = "flex";
-  document.getElementById("fight-count").textContent =
-    `${analyzed.length} fight${analyzed.length !== 1 ? "s" : ""}`;
-
-  const tierOrder = { [TIER_UPSET]: 0, [TIER_TOSSUP]: 1, [TIER_LEAN]: 2, [TIER_LOCK]: 3 };
-  const sorted = [...analyzed].sort((a, b) => {
-    const td = tierOrder[a.tier] - tierOrder[b.tier];
-    return td !== 0 ? td : b.upset - a.upset;
-  });
-
-  grid.innerHTML = sorted.map(renderFightCard).join("");
+  fightCountEl.classList.remove('hidden'); fightCountEl.textContent=`${computed.length} fight${computed.length!==1?'s':''}`;
+  const to={lock:0,lean:1,tossup:2,upset:3};
+  const sorted=[...computed].sort((a,b)=>{ const ta=to[a.tier]??4,tb=to[b.tier]??4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
+  sorted.forEach((f,i) => fightGridEl.appendChild(renderCard(f,i)));
 }
 
-function addNotice(type, msg) {
-  const icons = { warn: "!", info: "i", err: "x" };
-  const el = document.createElement("div");
-  el.className = `notice ${type}`;
-  const iconSpan = document.createElement("span");
-  iconSpan.textContent = icons[type] || "-";
-  const msgSpan = document.createElement("span");
-  msgSpan.textContent = msg;
-  el.appendChild(iconSpan);
-  el.appendChild(msgSpan);
-  document.getElementById("notices").appendChild(el);
+function showAllFailed() {
+  mainSkelEl.classList.add('hidden');
+  safestSkelEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
+  upsetSkelEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
+  addBanner('danger','No data available','All data sources failed. Check your network and API key, then refresh.');
+  fightGridEl.querySelectorAll('.fight-card,.empty-state').forEach(e=>e.remove());
+  const em=document.createElement('div'); em.className='empty-state'; em.textContent='No data available. See error above.'; fightGridEl.appendChild(em);
 }
 
-function clearNotices() { document.getElementById("notices").innerHTML = ""; }
+// ===================================================
+// KEY MANAGEMENT
+// ===================================================
+function loadKey() { try{ const k=localStorage.getItem(ODDS_API_LS_KEY); return typeof k==='string'&&k.trim()?k.trim():null; }catch(_){return null;} }
+function saveKey(k) { const t=typeof k==='string'?k.trim():''; if(!t)return false; try{localStorage.setItem(ODDS_API_LS_KEY,t);return true;}catch(_){return false;} }
+function removeKey() { try{localStorage.removeItem(ODDS_API_LS_KEY);}catch(_){} }
 
-function setStatus(dotId, statusId, dotState, text) {
-  document.getElementById(dotId).className = `status-dot ${dotState}`;
-  document.getElementById(statusId).textContent = text;
+const apiKeyInput=$('apiKeyInput'), applyKeyBtn=$('applyKeyBtn'), clearKeyBtn=$('clearKeyBtn'), refreshBtn=$('refreshBtn');
+
+function updateKeyUI() {
+  if (loadKey()) { clearKeyBtn.classList.remove('hidden'); apiKeyInput.placeholder='Key saved'; apiKeyInput.value=''; }
+  else { clearKeyBtn.classList.add('hidden'); apiKeyInput.placeholder='Paste your API key...'; }
 }
 
-function setCacheTs(ts) {
-  const el = document.getElementById("cache-ts");
-  if (!ts) { el.textContent = COPY.live; return; }
-  const d = new Date(ts);
-  const hms = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
-  el.textContent = COPY.cached(hms);
-}
+// ===================================================
+// MAIN ORCHESTRATION
+// ===================================================
+async function run(force) {
+  clearBanners();
+  fightGridEl.querySelectorAll('.fight-card,.empty-state').forEach(e=>e.remove());
+  mainSkelEl.classList.remove('hidden');
+  safestSkelEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
+  upsetSkelEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
+  if (force) cache.clearAll();
 
-// === INIT ===
-async function loadAndRender(forceRefresh) {
-  clearNotices();
-  document.getElementById("fights-grid").innerHTML = `
-    <div class="state-msg" style="grid-column:1/-1">
-      <div class="spinner"></div>
-      <p>${COPY.loading}</p>
-    </div>`;
+  const apiKey=loadKey();
+  if (!apiKey) addBanner('info','No Odds API key','Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
 
-  const key = localStorage.getItem(LS_KEY_NAME) || "";
-
-  if (!forceRefresh) {
-    const cached = Cache.get("fights");
-    if (cached && cached.length > 0) {
-      const analyzed = analyzeAll(cached);
-      renderSummary(analyzed);
-      renderFights(analyzed);
-      setCacheTs(Cache.ts("fights"));
-      setStatus("poly-dot", "poly-status", "ok", COPY.polyOk);
-      setStatus("odds-dot", "odds-status", key ? "ok" : "warn",
-        key ? COPY.oddsOk("cached") : COPY.oddsNoKey);
-      return;
-    }
-  } else {
-    Cache.clear("fights");
-  }
-
-  setStatus("poly-dot", "poly-status", "warn", "Fetching...");
-  setStatus("odds-dot", "odds-status", "warn", key ? "Fetching..." : COPY.oddsNoKey);
-
-  const [polyResult, oddsResult] = await Promise.all([
+  const [polyRes, oddsRes]=await Promise.all([
     fetchPolymarket(),
-    fetchOddsAPI(key),
+    apiKey?fetchOddsAPI(apiKey):Promise.resolve({fights:null,error:null,quotaRemaining:null}),
   ]);
 
-  if (polyResult.error === "rateLimit") {
-    setStatus("poly-dot", "poly-status", "err", COPY.polyRateLimit);
-    addNotice("warn", COPY.polyRateLimit);
-  } else if (polyResult.error) {
-    setStatus("poly-dot", "poly-status", "err", COPY.polyFail);
-    addNotice("warn", COPY.polyFail);
-  } else if ((polyResult.data || []).length === 0) {
-    setStatus("poly-dot", "poly-status", "warn", COPY.polyEmpty);
-    addNotice("info", COPY.polyEmpty);
-  } else {
-    setStatus("poly-dot", "poly-status", "ok", COPY.polyOk);
-  }
+  if (polyRes.error) addBanner('warn','Polymarket unavailable',polyRes.error);
+  if (apiKey&&oddsRes.error&&oddsRes.error!=='No API key') addBanner('warn','Odds API unavailable',oddsRes.error);
+  const qr=oddsRes.quotaRemaining;
+  if (qr!==null&&isFinite(qr)&&qr<QUOTA_WARN) addBanner('warn',`Odds API quota low: ${qr} requests remaining`,'Consider refreshing less frequently to preserve quota.');
 
-  if (!key) {
-    setStatus("odds-dot", "odds-status", "warn", COPY.oddsNoKey);
-    addNotice("info", COPY.noKey);
-  } else if (oddsResult.error === "auth") {
-    localStorage.removeItem(LS_KEY_NAME);
-    const inp = document.getElementById("key-input");
-    inp.value = "";
-    inp.classList.add("error");
-    document.getElementById("key-msg").textContent = COPY.oddsAuth;
-    setStatus("odds-dot", "odds-status", "err", COPY.oddsAuth);
-    addNotice("err", COPY.oddsAuth);
-  } else if (oddsResult.error === "cors") {
-    setStatus("odds-dot", "odds-status", "err", COPY.oddsCors);
-    addNotice("warn", COPY.oddsCors);
-  } else if (oddsResult.error) {
-    setStatus("odds-dot", "odds-status", "err", COPY.oddsFail);
-    addNotice("warn", COPY.oddsFail);
-  } else if (oddsResult.data) {
-    const bkNames = [...new Set((oddsResult.data).flatMap(f => f.sources.map(s => s.name)))];
-    setStatus("odds-dot", "odds-status", "ok", COPY.oddsOk(bkNames.length));
-  }
+  if (!polyRes.fights&&!oddsRes.fights) { showAllFailed(); return; }
 
-  const merged = mergeFeeds(polyResult, oddsResult);
+  const merged=mergeResults(polyRes.fights, oddsRes.fights);
+  const computed=merged.map(computeFight).filter(Boolean);
 
-  if (merged.length === 0) {
-    document.getElementById("fights-grid").innerHTML = `
-    <div class="state-msg" style="grid-column:1/-1">
-      <h3>${COPY.empty}</h3>
-      <p>${COPY.emptyDetail}</p>
-    </div>`;
-    document.getElementById("summary-panel").style.display = "none";
-    document.getElementById("section-hdr").style.display = "none";
-    setCacheTs(null);
-    return;
-  }
+  renderSummary(computed);
+  renderFights(computed);
 
-  Cache.set("fights", merged);
-  setCacheTs(Date.now());
+  const now=new Date(); lastUpdEl.textContent=`Updated ${now.toLocaleTimeString()}`; lastUpdEl.classList.remove('hidden');
 
-  const analyzed = analyzeAll(merged);
-  renderSummary(analyzed);
-  renderFights(analyzed);
+  const cached=[];
+  if (polyRes.fromCache) cached.push('Polymarket');
+  if (oddsRes.fromCache) cached.push('Odds API');
+  if (cached.length) addBanner('info',null,`Using cached data: ${cached.join(', ')} (15-min TTL). Click Refresh to force reload.`);
 }
 
-// === KEY INPUT WIRING ===
-function wireKeyInput() {
-  const input   = document.getElementById("key-input");
-  const saveBtn = document.getElementById("key-save");
-  const clrBtn  = document.getElementById("key-clear");
-  const msg     = document.getElementById("key-msg");
+// ===================================================
+// EVENT LISTENERS
+// ===================================================
+applyKeyBtn.addEventListener('click',()=>{
+  const v=apiKeyInput.value, t=typeof v==='string'?v.trim():'';
+  if (!t){addBanner('warn','API key required','Enter a valid key before applying.');return;}
+  if (!saveKey(t)){addBanner('danger','Could not save key','localStorage may be blocked in this browser.');return;}
+  apiKeyInput.value=''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
+});
+clearKeyBtn.addEventListener('click',()=>{
+  removeKey(); cache.clearAll(); apiKeyInput.value=''; updateKeyUI();
+  addBanner('info','API key cleared','Odds API data will no longer be fetched.'); run(false);
+});
+refreshBtn.addEventListener('click',()=>run(true));
+apiKeyInput.addEventListener('keydown',e=>{ if(e.key==='Enter')applyKeyBtn.click(); });
 
-  const stored = localStorage.getItem(LS_KEY_NAME);
-  if (stored) input.value = stored;
-
-  saveBtn.addEventListener("click", () => {
-    const val = input.value.trim();
-    input.classList.remove("error");
-    msg.textContent = "";
-    if (!val) {
-      input.classList.add("error");
-      msg.textContent = "Enter a key first";
-      return;
-    }
-    localStorage.setItem(LS_KEY_NAME, val);
-    Cache.clear("fights");
-    loadAndRender(true);
-  });
-
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBtn.click(); });
-
-  clrBtn.addEventListener("click", () => {
-    localStorage.removeItem(LS_KEY_NAME);
-    input.value = "";
-    input.classList.remove("error");
-    msg.textContent = "";
-    Cache.clear("fights");
-    loadAndRender(true);
-  });
-
-  document.getElementById("refresh-btn").addEventListener("click", () => {
-    loadAndRender(true);
-  });
-}
-
-wireKeyInput();
-loadAndRender(false);
+document.addEventListener('DOMContentLoaded',()=>{ updateKeyUI(); run(false); });
 </script>
 </body>
 </html>
