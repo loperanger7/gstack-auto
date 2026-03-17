@@ -485,9 +485,19 @@
       .key-panel input { min-height: 32px; }
     }
     .hidden { display: none !important; }
+    .skip-to-content {
+      position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
+      background: var(--accent); color: var(--bg); padding: 8px 16px; border-radius: var(--radius);
+      z-index: 1000; font-weight: 600; text-decoration: none;
+    }
+    .skip-to-content:focus { position: fixed; left: 16px; top: 16px; width: auto; height: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
   </style>
 </head>
 <body>
+<a href="#fightGrid" class="skip-to-content" tabindex="1">Skip to fights</a>
 <div class="page">
   <header>
     <div>
@@ -586,6 +596,16 @@ var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
 // Touch detection
 var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+// API key format validation
+var API_KEY_PATTERN = /^[a-f0-9]{32}$/i;
+function validateApiKeyFormat(key) {
+  if (!key || typeof key !== 'string') return false;
+  return API_KEY_PATTERN.test(key.trim());
+}
+
+// AbortController for request lifecycle
+var _activeController = null;
+
 // ===================================================
 // SAFE GUARDS
 // ===================================================
@@ -597,6 +617,16 @@ function sanitize(s) { if(typeof s!=='string')return'Unknown'; return s.replace(
 // ===================================================
 // CACHE
 // ===================================================
+// djb2 hash for cache integrity
+function djb2(str) {
+  var hash = 5381;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash >>> 0; // Unsigned
+}
+
 var cache = (function() {
   var avail = null;
   function ok() {
@@ -607,8 +637,15 @@ var cache = (function() {
   }
   function write(key, data) {
     if (!ok()) return;
-    try { sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data })); }
-    catch(e){}
+    var json = JSON.stringify(data);
+    var hash = djb2(json);
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data, hash:hash }));
+    } catch(e) {
+      // QuotaExceededError — clear and retry once
+      try { clearAll(); sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data, hash:hash })); }
+      catch(e2) { /* give up — app works without cache */ }
+    }
   }
   function read(key) {
     if (!ok()) return null;
@@ -618,11 +655,16 @@ var cache = (function() {
     if (!entry||typeof entry!=='object'||entry.version!==CACHE_VERSION) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
     var ts=safeNum(entry.ts); var now=Date.now();
     if (ts===null||ts>now||now-ts>CACHE_TTL_MS) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
+    // Integrity check: verify hash matches data
+    if (entry.hash !== undefined) {
+      var expected = djb2(JSON.stringify(entry.data));
+      if (entry.hash !== expected) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
+    }
     return entry.data!==undefined?entry.data:null;
   }
   function remove(key) { if(!ok())return; try{sessionStorage.removeItem(key);}catch(e){} }
   function clearAll() { remove(POLY_CACHE_KEY); remove(ODDS_CACHE_KEY); }
-  return { write:write, read:read, remove:remove, clearAll:clearAll };
+  return { write:write, read:read, remove:remove, clearAll:clearAll, ok:ok };
 })();
 
 // ===================================================
@@ -853,7 +895,27 @@ function formatEventDate(isoDate) {
 // ===================================================
 // FETCH - Polymarket with pagination
 // ===================================================
-async function fetchPolymarket() {
+async function fetchWithRetry(url, opts, retries) {
+  var lastErr;
+  for (var attempt = 0; attempt <= (retries || 0); attempt++) {
+    try {
+      var resp = await fetch(url, opts);
+      // Don't retry 4xx — deterministic failures
+      if (resp.status >= 400 && resp.status < 500) return resp;
+      if (resp.ok) return resp;
+      // 5xx — retry
+      lastErr = new Error('HTTP ' + resp.status);
+      if (attempt < (retries || 0)) await new Promise(function(r){setTimeout(r, 2000);});
+    } catch(e) {
+      if (e && e.name === 'AbortError') throw e; // Don't retry user aborts
+      lastErr = e;
+      if (attempt < (retries || 0)) await new Promise(function(r){setTimeout(r, 2000);});
+    }
+  }
+  throw lastErr;
+}
+
+async function fetchPolymarket(signal) {
   var cached=cache.read(POLY_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, fromCache:true };
 
@@ -863,14 +925,16 @@ async function fetchPolymarket() {
   for (var page=0; page<POLY_MAX_PAGES; page++) {
     var ctrl=new AbortController();
     var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
+    // Chain abort: if outer signal aborts, abort this page's controller too
+    if (signal) signal.addEventListener('abort', function(){ctrl.abort();}, {once:true});
     try {
       var params=new URLSearchParams({ tag_slug:'ufc', active:'true', limit:String(POLY_PAGE_SIZE) });
       if (cursor) params.set('next_cursor', cursor);
 
       var resp;
       try {
-        resp=await fetch(POLY_BASE+'/markets?'+params,
-          { signal:ctrl.signal, headers:{'Accept':'application/json'} });
+        resp=await fetchWithRetry(POLY_BASE+'/markets?'+params,
+          { signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
       } catch(e) {
         if (allFights.length) break;
         return { fights:null, error:e&&e.name==='AbortError'?'Polymarket timed out (>8s)':'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
@@ -911,18 +975,19 @@ async function fetchPolymarket() {
   return { fights:deduped, error:null, fromCache:false };
 }
 
-async function fetchOddsAPI(apiKey) {
+async function fetchOddsAPI(apiKey, signal) {
   var key=typeof apiKey==='string'?apiKey.trim():'';
   if (!key) return { fights:null, error:'No API key', quotaRemaining:null };
   var cached=cache.read(ODDS_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, quotaRemaining:null, fromCache:true };
   var ctrl=new AbortController();
   var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
+  if (signal) signal.addEventListener('abort', function(){ctrl.abort();}, {once:true});
   try {
     var p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', bookmakers:'draftkings,fanduel' });
     var resp;
     try {
-      resp=await fetch(ODDS_BASE+'/?'+p,{ signal:ctrl.signal, headers:{'Accept':'application/json'} });
+      resp=await fetchWithRetry(ODDS_BASE+'/?'+p,{ signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
     } catch(e) {
       return { fights:null, error:e&&e.name==='AbortError'?'Odds API timed out (>8s)':'Odds API network error: '+String(e&&e.message||e).slice(0,120), quotaRemaining:null };
     }
@@ -1030,6 +1095,10 @@ function makeBar(prob,tier) {
 
 function makeCIBar(ci,favP) {
   var row=document.createElement('div'); row.className='ci-row';
+  row.setAttribute('role','meter'); row.setAttribute('aria-label','95% Confidence Interval');
+  row.setAttribute('aria-valuemin','0'); row.setAttribute('aria-valuemax','100');
+  row.setAttribute('aria-valuenow', String(Math.round(favP*100)));
+  row.setAttribute('aria-valuetext', pct(ci.lo)+' to '+pct(ci.hi)+', center '+pct(favP));
   var lo=document.createElement('span'); lo.textContent=pct(ci.lo); row.appendChild(lo);
   var tr=document.createElement('div'); tr.className='ci-track'; tr.style.flex='1';
   var fl=document.createElement('div'); fl.className='ci-fill';
@@ -1044,6 +1113,9 @@ function makeCIBar(ci,favP) {
 
 function makeMeter(u, dogName) {
   var w=document.createElement('div'); w.className='meter-row';
+  w.setAttribute('role','meter'); w.setAttribute('aria-label','Upset Potential');
+  w.setAttribute('aria-valuemin','0'); w.setAttribute('aria-valuemax','100');
+  w.setAttribute('aria-valuenow', String(clamp(u,0,100)));
   var lr=document.createElement('div'); lr.className='meter-label';
   var ll=document.createElement('span'); ll.textContent='Upset Potential'; lr.appendChild(ll);
   var rv=document.createElement('span'); rv.className='meter-value'; rv.textContent=String(clamp(u,0,100)); lr.appendChild(rv);
@@ -1428,9 +1500,20 @@ function updateKeyUI() {
 var isRunning=false;
 
 async function run(force) {
-  if (isRunning) return;
+  if (isRunning) {
+    // Abort current run and reschedule
+    if (_activeController) _activeController.abort();
+    isRunning=false;
+    setTimeout(function(){ run(force); }, 0);
+    return;
+  }
   isRunning=true;
   refreshBtn.setAttribute('disabled','');
+
+  // Create a new AbortController for this run
+  if (_activeController) _activeController.abort();
+  _activeController=new AbortController();
+  var signal=_activeController.signal;
 
   try {
     clearBanners();
@@ -1447,9 +1530,13 @@ async function run(force) {
     if (!apiKey) addBanner('info','No Odds API key','Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
 
     var results=await Promise.all([
-      fetchPolymarket(),
-      apiKey?fetchOddsAPI(apiKey):Promise.resolve({fights:null,error:null,quotaRemaining:null})
+      fetchPolymarket(signal),
+      apiKey?fetchOddsAPI(apiKey, signal):Promise.resolve({fights:null,error:null,quotaRemaining:null})
     ]);
+
+    // If aborted mid-flight, bail out silently
+    if (signal.aborted) return;
+
     var polyRes=results[0], oddsRes=results[1];
 
     if (polyRes.error) addBanner('warn','Polymarket unavailable',polyRes.error, false);
@@ -1474,7 +1561,11 @@ async function run(force) {
     if (polyRes.fromCache) cachedSources.push('Polymarket');
     if (oddsRes.fromCache) cachedSources.push('Odds API');
     if (cachedSources.length) addBanner('info',null,'Using cached data: '+cachedSources.join(', ')+' (15-min TTL). Click Refresh to force reload.');
+  } catch(e) {
+    if (e&&e.name==='AbortError') return; // Silently bail on abort
+    throw e;
   } finally {
+    _activeController=null;
     isRunning=false;
     refreshBtn.removeAttribute('disabled');
   }
@@ -1679,6 +1770,75 @@ function runSelfTests() {
     return r && r.polyP1 === 0.7 && r.oddsP1 === 0.65;
   });
 
+  // === NEW TESTS (Round 3 — Robustness Hardening) ===
+
+  // --- djb2 hash (4) ---
+  assert('djb2 deterministic', function(){return djb2('hello')===djb2('hello');});
+  assert('djb2 different inputs differ', function(){return djb2('hello')!==djb2('world');});
+  assert('djb2 empty string', function(){return typeof djb2('')==='number'&&djb2('')===5381;});
+  assert('djb2 returns unsigned 32-bit', function(){return djb2('test')>=0;});
+
+  // --- validateApiKeyFormat (4) ---
+  assert('apiKey valid 32 hex', function(){return validateApiKeyFormat('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4')===true;});
+  assert('apiKey rejects short', function(){return validateApiKeyFormat('abc123')===false;});
+  assert('apiKey rejects null', function(){return validateApiKeyFormat(null)===false;});
+  assert('apiKey rejects non-hex', function(){return validateApiKeyFormat('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz')===false;});
+
+  // --- cache integrity (3) ---
+  assert('cache write+read roundtrip', function(){
+    cache.write('__test_rt', {x:42});
+    var v=cache.read('__test_rt');
+    cache.remove('__test_rt');
+    return v!==null&&v.x===42;
+  });
+  assert('cache detects corruption', function(){
+    try {
+      sessionStorage.setItem('__test_corrupt', JSON.stringify({version:CACHE_VERSION,ts:Date.now(),data:{x:1},hash:99999}));
+      var v=cache.read('__test_corrupt');
+      sessionStorage.removeItem('__test_corrupt');
+      return v===null;
+    } catch(e) { return true; } // sessionStorage blocked is OK
+  });
+  assert('cache expired returns null', function(){
+    try {
+      sessionStorage.setItem('__test_exp', JSON.stringify({version:CACHE_VERSION,ts:1,data:{x:1},hash:djb2(JSON.stringify({x:1}))}));
+      var v=cache.read('__test_exp');
+      sessionStorage.removeItem('__test_exp');
+      return v===null;
+    } catch(e) { return true; }
+  });
+
+  // --- computeCI spec-correct formula (3) ---
+  assert('CI uses mean±1.96*stddev', function(){
+    var ci=computeCI([0.6,0.8]);
+    var mean=0.7, stddev=Math.sqrt(((0.6-0.7)*(0.6-0.7)+(0.8-0.7)*(0.8-0.7))/2);
+    return Math.abs(ci.lo-(mean-1.96*stddev))<0.001 && Math.abs(ci.hi-(mean+1.96*stddev))<0.001;
+  });
+  assert('CI three sources', function(){
+    var ci=computeCI([0.5,0.6,0.7]);
+    return ci.mean>0.59&&ci.mean<0.61&&ci.lo<ci.mean&&ci.hi>ci.mean;
+  });
+  assert('CI single source has zero width', function(){
+    var ci=computeCI([0.65]);
+    return ci.lo===0.65&&ci.hi===0.65;
+  });
+
+  // --- merge improvements (2) ---
+  assert('merge last-name fallback', function(){
+    var r=mergeResults(
+      [{id:'1',f1:'Jon Jones',f2:'Tom Aspinall',polyP1:0.6,polyP2:0.4}],
+      [{id:'2',f1:'Jonathan Jones',f2:'Thomas Aspinall',oddsP1:0.65,oddsP2:0.35}]
+    );
+    return r.length===1&&r[0].oddsP1===0.65;
+  });
+  assert('merge unmatched stays separate', function(){
+    var r=mergeResults(
+      [{id:'1',f1:'A',f2:'B',polyP1:0.6,polyP2:0.4}],
+      [{id:'2',f1:'X',f2:'Y',oddsP1:0.7,oddsP2:0.3}]
+    );
+    return r.length===2;
+  });
+
   // Render results
   var bar=$('selftestBar');
   var passed=results.filter(function(r){return r.pass;}).length;
@@ -1710,6 +1870,7 @@ function runSelfTests() {
 applyKeyBtn.addEventListener('click',function(){
   var v=apiKeyInput.value, t=typeof v==='string'?v.trim():'';
   if (!t){addBanner('warn','API key required','Enter a valid key before applying.', false);return;}
+  if (!validateApiKeyFormat(t)){addBanner('warn','Invalid API key format','Expected 32-character hex key. Check your key and try again.', false);return;}
   if (!saveKey(t)){addBanner('danger','Could not save key','localStorage may be blocked in this browser.', false);return;}
   apiKeyInput.value=''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
 });
