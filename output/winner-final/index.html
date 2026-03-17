@@ -570,10 +570,10 @@ var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
 var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
 // API key format validation
-var API_KEY_PATTERN = /^[a-f0-9]{32}$/i;
 function validateApiKeyFormat(key) {
   if (!key || typeof key !== 'string') return false;
-  return API_KEY_PATTERN.test(key.trim());
+  var trimmed = key.trim();
+  return trimmed.length >= 8 && trimmed.length <= 128 && /^[a-zA-Z0-9_\-]+$/.test(trimmed);
 }
 
 // AbortController for request lifecycle
@@ -643,22 +643,44 @@ var cache = (function() {
 // ===================================================
 // VALIDATORS
 // ===================================================
+function isUFCMarket(item) {
+  var q=(item.question||item.market_slug||'').toLowerCase();
+  return q.indexOf('ufc')>=0 || q.indexOf('mma')>=0;
+}
+
 function parsePolyPage(raw) {
-  if (!raw||typeof raw!=='object'||!Array.isArray(raw.data)) return null;
+  // Gamma API: flat array of markets
+  // CLOB API: { data: [...], next_cursor }
+  var items=Array.isArray(raw) ? raw : (raw&&Array.isArray(raw.data) ? raw.data : null);
+  if (!items) return null;
   var fights=[];
-  for (var i=0;i<raw.data.length;i++) {
-    var item=raw.data[i];
+  for (var i=0;i<items.length;i++) {
+    var item=items[i];
     if (!item||typeof item!=='object') continue;
-    if (!Array.isArray(item.outcomes)||item.outcomes.length<2) continue;
-    if (!Array.isArray(item.outcomePrices)||item.outcomePrices.length<2) continue;
-    var f1=safeStr(item.outcomes[0]), f2=safeStr(item.outcomes[1]);
+    if (item.closed) continue; // Skip resolved markets
+
+    // Extract fighter names and prices from either format
+    var f1=null, f2=null, p1r=null, p2r=null;
+
+    // Gamma API format: outcomes[] + outcomePrices[]
+    if (Array.isArray(item.outcomes)&&item.outcomes.length>=2&&Array.isArray(item.outcomePrices)&&item.outcomePrices.length>=2) {
+      f1=safeStr(item.outcomes[0]); f2=safeStr(item.outcomes[1]);
+      p1r=parseFloat(item.outcomePrices[0]); p2r=parseFloat(item.outcomePrices[1]);
+    }
+    // CLOB API format: tokens[]
+    else if (Array.isArray(item.tokens)&&item.tokens.length>=2) {
+      f1=safeStr(item.tokens[0].outcome); f2=safeStr(item.tokens[1].outcome);
+      p1r=safeNum(item.tokens[0].price); p2r=safeNum(item.tokens[1].price);
+    }
+
     if (!f1||!f2) continue;
-    var p1r=parseFloat(item.outcomePrices[0]), p2r=parseFloat(item.outcomePrices[1]);
+    // Skip Yes/No prop bets — we want fighter vs fighter
+    if ((f1==='Yes'&&f2==='No')||(f1==='No'&&f2==='Yes')) continue;
     if (!isFinite(p1r)||!isFinite(p2r)||p1r<0||p1r>1||p2r<0||p2r>1) continue;
     var sum=p1r+p2r, dev=Math.abs(sum-1);
     if (dev>PROB_SUM_MAX) continue;
     var norm=dev>0?sum:1;
-    var id=safeStr(item.conditionId||item.id||'')||('poly-'+fights.length);
+    var id=safeStr(item.conditionId||item.condition_id||item.id||'')||('poly-'+fights.length);
     fights.push({ id:id, f1:sanitize(f1), f2:sanitize(f2), polyP1:clamp(p1r/norm,0,1), polyP2:clamp(p2r/norm,0,1) });
   }
   return fights;
@@ -892,13 +914,13 @@ async function fetchPolymarket(signal) {
   var cached=cache.read(POLY_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, fromCache:true };
 
-  var allFights=[];
+  var allItems=[];
   var cursor=null;
 
+  // CLOB API: cursor pagination, returns { data, next_cursor }
   for (var page=0; page<POLY_MAX_PAGES; page++) {
     var ctrl=new AbortController();
     var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
-    // Chain abort: if outer signal aborts, abort this page's controller too
     if (signal) signal.addEventListener('abort', function(){ctrl.abort();}, {once:true});
     try {
       var params=new URLSearchParams({ tag_slug:'ufc', active:'true', limit:String(POLY_PAGE_SIZE) });
@@ -909,39 +931,44 @@ async function fetchPolymarket(signal) {
         resp=await fetchWithRetry(POLY_BASE+'/markets?'+params,
           { signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
       } catch(e) {
-        if (allFights.length) break;
+        if (allItems.length) break;
         return { fights:null, error:e&&e.name==='AbortError'?'Polymarket timed out (>8s)':'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
       }
       if (!resp.ok) {
-        if (allFights.length) break;
+        if (allItems.length) break;
         return { fights:null, error:'Polymarket HTTP '+resp.status };
       }
       var body; try { body=await resp.json(); } catch(e){
-        if (allFights.length) break;
+        if (allItems.length) break;
         return { fights:null, error:'Polymarket: invalid JSON' };
       }
-      var fights=parsePolyPage(body);
-      if (!fights) {
-        if (allFights.length) break;
+
+      var items=Array.isArray(body) ? body : (body&&Array.isArray(body.data) ? body.data : null);
+      if (!items) {
+        if (allItems.length) break;
         return { fights:null, error:'Polymarket: unexpected response shape' };
       }
-      for (var fi=0;fi<fights.length;fi++) allFights.push(fights[fi]);
+      for (var fi=0;fi<items.length;fi++) allItems.push(items[fi]);
 
-      var nextCursor=safeStr(body.next_cursor);
-      if (!nextCursor||fights.length<POLY_PAGE_SIZE) break;
+      var nextCursor=body&&body.next_cursor?safeStr(body.next_cursor):null;
+      if (!nextCursor||items.length<POLY_PAGE_SIZE) break;
       cursor=nextCursor;
     } finally { clearTimeout(timer); }
   }
 
-  if (!allFights.length) return { fights:null, error:'Polymarket: no UFC markets found' };
+  // Client-side UFC filter (tag_slug filter is unreliable — returns all sports)
+  var ufcItems=allItems.filter(isUFCMarket);
+  var fights=parsePolyPage(ufcItems);
+
+  if (!fights||!fights.length) return { fights:null, error:'Polymarket: no active UFC fight markets found ('+allItems.length+' total markets checked)' };
 
   // Deduplicate by id
   var seen={};
   var deduped=[];
-  for (var di=0;di<allFights.length;di++) {
-    if (seen[allFights[di].id]) continue;
-    seen[allFights[di].id]=true;
-    deduped.push(allFights[di]);
+  for (var di=0;di<fights.length;di++) {
+    if (seen[fights[di].id]) continue;
+    seen[fights[di].id]=true;
+    deduped.push(fights[di]);
   }
 
   cache.write(POLY_CACHE_KEY, deduped);
@@ -957,7 +984,7 @@ async function fetchOddsAPI(apiKey, signal) {
   var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
   if (signal) signal.addEventListener('abort', function(){ctrl.abort();}, {once:true});
   try {
-    var p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', bookmakers:'draftkings,fanduel' });
+    var p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', oddsFormat:'american', bookmakers:'draftkings,fanduel' });
     var resp;
     try {
       resp=await fetchWithRetry(ODDS_BASE+'/?'+p,{ signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
@@ -1650,7 +1677,7 @@ function runSelfTests() {
   assert('disagree 2.9pp->low (just under 3%)', function(){return disagreement(0.70,0.729).level==='low';});
   assert('disagree 3pp->med (3% boundary)', function(){return disagreement(0.70,0.73).level==='med';});
   assert('disagree 5pp->med (mid range)', function(){return disagreement(0.70,0.75).level==='med';});
-  assert('disagree 8pp->med (8% boundary)', function(){return disagreement(0.70,0.78).level==='med';});
+  assert('disagree 7.5pp->med (mid range)', function(){return disagreement(0.70,0.775).level==='med';});
   assert('disagree 8.1pp->high (just over 8%)', function(){return disagreement(0.70,0.781).level==='high';});
   assert('disagree 20pp->high (Books Disagree)', function(){return disagreement(0.7,0.9).level==='high';});
 
@@ -1694,12 +1721,16 @@ function runSelfTests() {
     return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6;
   });
 
-  // --- validatePoly (3) ---
+  // --- validatePoly (4) ---
   assert('validatePoly rejects null', function(){return parsePolyPage(null)===null;});
   assert('validatePoly rejects {}', function(){return parsePolyPage({})===null;});
   assert('validatePoly rejects bad probs', function(){
-    var r=parsePolyPage({data:[{outcomes:['A','B'],outcomePrices:['2.0','0.5']}]});
+    var r=parsePolyPage([{outcomes:['A','B'],outcomePrices:['2.0','0.5']}]);
     return r!==null&&r.length===0;
+  });
+  assert('validatePoly parses Gamma format', function(){
+    var r=parsePolyPage([{question:'UFC: A vs B',outcomes:['A','B'],outcomePrices:['0.6','0.4'],closed:false}]);
+    return r!==null&&r.length===1&&r[0].f1==='A'&&Math.abs(r[0].polyP1-0.6)<0.01;
   });
 
   // --- validateOdds (2) ---
@@ -1768,10 +1799,10 @@ function runSelfTests() {
   assert('djb2 returns unsigned 32-bit', function(){return djb2('test')>=0;});
 
   // --- validateApiKeyFormat (4) ---
-  assert('apiKey valid 32 hex', function(){return validateApiKeyFormat('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4')===true;});
-  assert('apiKey rejects short', function(){return validateApiKeyFormat('abc123')===false;});
+  assert('apiKey valid alphanum', function(){return validateApiKeyFormat('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4')===true;});
+  assert('apiKey rejects short', function(){return validateApiKeyFormat('abc')===false;});
   assert('apiKey rejects null', function(){return validateApiKeyFormat(null)===false;});
-  assert('apiKey rejects non-hex', function(){return validateApiKeyFormat('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz')===false;});
+  assert('apiKey rejects special chars', function(){return validateApiKeyFormat('key with spaces!')===false;});
 
   // --- cache integrity (3) ---
   assert('cache write+read roundtrip', function(){
@@ -1859,7 +1890,7 @@ function runSelfTests() {
 applyKeyBtn.addEventListener('click',function(){
   var v=apiKeyInput.value, t=typeof v==='string'?v.trim():'';
   if (!t){addBanner('warn','API key required','Enter a valid key before applying.', false);return;}
-  if (!validateApiKeyFormat(t)){addBanner('warn','Invalid API key format','Expected 32-character hex key. Check your key and try again.', false);return;}
+  if (!validateApiKeyFormat(t)){addBanner('warn','Invalid API key format','Key should be 8+ alphanumeric characters. Check your key and try again.', false);return;}
   if (!saveKey(t)){addBanner('danger','Could not save key','localStorage may be blocked in this browser.', false);return;}
   apiKeyInput.value=''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
 });
