@@ -38,11 +38,12 @@ RANKED RESULTS (Final Round)
 
 {FOR_EACH_RUN_RANKED}
 Run {RUN_ID} (Score: {AVERAGE}/10)    {WINNER_LABEL}
-██████████ Functionality  {FUNC_SCORE}
-██████████ Code Quality   {QUALITY_SCORE}
-██████████ Test Coverage  {TEST_SCORE}
-██████████ UX Polish      {UX_SCORE}
-██████████ Spec Adherence {SPEC_SCORE}
+██████████ Functionality   {FUNC_SCORE}
+██████████ Code Quality    {QUALITY_SCORE}
+██████████ Test Coverage   {TEST_SCORE}
+██████████ UX Polish       {UX_SCORE}
+██████████ Spec Adherence  {SPEC_SCORE}
+{IF_DESIGN}██████████ Design Quality  {DESIGN_SCORE}  (AI Slop: {AI_SLOP_GRADE}){/IF_DESIGN}
 
 Bugs remaining: {BUGS}  |  Fix cycles: {FIX_CYCLES}/3
 
@@ -52,6 +53,30 @@ Note: Score bars use █ (filled) and ░ (empty) blocks.
 Each bar is 10 characters wide, one █ per point.
 Example: 7/10 = ███████░░░
 
+
+{IF_DESIGN}
+DESIGN REPORT CARD
+──────────────────
+
+{FOR_EACH_RUN_RANKED}
+--- Run {RUN_ID} ---
+Design: {DESIGN_GRADE}  |  AI Slop: {AI_SLOP_GRADE}
+
+| Category               | Grade |
+|------------------------|-------|
+| AI Slop                | {SLOP_CAT}  |
+| Typography             | {TYPO_CAT}  |
+| Color & Contrast       | {COLOR_CAT} |
+| Spacing & Layout       | {SPACE_CAT} |
+| Interaction/Responsive | {INTER_CAT} |
+| First Impression       | {FIRST_CAT} |
+
+Top findings: {TOP_3_FINDINGS}
+Fixes applied: {FIXES_COUNT}
+Font: {FONT_BEFORE} → {FONT_AFTER}
+
+{/FOR_EACH_RUN_RANKED}
+{/IF_DESIGN}
 
 WHY I BUILT IT THIS WAY
 ───────────────────────

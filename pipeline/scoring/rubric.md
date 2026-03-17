@@ -3,7 +3,32 @@
 Score each dimension 0-10. Be honest. A 7 is good. A 9 is exceptional.
 A 10 means you wouldn't change a single line.
 
-## Functionality (weight: 30%)
+## Weight Tables
+
+Two weight configurations depending on whether design review ran:
+
+**With design_quality (6 dimensions):**
+
+| Dimension      | Weight |
+|----------------|--------|
+| Functionality  | 30%    |
+| Code Quality   | 20%    |
+| Test Coverage  | 15%    |
+| UX Polish      | 10%    |
+| Spec Adherence | 15%    |
+| Design Quality | 10%    |
+
+**Without design_quality (5 dimensions):**
+
+| Dimension      | Weight |
+|----------------|--------|
+| Functionality  | 30%    |
+| Code Quality   | 20%    |
+| Test Coverage  | 15%    |
+| UX Polish      | 15%    |
+| Spec Adherence | 20%    |
+
+## Functionality
 
 | Score | Meaning |
 |-------|---------|
@@ -13,7 +38,7 @@ A 10 means you wouldn't change a single line.
 | 7-8   | All success criteria pass, minor issues |
 | 9-10  | Everything works, handles edge cases gracefully |
 
-## Code Quality (weight: 20%)
+## Code Quality
 
 | Score | Meaning |
 |-------|---------|
@@ -23,7 +48,7 @@ A 10 means you wouldn't change a single line.
 | 7-8   | Clean, well-organized, good naming, proper error handling |
 | 9-10  | Elegant — a new engineer could understand it in 10 minutes |
 
-## Test Coverage (weight: 15%)
+## Test Coverage
 
 | Score | Meaning |
 |-------|---------|
@@ -33,7 +58,7 @@ A 10 means you wouldn't change a single line.
 | 7-8   | Good coverage of happy paths and common failure modes |
 | 9-10  | Comprehensive — happy paths, edge cases, error conditions |
 
-## UX Polish (weight: 15%)
+## UX Polish
 
 | Score | Meaning |
 |-------|---------|
@@ -43,7 +68,7 @@ A 10 means you wouldn't change a single line.
 | 7-8   | Clean, intuitive, handles loading/error states |
 | 9-10  | Delightful — feels like a real product |
 
-## Spec Adherence (weight: 20%)
+## Spec Adherence
 
 | Score | Meaning |
 |-------|---------|
@@ -52,6 +77,19 @@ A 10 means you wouldn't change a single line.
 | 5-6   | Covers the spec but with significant gaps |
 | 7-8   | Faithfully implements the spec, minor omissions |
 | 9-10  | Nails the spec exactly — nothing missing, nothing extra |
+
+## Design Quality
+
+Only scored when design review phases (12-13) ran. The numeric score
+comes directly from `design-scores.json` produced by Phase 12.
+
+| Score | Meaning |
+|-------|---------|
+| 0-2   | AI slop — purple gradients, 3-column grids, generic everything |
+| 3-4   | Looks AI-generated — default fonts, no design point of view |
+| 5-6   | Functional but generic — no design thinking, just default |
+| 7-8   | Intentional design — good typography, coherent palette, rhythm |
+| 9-10  | Polished — would pass review at a respected design studio |
 
 ## Penalties
 

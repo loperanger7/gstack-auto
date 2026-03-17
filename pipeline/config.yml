@@ -22,13 +22,25 @@ style: "marlinspike"
 # Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
 max_fix_cycles: 3
 
+# Design review: run design audit + fix phases on HTML output.
+# Set to false to skip phases 12-13. Auto-skipped when output has no HTML.
+design_review: true
+
+# Design style inspiration — name a design philosophy that should guide
+# the design review and fix phases. Looks for a matching file in
+# pipeline/design-styles/{name}.md. Leave blank for the default style.
+# Available: dieter-rams, brutalist, playful
+design_style: ""
+
 # Scoring dimensions (must match rubric.md)
+# design_quality is added automatically when design review runs.
 scoring_dimensions:
   - functionality
   - code_quality
   - test_coverage
   - ux_polish
   - spec_adherence
+  - design_quality
 
 # Score penalty for exhausting max_fix_cycles without clearing bugs
 unresolved_bugs_penalty: 2.0
