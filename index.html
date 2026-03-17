@@ -85,6 +85,15 @@
     <div id="style-preview" class="style-preview" style="display:none"></div>
   </section>
 
+  <!-- Environment Variables -->
+  <section id="section-env-vars">
+    <h2>Environment Variables</h2>
+    <p class="env-hint">API keys and secrets for your product spec. Passed to pipeline agents for QA testing. Values are never shown after saving.</p>
+    <div id="env-rows"></div>
+    <button type="button" class="link-btn" id="btn-add-env">+ Add Variable</button>
+    <div id="env-error" class="status"></div>
+  </section>
+
   <!-- Product Spec -->
   <section id="section-spec">
     <h2>Product Spec</h2>
@@ -471,6 +480,134 @@ async function testConnection() {
   }
 }
 
+// ── Environment Variables ────────────────────────────────
+
+var envVarState = {}; // { KEY: true } from server — tracks which keys exist on disk
+var envVarDirty = {}; // { KEY: "value" } only for rows the user typed into
+
+function renderEnvRows() {
+  var container = $('env-rows');
+  container.innerHTML = '';
+  var keys = Object.keys(envVarState);
+  keys.forEach(function(key) {
+    container.appendChild(makeEnvRow(key, true));
+  });
+}
+
+function makeEnvRow(key, saved) {
+  var row = document.createElement('div');
+  row.className = 'env-row';
+  row.dataset.key = key || '';
+
+  var nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'KEY_NAME';
+  nameInput.value = key || '';
+  nameInput.spellcheck = false;
+  nameInput.autocomplete = 'off';
+  if (saved) nameInput.disabled = true;
+  nameInput.addEventListener('input', function() {
+    nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    row.dataset.key = nameInput.value;
+  });
+
+  var valInput = document.createElement('input');
+  valInput.type = 'password';
+  valInput.autocomplete = 'off';
+  if (saved) {
+    valInput.placeholder = '(value set)';
+  } else {
+    valInput.placeholder = 'value';
+  }
+  valInput.addEventListener('input', function() {
+    var k = row.dataset.key;
+    if (k) envVarDirty[k] = valInput.value;
+  });
+
+  var badge = document.createElement('span');
+  badge.className = 'env-set-badge';
+  badge.textContent = saved ? 'saved' : '';
+
+  var delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'btn-delete-env';
+  delBtn.textContent = 'x';
+  delBtn.addEventListener('click', function() {
+    var k = row.dataset.key;
+    if (k && envVarState[k]) {
+      envVarDirty[k] = ''; // empty string = delete on server
+      delete envVarState[k];
+    } else {
+      delete envVarDirty[k]; // unsaved new row — just clean up
+    }
+    row.remove();
+  });
+
+  row.appendChild(nameInput);
+  row.appendChild(valInput);
+  row.appendChild(badge);
+  row.appendChild(delBtn);
+  return row;
+}
+
+function addEnvRow() {
+  var container = $('env-rows');
+  var errEl = $('env-error');
+  // Check for empty unsaved rows
+  var rows = container.querySelectorAll('.env-row');
+  for (var i = 0; i < rows.length; i++) {
+    var nameIn = rows[i].querySelector('input[type="text"]');
+    if (nameIn && !nameIn.disabled && !nameIn.value.trim()) {
+      setStatus(errEl, 'err', 'Fill in the empty key name first.');
+      return;
+    }
+  }
+  clearStatus(errEl);
+  container.appendChild(makeEnvRow('', false));
+  container.lastChild.querySelector('input[type="text"]').focus();
+}
+
+function validateEnvKeys() {
+  var container = $('env-rows');
+  var rows = container.querySelectorAll('.env-row');
+  var seen = {};
+  for (var i = 0; i < rows.length; i++) {
+    var nameIn = rows[i].querySelector('input[type="text"]');
+    if (!nameIn) continue;
+    var k = nameIn.value.trim();
+    if (!k) continue;
+    if (k.indexOf('PATTAYA_') === 0) {
+      return 'Key "' + k + '" cannot start with PATTAYA_ (reserved).';
+    }
+    if (seen[k]) {
+      return 'Duplicate key name: ' + k;
+    }
+    seen[k] = true;
+  }
+  return null;
+}
+
+function collectEnvVars() {
+  // Sentinel protocol: only send keys the user actually modified
+  var result = {};
+  // Include dirty values (typed into or deleted)
+  for (var k in envVarDirty) {
+    if (envVarDirty.hasOwnProperty(k) && k) {
+      result[k] = envVarDirty[k];
+    }
+  }
+  // Include new rows (unsaved, with values)
+  var rows = $('env-rows').querySelectorAll('.env-row');
+  for (var i = 0; i < rows.length; i++) {
+    var nameIn = rows[i].querySelector('input[type="text"]');
+    var valIn = rows[i].querySelector('input[type="password"]');
+    if (nameIn && !nameIn.disabled && nameIn.value.trim() && valIn && valIn.value) {
+      result[nameIn.value.trim()] = valIn.value;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 // ── Save Config ──────────────────────────────────────────
 
 async function saveConfig() {
@@ -492,6 +629,12 @@ async function saveConfig() {
   btn.disabled = true;
   setStatus(status, 'working', 'Saving...');
   try {
+    var envErr = validateEnvKeys();
+    if (envErr) {
+      setStatus(status, 'err', envErr);
+      btn.disabled = false;
+      return;
+    }
     var body = {
       spec: spec,
       parallel_runs: parseInt($('cfg-runs').value) || 3,
@@ -502,6 +645,8 @@ async function saveConfig() {
       body.email = email;
       body.password = password;
     }
+    var envData = collectEnvVars();
+    if (envData) body.env_vars = envData;
     var res = await post('/save-config', body);
     if (res.ok) {
       cachedPassword = password;
@@ -510,6 +655,15 @@ async function saveConfig() {
       hasConfig = true;
       renderEmailSection();
       clearStatus(status);
+      // Merge saved env vars into state, reset dirty tracking
+      if (envData) {
+        for (var ek in envData) {
+          if (envData[ek]) envVarState[ek] = true;
+          else delete envVarState[ek];
+        }
+      }
+      envVarDirty = {};
+      renderEnvRows();
       // Update launch command with current runs count
       $('launch-command').textContent =
         'Run the gstack-auto pipeline with N=' + (parseInt($('cfg-runs').value) || 3);
@@ -1025,6 +1179,10 @@ async function init() {
       $('cfg-style').value = config.style;
       renderStylePreview();
     }
+    if (config.env_vars) {
+      envVarState = config.env_vars;
+      renderEnvRows();
+    }
     hasConfig = !!(config.email || config.spec);
   }
 
@@ -1067,6 +1225,7 @@ $('btn-run-again').addEventListener('click', runAgain);
 $('btn-new-project').addEventListener('click', newProject);
 $('btn-create-repo').addEventListener('click', toggleCreateRepo);
 $('btn-repo-submit').addEventListener('click', submitCreateRepo);
+$('btn-add-env').addEventListener('click', addEnvRow);
 $('spec').addEventListener('input', debounce(function() { checkSpecQuality($('spec').value); }, 300));
 $('cfg-style').addEventListener('change', renderStylePreview);
 $('email').addEventListener('input', function() { cachedPassword = null; });

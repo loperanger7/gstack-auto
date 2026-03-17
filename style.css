@@ -398,6 +398,52 @@ button.primary:hover:not(:disabled) {
   min-width: 160px;
 }
 
+/* ── Environment Variables ─────────────────────────────── */
+
+.env-hint {
+  color: #8b949e;
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
+.env-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.env-row input[type="text"] {
+  flex: 1;
+  min-width: 100px;
+  text-transform: uppercase;
+}
+
+.env-row input[type="password"] {
+  flex: 2;
+  min-width: 140px;
+}
+
+.env-row .btn-delete-env {
+  background: none;
+  border: 1px solid #30363d;
+  color: #f85149;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.env-row .btn-delete-env:hover {
+  background: #30363d;
+}
+
+.env-row .env-set-badge {
+  color: #3fb950;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
 /* ── Preset Bar ────────────────────────────────────────── */
 
 .preset-bar {
