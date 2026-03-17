@@ -115,6 +115,26 @@ If the probe fails, **STOP** and show the error. Common fixes:
 If `email.method` is `file-only` in config.yml, the probe is skipped
 and a warning is shown: "Email disabled — results will be saved to disk only."
 
+**Environment variables (for QA testing):**
+
+Read `.env` and collect any non-`PATTAYA_` keys as user-supplied env vars
+for pipeline agents. These are API keys the user configured in Mission
+Control for the product being built (e.g., `ODDS_API_KEY`, `WEATHER_KEY`).
+
+```bash
+grep -v '^PATTAYA_' .env 2>/dev/null | grep '=' || echo "NO_USER_ENV_VARS"
+```
+
+If user env vars exist, format them as `{ENV_VARS}`:
+```
+Environment variables available for this build:
+  ODDS_API_KEY=<value from .env>
+  WEATHER_KEY=<value from .env>
+Use these in your implementation when the product spec references external APIs.
+```
+
+If no user env vars, `{ENV_VARS}` is empty string.
+
 ### Step 2: Round Loop
 
 Initialize round state:
@@ -184,6 +204,7 @@ and pass its contents as the resume prompt. Replace template variables:
 - `{EXISTING_CODE_SUMMARY}` — file listing of output/ (empty if greenfield)
 - `{STYLE_NAME}` — display name from style profile heading (or "Default")
 - `{STYLE_PRINCIPLES}` — full contents of the style profile (or generic fallback)
+- `{ENV_VARS}` — user-supplied environment variables for QA testing (see below)
 
 ### Step 2c: Bug-Fix Divergence
 
