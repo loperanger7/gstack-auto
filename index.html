@@ -506,10 +506,20 @@ function makeEnvRow(key, saved) {
   nameInput.value = key || '';
   nameInput.spellcheck = false;
   nameInput.autocomplete = 'off';
-  if (saved) nameInput.disabled = true;
   nameInput.addEventListener('input', function() {
+    var oldKey = row.dataset.key;
     nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-    row.dataset.key = nameInput.value;
+    var newKey = nameInput.value;
+    if (saved && oldKey && oldKey !== newKey) {
+      // Renaming a saved key: mark old key for deletion
+      envVarDirty[oldKey] = '';
+      delete envVarState[oldKey];
+      saved = false;
+      badge.textContent = '';
+      valInput.value = '';
+      valInput.placeholder = 'enter value';
+    }
+    row.dataset.key = newKey;
   });
 
   var valInput = document.createElement('input');
@@ -602,7 +612,7 @@ function collectEnvVars() {
   for (var i = 0; i < rows.length; i++) {
     var nameIn = rows[i].querySelector('input[type="text"]');
     var valIn = rows[i].querySelector('input[type="password"]');
-    if (nameIn && !nameIn.disabled && nameIn.value.trim() && valIn && valIn.value) {
+    if (nameIn && nameIn.value.trim() && valIn && valIn.value) {
       result[nameIn.value.trim()] = valIn.value;
     }
   }
