@@ -30,7 +30,7 @@ design_review: true
 # the design review and fix phases. Looks for a matching file in
 # pipeline/design-styles/{name}.md. Leave blank for the default style.
 # Available: dieter-rams, brutalist, playful
-design_style: ""
+design_style: "dieter-rams"
 
 # Scoring dimensions (must match rubric.md)
 # design_quality is added automatically when design review runs.
