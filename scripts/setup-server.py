@@ -80,6 +80,24 @@ def parse_env():
     return result
 
 
+def get_user_env_vars():
+    """Return non-PATTAYA_ env vars from .env as {key: True} flags (never expose values)."""
+    env = parse_env()
+    return {k: True for k in env if not k.startswith('PATTAYA_')}
+
+
+def save_env(updates):
+    """Read-modify-write .env: merge updates into existing keys. Empty value = delete key."""
+    env = parse_env()
+    for k, v in updates.items():
+        if v == '' or v is None:
+            env.pop(k, None)
+        else:
+            env[k] = v
+    lines = [f'{k}={v}\n' for k, v in env.items()]
+    write_file(ENV_PATH, ''.join(lines))
+
+
 def get_email_to():
     """Read email.to from config.yml."""
     text = read_file(CONFIG_PATH)
@@ -320,6 +338,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             'parallel_runs': int(get_config_value('parallel_runs', '3')),
             'rounds': int(get_config_value('rounds', '1')),
             'style': get_config_value('style', ''),
+            'env_vars': get_user_env_vars(),
         })
 
     def get_styles(self):
@@ -524,19 +543,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
         password = (data.get('password') or '').replace(' ', '')
         spec = data.get('spec') or ''
 
+        env_vars = data.get('env_vars') or {}
+
         has_creds = bool(email and password)
         has_pipeline_config = any(
             k in data for k in ('parallel_runs', 'rounds', 'style')
         )
+        has_env_vars = bool(env_vars)
 
-        if not has_creds and not spec.strip() and not has_pipeline_config:
+        if not has_creds and not spec.strip() and not has_pipeline_config and not has_env_vars:
             self.respond(400, {'error': 'Nothing to save.'})
             return
 
         try:
+            env_updates = {}
             if has_creds:
-                write_file(ENV_PATH, f'PATTAYA_SMTP_USER={email}\nPATTAYA_SMTP_PASS={password}\n')
+                env_updates['PATTAYA_SMTP_USER'] = email
+                env_updates['PATTAYA_SMTP_PASS'] = password
                 update_config_email_to(email)
+            for k, v in env_vars.items():
+                key = re.sub(r'[^A-Z0-9_]', '_', k.upper())
+                if key and not key.startswith('PATTAYA_'):
+                    env_updates[key] = str(v)
+            if env_updates:
+                save_env(env_updates)
 
             if spec.strip():
                 write_file(SPEC_PATH, spec)
@@ -751,14 +781,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    for port in PORT_RANGE:
+    ports = PORT_RANGE
+    if len(sys.argv) >= 3 and sys.argv[1] == '--port':
+        ports = (int(sys.argv[2]),)
+    for port in ports:
         try:
             server = http.server.HTTPServer(('127.0.0.1', port), Handler)
             print(f'gstack-auto → http://127.0.0.1:{port}')
             server.serve_forever()
         except OSError:
             continue
-    print('All ports 8080-8082 in use. Free a port and try again.')
+    print('All ports in use. Free a port and try again.')
     sys.exit(1)
 
 
