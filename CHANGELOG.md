@@ -2,6 +2,27 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.7.0] - 2026-03-16
+
+### Added
+- "New Project" button in Mission Control — clears results and output, returns to SETUP state while preserving email config and credentials
+- "Create Repo" button — publishes winner output as a new GitHub repository via `gh` CLI
+- GitHub Pages integration — optional one-click deployment with public repo (checkbox toggle, private by default)
+- Auto-suggested repo name from spec title via slugify
+- Server-side repo name validation (`^[a-zA-Z0-9._-]{1,100}$`) with defense-in-depth (client + server)
+- Local-first create-repo flow: git init + commit locally before creating remote, avoiding orphan repos on push failure
+- `POST /new-project` endpoint — clears `.context/runs/`, `output/`, and `product-spec.md`
+- `POST /create-repo` endpoint — validates, creates GitHub repo, pushes winner-final, optionally enables Pages
+- 7 new validation checks: New Project button, Create Repo button/panel, GitHub Pages checkbox, endpoint tests
+- Project history browser TODO (P3) for future multi-project support
+
+### Fixed
+- `/results` API early return when no runs directory exists now includes all standard fields (`spec_title`, `style_name`, `round_history`, `has_winner_output`)
+
+### Changed
+- "Auto-deployment with preview URLs" TODO updated: GitHub Pages covers the common case, remaining scope narrowed to Vercel/Netlify/Railway
+- Validation suite expanded from 164 to 171 checks
+
 ## [0.1.6.0] - 2026-03-16
 
 ### Added
