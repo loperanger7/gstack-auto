@@ -114,6 +114,13 @@ Zero friction between "I like this one" and "I'm working on it."
 
 ## Completed
 
+### Design review pipeline (phases 12-14)
+Added design audit (phase 12) and design fix (phase 13) phases to the
+pipeline. Retro/scoring moved to phase 14 with dual weight tables.
+Includes AI slop detection, DESIGN.md generation, design style profiles,
+before/after screenshots, and dashboard integration with AI Slop badge
+and design system preview.
+
 ### Differentiation strategy for parallel runs
 Run A/B/C have distinct approach biases in phase 01 prompt.
 

@@ -21,7 +21,7 @@ echo ""
 
 # --- Phase files exist ---
 echo "Phase files:"
-for n in 01 02 03 04 05 06 07 08 09 10 11 12; do
+for n in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
   found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
   if [ -n "$found" ]; then
     pass "Phase $n exists: $(basename "$found")"
@@ -82,6 +82,16 @@ for f in "$PHASES_DIR"/07-*.md "$PHASES_DIR"/08-*.md "$PHASES_DIR"/09-*.md "$PHA
     pass "$name has DIFFERENCES section"
   else
     fail "$name missing DIFFERENCES section"
+  fi
+done
+
+# Design phases (12, 13) derived from gstack skills
+for f in "$PHASES_DIR"/12-*.md "$PHASES_DIR"/13-*.md; do
+  name=$(basename "$f")
+  if grep -q "Derived from:" "$f"; then
+    pass "$name has Derived from header"
+  else
+    fail "$name missing Derived from header"
   fi
 done
 echo ""
@@ -148,7 +158,7 @@ echo ""
 
 # --- Scoring rubric dimensions ---
 echo "Scoring rubric:"
-for dim in "Functionality" "Code Quality" "Test Coverage" "UX Polish" "Spec Adherence"; do
+for dim in "Functionality" "Code Quality" "Test Coverage" "UX Polish" "Spec Adherence" "Design Quality"; do
   if grep -qi "$dim" "pipeline/scoring/rubric.md"; then
     pass "Rubric has $dim"
   else
@@ -504,10 +514,10 @@ for sf in "$STYLES_DIR"/*.md; do
   fi
 done
 
-# {STYLE_PRINCIPLES} and {STYLE_NAME} in phases 01, 03, 04, 12
+# {STYLE_PRINCIPLES} and {STYLE_NAME} in phases 01, 03, 04, 14
 echo ""
 echo "Style template variables:"
-for n in 01 03 04 12; do
+for n in 01 03 04 14; do
   found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
   if [ -n "$found" ] && grep -q '{STYLE_PRINCIPLES}' "$found"; then
     pass "$(basename "$found") has {STYLE_PRINCIPLES}"
@@ -526,6 +536,69 @@ if grep -q 'style:' pipeline/config.yml; then
   pass "config.yml has style: field"
 else
   fail "config.yml missing style: field"
+fi
+echo ""
+
+# --- Design style profiles ---
+echo "Design style profiles:"
+DESIGN_STYLES_DIR="pipeline/design-styles"
+if [ -d "$DESIGN_STYLES_DIR" ]; then
+  pass "pipeline/design-styles/ directory exists"
+else
+  fail "pipeline/design-styles/ directory missing"
+fi
+
+for ds in dieter-rams brutalist playful; do
+  dsf="$DESIGN_STYLES_DIR/${ds}.md"
+  if [ -f "$dsf" ] && [ -s "$dsf" ]; then
+    pass "${ds}.md exists and is non-empty"
+  else
+    fail "${ds}.md missing or empty"
+  fi
+done
+
+# Each design style file should have a # heading
+for dsf in "$DESIGN_STYLES_DIR"/*.md; do
+  name=$(basename "$dsf")
+  if head -1 "$dsf" | grep -q '^# '; then
+    pass "$name has # heading"
+  else
+    fail "$name missing # heading on first line"
+  fi
+done
+
+# {DESIGN_STYLE_PRINCIPLES} and {DESIGN_STYLE_NAME} in phases 12, 13
+echo ""
+echo "Design style template variables:"
+for n in 12 13; do
+  found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
+  if [ -n "$found" ] && grep -q '{DESIGN_STYLE_PRINCIPLES}' "$found"; then
+    pass "$(basename "$found") has {DESIGN_STYLE_PRINCIPLES}"
+  elif [ -n "$found" ]; then
+    fail "$(basename "$found") missing {DESIGN_STYLE_PRINCIPLES}"
+  fi
+  if [ -n "$found" ] && grep -q '{DESIGN_STYLE_NAME}' "$found"; then
+    pass "$(basename "$found") has {DESIGN_STYLE_NAME}"
+  elif [ -n "$found" ]; then
+    fail "$(basename "$found") missing {DESIGN_STYLE_NAME}"
+  fi
+done
+
+# Config should have design_review and design_style fields
+if grep -q 'design_review:' pipeline/config.yml; then
+  pass "config.yml has design_review: field"
+else
+  fail "config.yml missing design_review: field"
+fi
+if grep -q 'design_style:' pipeline/config.yml; then
+  pass "config.yml has design_style: field"
+else
+  fail "config.yml missing design_style: field"
+fi
+if grep -q 'design_quality' pipeline/config.yml; then
+  pass "config.yml has design_quality in scoring_dimensions"
+else
+  fail "config.yml missing design_quality in scoring_dimensions"
 fi
 echo ""
 
