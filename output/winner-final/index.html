@@ -28,13 +28,14 @@
       --radius-sm: 4px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 15px; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
     body {
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       line-height: 1.5;
       min-height: 100vh;
+      font-feature-settings: 'tnum' 1;
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -430,16 +431,13 @@
     .selftest-pass { color: var(--accent); }
     .selftest-fail { color: var(--danger); font-weight: 600; }
 
-    /* prefers-reduced-motion: disable all animations */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
-      .fight-card { opacity: 1; transform: none; }
-      .fight-card[data-tier="upset"] { box-shadow: 0 0 0 1px var(--upset); }
-      .spotlight-card { box-shadow: 0 0 0 2px var(--accent); }
+      .fight-card { opacity: 1; }
     }
 
     /* Responsive */
@@ -467,9 +465,6 @@
       z-index: 1000; font-weight: 600; text-decoration: none;
     }
     .skip-to-content:focus { position: fixed; left: 16px; top: 16px; width: auto; height: auto; }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-    }
   </style>
 </head>
 <body>
