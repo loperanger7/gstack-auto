@@ -495,8 +495,9 @@
 
   <div id="banners" role="status" aria-live="polite"></div>
 
-  <div id="spotlightSection" class="spotlight-section hidden"></div>
+  <div id="spotlightSection" class="spotlight-section hidden" aria-label="Fight Spotlight"></div>
 
+  <main>
   <div class="summary-strip">
     <div class="summary-card">
       <div class="summary-title">Safest Bets</div>
@@ -527,6 +528,7 @@
     </div>
   </div>
   <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;"></div>
+  </main>
 </div>
 <div class="selftest-bar hidden" id="selftestBar"></div>
 
@@ -1217,9 +1219,11 @@ function dismissActivePopover() {
 document.addEventListener('click', function() { dismissActivePopover(); });
 
 function renderCard(c, index) {
+  var tierLabels={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
   var card=document.createElement('div'); card.className='fight-card'; card.setAttribute('data-tier',c.tier); card.setAttribute('role','listitem');
   card.setAttribute('tabindex','0');
-  card.style.animationDelay=(index * 0.06) + 's';
+  card.setAttribute('aria-label', c.f1+' vs '+c.f2+', '+pct(c.favProb)+' favorite, '+(tierLabels[c.tier]||c.tier));
+  card.style.animationDelay=(index * 0.04) + 's';
   var hdr=document.createElement('div'); hdr.className='fight-header';
   var mu=document.createElement('div'); mu.className='fight-matchup';
 
@@ -1865,6 +1869,9 @@ clearKeyBtn.addEventListener('click',function(){
 });
 refreshBtn.addEventListener('click',function(){run(true);});
 apiKeyInput.addEventListener('keydown',function(e){ if(e.key==='Enter')applyKeyBtn.click(); });
+
+// Global Escape to dismiss any open popover
+document.addEventListener('keydown', function(e){ if (e.key==='Escape') dismissActivePopover(); });
 
 // Auto-refresh when coming back online
 window.addEventListener('online', function(){ addBanner('success','Back online','Refreshing data...'); run(true); });
