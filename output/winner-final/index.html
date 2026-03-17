@@ -156,6 +156,7 @@
     .summary-item:hover { background: rgba(255,255,255,0.03); }
     .summary-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .summary-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .summary-vs { color: var(--muted); font-size: 0.72rem; flex-shrink: 0; margin-right: 2px; }
     .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
 
     /* Section header */
@@ -174,12 +175,20 @@
       flex-direction: column;
       gap: 12px;
       transition: border-color .2s, box-shadow .2s, transform .15s;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: cardEnter 0.35s ease-out forwards;
     }
     .fight-card:hover { border-color: var(--muted); box-shadow: 0 2px 12px rgba(0,0,0,0.2); transform: translateY(-1px); }
     .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
     .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
     .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
     .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .tier-badge {
@@ -213,6 +222,8 @@
     .meter-value { color: var(--text); font-weight: 600; }
     .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+    .upset-warning { font-size: 0.72rem; color: var(--danger); font-weight: 600; margin-top: 2px; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
     .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); }
     .disagree-level { font-weight: 600; }
@@ -234,6 +245,30 @@
     .loading-text { font-size: 0.9rem; }
     .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; }
 
+    /* Skeleton shimmer loading */
+    .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--border) 25%, rgba(48,54,61,0.6) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .skeleton-line-wide { width: 80%; }
+    .skeleton-line-med { width: 60%; }
+    .skeleton-line-short { width: 40%; }
+    .skeleton-line-bar { height: 6px; width: 100%; margin-top: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
     /* Self-test footer */
     .selftest-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -248,6 +283,7 @@
     @media (max-width: 600px) {
       .summary-strip { grid-template-columns: 1fr; }
       .fight-grid { grid-template-columns: 1fr; }
+      .skeleton-grid { grid-template-columns: 1fr; }
       .key-panel { flex-direction: column; align-items: flex-start; }
       .key-panel input { width: 100%; }
       .header-meta { width: 100%; justify-content: flex-start; }
@@ -320,6 +356,7 @@
       <span class="loading-text">Fetching live odds&hellip;</span>
     </div>
   </div>
+  <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;"></div>
 </div>
 <div class="selftest-bar hidden" id="selftestBar"></div>
 
@@ -344,6 +381,18 @@ var TIER               = { LOCK:'lock', LEAN:'lean', TOSSUP:'tossup', UPSET:'ups
 var BANNER_AUTO_DISMISS_MS = 12000;
 var POLY_MAX_PAGES     = 3;
 var POLY_PAGE_SIZE     = 50;
+
+// Spec-exact thresholds
+var DISAGREE_LOW_MAX   = 0.03;  // <3% = Strong Consensus
+var DISAGREE_MED_MAX   = 0.08;  // 3-8% = Some Disagreement
+                                 // >8% = Books Disagree Significantly
+
+var TIER_LOCK_MIN      = 0.75;  // >=75% = Lock
+var TIER_LEAN_MIN      = 0.60;  // 60-74% = Lean
+var TIER_TOSSUP_MIN    = 0.45;  // 45-59% = Toss-Up
+                                 // <45% = Upset Alert
+
+var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
 
 // ===================================================
 // SAFE GUARDS
@@ -470,12 +519,25 @@ function wilsonCI(p, n) {
   var margin=(z/(1+z2/n))*Math.sqrt((p*(1-p)/n)+z2/(4*n*n));
   return { lo:clamp(c-margin,0,1), hi:clamp(c+margin,0,1) };
 }
-function riskTier(p) { return p>=0.75?TIER.LOCK:p>=0.60?TIER.LEAN:p>=0.45?TIER.TOSSUP:TIER.UPSET; }
+
+function riskTier(p) {
+  return p>=TIER_LOCK_MIN ? TIER.LOCK
+       : p>=TIER_LEAN_MIN ? TIER.LEAN
+       : p>=TIER_TOSSUP_MIN ? TIER.TOSSUP
+       : TIER.UPSET;
+}
+
 function upsetScore(u) { return clamp(Math.round(u*200),0,100); }
+
 function disagreement(a,b) {
   if (a===null||b===null) return { level:'na', delta:null };
   var d=Math.abs(a-b);
-  return { level:d<0.05?'low':d<0.12?'med':'high', delta:d };
+  return {
+    level: d<DISAGREE_LOW_MAX ? 'low'
+         : d<=DISAGREE_MED_MAX ? 'med'
+         : 'high',
+    delta: d
+  };
 }
 
 function computeFight(f) {
@@ -622,7 +684,8 @@ function $(id) { return document.getElementById(id); }
 var bannersEl=$('banners'), fightGridEl=$('fightGrid'), mainLoadEl=$('mainLoading'),
     fightCountEl=$('fightCount'), safestListEl=$('safestList'), safestEmptyEl=$('safestEmpty'),
     safestLoadEl=$('safestLoading'), upsetListEl=$('upsetList'), upsetEmptyEl=$('upsetEmpty'),
-    upsetLoadEl=$('upsetLoading'), lastUpdEl=$('lastUpdated'), quotaBadgeEl=$('quotaBadge');
+    upsetLoadEl=$('upsetLoading'), lastUpdEl=$('lastUpdated'), quotaBadgeEl=$('quotaBadge'),
+    skeletonGridEl=$('skeletonGrid');
 
 function clearBanners() { while(bannersEl.firstChild)bannersEl.removeChild(bannersEl.firstChild); }
 
@@ -678,7 +741,7 @@ function makeCIBar(ci,favP) {
   return row;
 }
 
-function makeMeter(u) {
+function makeMeter(u, dogName) {
   var w=document.createElement('div'); w.className='meter-row';
   var lr=document.createElement('div'); lr.className='meter-label';
   var ll=document.createElement('span'); ll.textContent='Upset Potential'; lr.appendChild(ll);
@@ -687,13 +750,23 @@ function makeMeter(u) {
   var tr=document.createElement('div'); tr.className='meter-track';
   var fl=document.createElement('div'); fl.className='meter-fill'; fl.style.width=clamp(u,0,100)+'%';
   var pct100=clamp(u,0,100); fl.style.background=pct100<30?'var(--lock)':pct100<60?'var(--warn)':'var(--danger)';
-  tr.appendChild(fl); w.appendChild(tr); return w;
+  tr.appendChild(fl); w.appendChild(tr);
+
+  // Upset warning when meter >= 50
+  if (pct100>=UPSET_WARN_THRESHOLD && dogName) {
+    var warn=document.createElement('div');
+    warn.className='upset-warning';
+    warn.textContent='\u26A0\uFE0F ' + sanitize(dogName) + ' can win this';
+    w.appendChild(warn);
+  }
+
+  return w;
 }
 
 function makeDisagreeRow(dis,sources) {
   var row=document.createElement('div'); row.className='disagree-row';
   var left=document.createElement('div'); left.style.cssText='display:flex;flex-direction:column;gap:2px;';
-  var lm={low:'Low Disagreement',med:'Moderate Disagreement',high:'High Disagreement',na:'Single Source'};
+  var lm={low:'Strong Consensus',med:'Some Disagreement',high:'Books Disagree Significantly',na:'Single Source'};
   var lc={low:'disagree-low',med:'disagree-med',high:'disagree-high',na:'disagree-na'};
   var lv=document.createElement('span'); lv.className='disagree-level '+(lc[dis.level]||'disagree-na'); lv.textContent=lm[dis.level]||'N/A'; left.appendChild(lv);
   if (dis.delta!==null){var dl=document.createElement('span');dl.style.cssText='font-size:0.65rem;color:var(--muted);';dl.textContent='\u0394'+Math.round(dis.delta*100)+'pp';left.appendChild(dl);}
@@ -704,8 +777,9 @@ function makeDisagreeRow(dis,sources) {
   row.appendChild(tg); return row;
 }
 
-function renderCard(c) {
+function renderCard(c, index) {
   var card=document.createElement('div'); card.className='fight-card'; card.setAttribute('data-tier',c.tier); card.setAttribute('role','listitem');
+  card.style.animationDelay=(index * 0.06) + 's';
   var hdr=document.createElement('div'); hdr.className='fight-header';
   var mu=document.createElement('div'); mu.className='fight-matchup';
 
@@ -730,9 +804,28 @@ function renderCard(c) {
   tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
   card.appendChild(hdr);
   card.appendChild(makeCIBar(c.ci,c.favProb));
-  card.appendChild(makeMeter(c.upset));
+  card.appendChild(makeMeter(c.upset, c.dogName));
   card.appendChild(makeDisagreeRow(c.disagree,c.sources));
   return card;
+}
+
+function showSkeletons(count) {
+  while(skeletonGridEl.firstChild) skeletonGridEl.removeChild(skeletonGridEl.firstChild);
+  for (var i=0; i<count; i++) {
+    var card=document.createElement('div'); card.className='skeleton-card';
+    var l1=document.createElement('div'); l1.className='skeleton-line skeleton-line-wide'; card.appendChild(l1);
+    var l2=document.createElement('div'); l2.className='skeleton-line skeleton-line-med'; card.appendChild(l2);
+    var l3=document.createElement('div'); l3.className='skeleton-line skeleton-line-bar'; card.appendChild(l3);
+    var l4=document.createElement('div'); l4.className='skeleton-line skeleton-line-short'; card.appendChild(l4);
+    var l5=document.createElement('div'); l5.className='skeleton-line skeleton-line-wide'; card.appendChild(l5);
+    var l6=document.createElement('div'); l6.className='skeleton-line skeleton-line-bar'; card.appendChild(l6);
+    skeletonGridEl.appendChild(card);
+  }
+  skeletonGridEl.style.display='';
+}
+
+function hideSkeletons() {
+  skeletonGridEl.style.display='none';
 }
 
 function renderSummary(computed) {
@@ -741,18 +834,35 @@ function renderSummary(computed) {
   if (!safest.length) { safestEmptyEl.classList.remove('hidden'); }
   else {
     safestListEl.classList.remove('hidden'); while(safestListEl.firstChild)safestListEl.removeChild(safestListEl.firstChild);
-    for(var i=0;i<safest.length;i++){var f=safest[i];var li=document.createElement('li');li.className='summary-item';var d=document.createElement('span');d.className='summary-dot';d.style.background='var(--lock)';li.appendChild(d);var nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.favName;li.appendChild(nm);var pr=document.createElement('span');pr.className='summary-prob';pr.textContent=pct(f.favProb);li.appendChild(pr);safestListEl.appendChild(li);}
+    for(var i=0;i<safest.length;i++){
+      var f=safest[i];
+      var li=document.createElement('li');li.className='summary-item';
+      var d=document.createElement('span');d.className='summary-dot';d.style.background='var(--lock)';li.appendChild(d);
+      var nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.favName;li.appendChild(nm);
+      var vsSpan=document.createElement('span');vsSpan.className='summary-vs';vsSpan.textContent='vs '+f.dogName;li.appendChild(vsSpan);
+      var pr=document.createElement('span');pr.className='summary-prob';pr.textContent=pct(f.favProb);li.appendChild(pr);
+      safestListEl.appendChild(li);
+    }
   }
   var upsets=computed.filter(function(f){return f.tier===TIER.TOSSUP||f.tier===TIER.UPSET;}).sort(function(a,b){return b.upset-a.upset;}).slice(0,5);
   if (!upsets.length) { upsetEmptyEl.classList.remove('hidden'); }
   else {
     upsetListEl.classList.remove('hidden'); while(upsetListEl.firstChild)upsetListEl.removeChild(upsetListEl.firstChild);
-    for(var j=0;j<upsets.length;j++){var uf=upsets[j];var uli=document.createElement('li');uli.className='summary-item';var ud=document.createElement('span');ud.className='summary-dot';ud.style.background=uf.tier===TIER.UPSET?'var(--upset)':'var(--tossup)';uli.appendChild(ud);var unm=document.createElement('span');unm.className='summary-name';unm.textContent=uf.dogName;uli.appendChild(unm);var usc=document.createElement('span');usc.className='summary-prob';usc.textContent=uf.upset+'/100';uli.appendChild(usc);upsetListEl.appendChild(uli);}
+    for(var j=0;j<upsets.length;j++){
+      var uf=upsets[j];
+      var uli=document.createElement('li');uli.className='summary-item';
+      var ud=document.createElement('span');ud.className='summary-dot';ud.style.background=uf.tier===TIER.UPSET?'var(--upset)':'var(--tossup)';uli.appendChild(ud);
+      var unm=document.createElement('span');unm.className='summary-name';unm.textContent=uf.dogName;uli.appendChild(unm);
+      var uvsSpan=document.createElement('span');uvsSpan.className='summary-vs';uvsSpan.textContent='vs '+uf.favName;uli.appendChild(uvsSpan);
+      var usc=document.createElement('span');usc.className='summary-prob';usc.textContent=uf.upset+'/100';uli.appendChild(usc);
+      upsetListEl.appendChild(uli);
+    }
   }
 }
 
 function renderFights(computed) {
   mainLoadEl.classList.add('hidden');
+  hideSkeletons();
   var old=fightGridEl.querySelectorAll('.fight-card,.empty-state');
   for(var r=0;r<old.length;r++) old[r].remove();
   if (!computed.length) {
@@ -763,7 +873,7 @@ function renderFights(computed) {
   fightCountEl.classList.remove('hidden'); fightCountEl.textContent=computed.length+' fight'+(computed.length!==1?'s':'');
   var to={lock:0,lean:1,tossup:2,upset:3};
   var sorted=computed.slice().sort(function(a,b){ var ta=to[a.tier]!==undefined?to[a.tier]:4, tb=to[b.tier]!==undefined?to[b.tier]:4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
-  for (var i=0;i<sorted.length;i++) fightGridEl.appendChild(renderCard(sorted[i]));
+  for (var i=0;i<sorted.length;i++) fightGridEl.appendChild(renderCard(sorted[i], i));
 }
 
 function updateQuotaBadge(quota) {
@@ -778,6 +888,7 @@ function updateQuotaBadge(quota) {
 
 function showAllFailed() {
   mainLoadEl.classList.add('hidden');
+  hideSkeletons();
   safestLoadEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
   upsetLoadEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
   addBanner('danger','No data available','All data sources failed. Check your network and API key, then refresh.', false);
@@ -815,6 +926,7 @@ async function run(force) {
     var oldCards=fightGridEl.querySelectorAll('.fight-card,.empty-state');
     for(var r=0;r<oldCards.length;r++) oldCards[r].remove();
     mainLoadEl.classList.remove('hidden');
+    showSkeletons(6);
     safestLoadEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
     upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
     if (force) cache.clearAll();
@@ -856,7 +968,7 @@ async function run(force) {
 }
 
 // ===================================================
-// RUNTIME SELF-TESTS
+// RUNTIME SELF-TESTS (50+)
 // ===================================================
 function runSelfTests() {
   var results=[];
@@ -869,56 +981,104 @@ function runSelfTests() {
     }
   }
 
+  // --- safeNum (4) ---
   assert('safeNum(42)===42', function(){return safeNum(42)===42;});
   assert('safeNum(NaN)===null', function(){return safeNum(NaN)===null;});
   assert('safeNum(Infinity)===null', function(){return safeNum(Infinity)===null;});
   assert('safeNum("x")===null', function(){return safeNum("x")===null;});
 
+  // --- safeStr (4) ---
   assert('safeStr("")===null', function(){return safeStr("")===null;});
   assert('safeStr("hi")==="hi"', function(){return safeStr("hi")==="hi";});
   assert('safeStr(123)===null', function(){return safeStr(123)===null;});
+  assert('safeStr("  ")===null', function(){return safeStr("  ")===null;});
 
+  // --- clamp (4) ---
   assert('clamp(5,0,10)===5', function(){return clamp(5,0,10)===5;});
   assert('clamp(-1,0,10)===0', function(){return clamp(-1,0,10)===0;});
   assert('clamp(99,0,10)===10', function(){return clamp(99,0,10)===10;});
   assert('clamp(NaN,0,10)===0', function(){return clamp(NaN,0,10)===0;});
 
+  // --- sanitize (3) ---
   assert('sanitize strips control', function(){return sanitize("a\x00b")==="ab";});
   assert('sanitize truncates 100', function(){return sanitize("x".repeat(200)).length===100;});
   assert('sanitize(null)==="Unknown"', function(){return sanitize(null)==="Unknown";});
 
+  // --- americanToImplied (4) ---
   assert('american -200 -> ~0.667', function(){var v=americanToImplied(-200);return v!==null&&Math.abs(v-0.6667)<0.01;});
   assert('american +150 -> 0.4', function(){var v=americanToImplied(150);return v!==null&&Math.abs(v-0.4)<0.01;});
   assert('american 0 -> null', function(){return americanToImplied(0)===null;});
+  assert('american -100 -> 0.5', function(){var v=americanToImplied(-100);return v!==null&&Math.abs(v-0.5)<0.01;});
 
+  // --- impliedToAmerican (5) ---
   assert('implied 0.6667 -> ~-200', function(){var v=impliedToAmerican(0.6667);return v!==null&&v<=-195&&v>=-205;});
   assert('implied 0.4 -> ~+150', function(){var v=impliedToAmerican(0.4);return v!==null&&v>=145&&v<=155;});
   assert('implied 0 -> null', function(){return impliedToAmerican(0)===null;});
   assert('implied 1 -> null', function(){return impliedToAmerican(1)===null;});
+  assert('implied 0.5 -> -100', function(){var v=impliedToAmerican(0.5);return v===null||v===-100;});
 
+  // --- formatAmerican (3) ---
+  assert('formatAmerican positive', function(){return formatAmerican(150)==='+150';});
+  assert('formatAmerican negative', function(){return formatAmerican(-200)==='-200';});
+  assert('formatAmerican null', function(){return formatAmerican(null)==='';});
+
+  // --- riskTier SPEC-EXACT boundary tests (8) ---
   assert('tier 0.80=lock', function(){return riskTier(0.80)===TIER.LOCK;});
+  assert('tier 0.75=lock (boundary)', function(){return riskTier(0.75)===TIER.LOCK;});
+  assert('tier 0.749=lean (just below lock)', function(){return riskTier(0.749)===TIER.LEAN;});
   assert('tier 0.65=lean', function(){return riskTier(0.65)===TIER.LEAN;});
+  assert('tier 0.60=lean (boundary)', function(){return riskTier(0.60)===TIER.LEAN;});
+  assert('tier 0.599=tossup (just below lean)', function(){return riskTier(0.599)===TIER.TOSSUP;});
   assert('tier 0.50=tossup', function(){return riskTier(0.50)===TIER.TOSSUP;});
+  assert('tier 0.45=tossup (boundary)', function(){return riskTier(0.45)===TIER.TOSSUP;});
+  assert('tier 0.449=upset (just below tossup)', function(){return riskTier(0.449)===TIER.UPSET;});
   assert('tier 0.40=upset', function(){return riskTier(0.40)===TIER.UPSET;});
+  assert('tier 1.0=lock', function(){return riskTier(1.0)===TIER.LOCK;});
+  assert('tier 0.0=upset', function(){return riskTier(0.0)===TIER.UPSET;});
 
+  // --- wilsonCI (3) ---
   assert('wilsonCI range', function(){var ci=wilsonCI(0.7,40);return ci.lo<0.7&&ci.hi>0.7&&ci.lo>=0&&ci.hi<=1;});
   assert('wilsonCI degenerate', function(){var ci=wilsonCI(0.5,0);return ci.lo===0.5&&ci.hi===0.5;});
+  assert('wilsonCI extremes clamped', function(){var ci=wilsonCI(0.99,2);return ci.lo>=0&&ci.hi<=1;});
 
+  // --- upsetScore (4) ---
   assert('upset 0->0', function(){return upsetScore(0)===0;});
   assert('upset 0.5->100', function(){return upsetScore(0.5)===100;});
-  assert('upset clamped', function(){return upsetScore(1)===100;});
+  assert('upset clamped high', function(){return upsetScore(1)===100;});
+  assert('upset 0.25->50', function(){return upsetScore(0.25)===50;});
 
+  // --- disagreement SPEC-EXACT boundary tests (10) ---
   assert('disagree null->na', function(){return disagreement(null,0.5).level==='na';});
-  assert('disagree low', function(){return disagreement(0.7,0.72).level==='low';});
-  assert('disagree med', function(){return disagreement(0.7,0.8).level==='med';});
-  assert('disagree high', function(){return disagreement(0.7,0.9).level==='high';});
+  assert('disagree both null->na', function(){return disagreement(null,null).level==='na';});
+  assert('disagree 0pp delta->low (Strong Consensus)', function(){return disagreement(0.7,0.7).level==='low';});
+  assert('disagree 2pp delta->low (<3%)', function(){return disagreement(0.7,0.72).level==='low';});
+  assert('disagree 2.9pp->low (just under 3%)', function(){return disagreement(0.70,0.729).level==='low';});
+  assert('disagree 3pp->med (3% boundary)', function(){return disagreement(0.70,0.73).level==='med';});
+  assert('disagree 5pp->med (mid range)', function(){return disagreement(0.70,0.75).level==='med';});
+  assert('disagree 8pp->med (8% boundary)', function(){return disagreement(0.70,0.78).level==='med';});
+  assert('disagree 8.1pp->high (just over 8%)', function(){return disagreement(0.70,0.781).level==='high';});
+  assert('disagree 20pp->high (Books Disagree)', function(){return disagreement(0.7,0.9).level==='high';});
 
+  // --- disagreement delta correctness (2) ---
+  assert('disagree delta correct', function(){var r=disagreement(0.7,0.8);return r.delta!==null&&Math.abs(r.delta-0.1)<0.001;});
+  assert('disagree na delta is null', function(){return disagreement(null,0.5).delta===null;});
+
+  // --- computeFight (4) ---
   assert('computeFight valid', function(){
     var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:null,oddsP2:null});
     return r&&r.favName==='A'&&r.tier===TIER.LEAN&&r.favProb===0.7;
   });
   assert('computeFight no data->null', function(){return computeFight({id:'t',f1:'A',f2:'B'})===null;});
+  assert('computeFight merged sources', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.8,polyP2:0.2,oddsP1:0.7,oddsP2:0.3});
+    return r&&r.favName==='A'&&r.favProb===0.75&&r.tier===TIER.LOCK;
+  });
+  assert('computeFight upset tier', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.4,polyP2:0.6,oddsP1:null,oddsP2:null});
+    return r&&r.favName==='B'&&r.tier===TIER.LEAN;
+  });
 
+  // --- merge (4) ---
   assert('merge poly only', function(){
     var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6}],null);
     return r.length===1&&r[0].f1==='A';
@@ -927,11 +1087,19 @@ function runSelfTests() {
     var r=mergeResults(null,[{id:'1',f1:'A',f2:'B',oddsP1:0.6}]);
     return r.length===1&&r[0].f1==='A';
   });
+  assert('merge both null->empty', function(){
+    var r=mergeResults(null,null);
+    return Array.isArray(r)&&r.length===0;
+  });
+  assert('merge matching fighters', function(){
+    var r=mergeResults(
+      [{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],
+      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
+    );
+    return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6;
+  });
 
-  assert('formatAmerican positive', function(){return formatAmerican(150)==='+150';});
-  assert('formatAmerican negative', function(){return formatAmerican(-200)==='-200';});
-  assert('formatAmerican null', function(){return formatAmerican(null)==='';});
-
+  // --- validatePoly (3) ---
   assert('validatePoly rejects null', function(){return parsePolyPage(null)===null;});
   assert('validatePoly rejects {}', function(){return parsePolyPage({})===null;});
   assert('validatePoly rejects bad probs', function(){
@@ -939,8 +1107,23 @@ function runSelfTests() {
     return r!==null&&r.length===0;
   });
 
+  // --- validateOdds (2) ---
   assert('validateOdds rejects null', function(){return validateOddsAPI(null)===null;});
   assert('validateOdds rejects string', function(){return validateOddsAPI("bad")===null;});
+
+  // --- lastName (3) ---
+  assert('lastName single', function(){return lastName('Jones')==='jones';});
+  assert('lastName multi', function(){return lastName('John Smith')==='smith';});
+  assert('lastName empty', function(){return lastName('')==='';});
+
+  // --- pct formatting (2) ---
+  assert('pct 0.75 -> 75%', function(){return pct(0.75)==='75%';});
+  assert('pct 0 -> 0%', function(){return pct(0)==='0%';});
+
+  // --- constant sanity checks (3) ---
+  assert('DISAGREE_LOW_MAX is 0.03', function(){return DISAGREE_LOW_MAX===0.03;});
+  assert('DISAGREE_MED_MAX is 0.08', function(){return DISAGREE_MED_MAX===0.08;});
+  assert('UPSET_WARN_THRESHOLD is 50', function(){return UPSET_WARN_THRESHOLD===50;});
 
   // Render results
   var bar=$('selftestBar');
