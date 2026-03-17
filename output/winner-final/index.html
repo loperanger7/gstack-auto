@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://clob.polymarket.com https://api.the-odds-api.com; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'">
+  <title>UFC Odds Risk Intel Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #10b981;
+      --accent-dim: #059669;
+      --accent-glow: rgba(16,185,129,0.15);
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --lock: #10b981;
+      --lean: #3b82f6;
+      --tossup: #f59e0b;
+      --upset: #ef4444;
+      --fav-color: #10b981;
+      --dog-color: #f97316;
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
+    header {
+      padding: 20px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+    .logo-sub { font-size: 0.8rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
+    .header-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .last-updated { font-size: 0.75rem; color: var(--muted); transition: opacity .3s; }
+    .quota-badge {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600;
+      border: 1px solid var(--border); color: var(--muted); background: var(--surface);
+      transition: color .3s, border-color .3s;
+    }
+    .quota-ok { border-color: var(--accent); color: var(--accent); }
+    .quota-low { border-color: var(--warn); color: var(--warn); }
+    .quota-critical { border-color: var(--danger); color: var(--danger); }
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .btn:active { transform: scale(0.97); }
+    .btn-accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+    .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+    /* API Key Panel */
+    .key-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      transition: border-color .2s;
+    }
+    .key-panel:focus-within { border-color: var(--accent); }
+    .key-panel label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .key-panel input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      width: 260px;
+      max-width: 100%;
+      font-family: monospace;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .key-panel input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .key-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* Banners */
+    .banner {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.83rem;
+      margin-bottom: 10px;
+      border-left: 3px solid transparent;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      animation: bannerIn .25s ease-out;
+      transition: opacity .3s, transform .3s;
+    }
+    @keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+    .banner-dismiss { opacity: 0; transform: translateY(-6px); }
+    .banner-warn   { background: rgba(245,158,11,0.08); border-color: var(--warn);   color: var(--warn);   }
+    .banner-danger { background: rgba(239,68,68,0.08);  border-color: var(--danger); color: var(--danger); }
+    .banner-info   { background: rgba(59,130,246,0.08); border-color: var(--info);   color: var(--info);   }
+    .banner-success{ background: var(--accent-glow);    border-color: var(--accent); color: var(--accent); }
+    .banner-icon { flex-shrink: 0; font-size: 0.95rem; margin-top: 0.05em; }
+    .banner-body { flex: 1; }
+    .banner-title { font-weight: 600; margin-bottom: 2px; }
+    .banner-close {
+      flex-shrink: 0; background: none; border: none; color: inherit; cursor: pointer;
+      font-size: 1rem; line-height: 1; padding: 0 2px; opacity: 0.6;
+      transition: opacity .15s;
+    }
+    .banner-close:hover { opacity: 1; }
+    #banners { margin-bottom: 8px; }
+
+    /* Fight Spotlight */
+    .spotlight-section { margin-bottom: 20px; }
+    .spotlight-card {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      animation: spotlightPulse 3s ease-in-out infinite;
+    }
+    .spotlight-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-glow), transparent 70%);
+      pointer-events: none;
+    }
+    .spotlight-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .spotlight-matchup {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .spotlight-reason {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .spotlight-stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .spotlight-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .spotlight-stat-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .spotlight-stat-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    }
+    @keyframes spotlightPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(16,185,129,0.1); }
+      50% { box-shadow: 0 0 30px rgba(16,185,129,0.2); }
+    }
+
+    /* Summary strip */
+    .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .summary-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+      transition: border-color .2s;
+    }
+    .summary-card:hover { border-color: var(--muted); }
+    .summary-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+    .summary-empty { color: var(--muted); font-size: 0.82rem; font-style: italic; }
+    .summary-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .summary-item {
+      display: flex; align-items: center; gap: 8px; font-size: 0.82rem;
+      padding: 3px 6px; border-radius: var(--radius-sm);
+      transition: background .15s;
+    }
+    .summary-item:hover { background: rgba(255,255,255,0.03); }
+    .summary-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .summary-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .summary-vs { color: var(--muted); font-size: 0.72rem; flex-shrink: 0; margin-right: 2px; }
+    .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
+
+    /* Section header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+    /* Event group header */
+    .event-group-header {
+      grid-column: 1 / -1;
+      padding: 8px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .event-group-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .event-group-count {
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 6px;
+    }
+
+    /* Fight Grid */
+    .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .fight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .2s, box-shadow .2s, transform .15s;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: cardEnter 0.35s ease-out forwards;
+      position: relative;
+    }
+    .fight-card:hover { border-color: var(--muted); transform: translateY(-1px); }
+    .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
+    .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
+    .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
+    .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
+
+    /* Tier-based card glow on hover */
+    .fight-card[data-tier="lock"]:hover   { box-shadow: 0 0 16px rgba(16,185,129,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="lean"]:hover   { box-shadow: 0 0 16px rgba(59,130,246,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="tossup"]:hover { box-shadow: 0 0 16px rgba(245,158,11,0.2), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="upset"]:hover  { box-shadow: 0 0 20px rgba(239,68,68,0.25), 0 2px 12px rgba(0,0,0,0.2); }
+    .fight-card[data-tier="upset"]        { animation: cardEnter 0.35s ease-out forwards, upsetPulse 2.5s ease-in-out 0.4s infinite; }
+    @keyframes upsetPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(239,68,68,0); }
+      50% { box-shadow: 0 0 12px rgba(239,68,68,0.15); }
+    }
+
+    /* Focus ring for keyboard nav */
+    .fight-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .fight-card:focus { outline: none; }
+    .fight-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .tier-badge {
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      padding: 3px 7px; border-radius: 3px; flex-shrink: 0;
+      transition: transform .15s;
+    }
+    .fight-card:hover .tier-badge { transform: scale(1.05); }
+    .tier-lock   { background: rgba(16,185,129,0.15); color: var(--lock); }
+    .tier-lean   { background: rgba(59,130,246,0.15);  color: var(--lean); }
+    .tier-tossup { background: rgba(245,158,11,0.15);  color: var(--tossup); }
+    .tier-upset  { background: rgba(239,68,68,0.15);   color: var(--upset); }
+
+    .fight-matchup { flex: 1; }
+    .fighter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .fighter-name { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+    .fighter-name-fav { color: var(--fav-color); font-weight: 700; }
+    .fighter-name-dog { color: var(--dog-color); font-weight: 500; }
+    .fighter-name-even { color: var(--muted); font-weight: 500; }
+    .fighter-prob { margin-left: auto; font-size: 0.85rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+    .fighter-odds { margin-left: 6px; font-size: 0.72rem; color: var(--muted); flex-shrink: 0; font-weight: 500; }
+    .vs-divider { font-size: 0.65rem; color: var(--muted); padding: 0 4px; }
+
+    .prob-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+    .prob-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .5s ease; }
+
+    .ci-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .ci-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; position: relative; overflow: visible; }
+    .ci-fill { position: absolute; height: 100%; background: rgba(16,185,129,0.35); border-radius: 3px; transition: left .4s, width .4s; }
+    .ci-center { position: absolute; width: 2px; height: 10px; top: -2px; background: var(--accent); border-radius: 1px; transition: left .4s; }
+
+    .meter-row { display: flex; flex-direction: column; gap: 4px; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); }
+    .meter-value { color: var(--text); font-weight: 600; }
+    .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+    /* CSS-based upset warning indicator (replaces emoji) */
+    .upset-warning {
+      font-size: 0.72rem;
+      color: var(--danger);
+      font-weight: 600;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .upset-warning-icon {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--danger);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .upset-warning-icon::before {
+      content: '!';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+    /* Source detail popover */
+    .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); cursor: pointer; position: relative; }
+    .disagree-level { font-weight: 600; }
+    .disagree-low  { color: var(--accent); }
+    .disagree-med  { color: var(--warn); }
+    .disagree-high { color: var(--danger); }
+    .disagree-na   { color: var(--muted); }
+    .source-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .source-tag {
+      font-size: 0.65rem; padding: 1px 5px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 3px; color: var(--muted); transition: border-color .15s, color .15s;
+    }
+    .source-tag-ok  { border-color: var(--accent); color: var(--accent); }
+    .source-tag-err { border-color: var(--danger); color: var(--danger); opacity: 0.7; }
+
+    .source-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      z-index: 20;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      animation: popoverIn 0.15s ease-out;
+    }
+    .source-popover.visible { display: block; }
+    @keyframes popoverIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .source-popover-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .source-popover-row:last-child { border-bottom: none; }
+    .source-popover-name { color: var(--muted); }
+    .source-popover-value { font-weight: 600; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+    .source-popover-note { color: var(--muted); font-style: italic; font-size: 0.65rem; margin-top: 4px; }
+
+    /* Focus-within shows popover for keyboard users */
+    .disagree-row:focus-within .source-popover { display: block; }
+
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 0.9rem; }
+    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; }
+
+    /* Skeleton shimmer loading */
+    .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--border) 25%, rgba(48,54,61,0.6) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .skeleton-line-wide { width: 80%; }
+    .skeleton-line-med { width: 60%; }
+    .skeleton-line-short { width: 40%; }
+    .skeleton-line-bar { height: 6px; width: 100%; margin-top: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Self-test footer */
+    .selftest-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 6px 16px; font-size: 0.7rem; color: var(--muted);
+      display: flex; align-items: center; gap: 8px; z-index: 100;
+    }
+    .selftest-pass { color: var(--accent); }
+    .selftest-fail { color: var(--danger); font-weight: 600; }
+
+    /* prefers-reduced-motion: disable all animations */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .fight-card { opacity: 1; transform: none; }
+      .fight-card[data-tier="upset"] { box-shadow: 0 0 0 1px var(--upset); }
+      .spotlight-card { box-shadow: 0 0 0 2px var(--accent); }
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .summary-strip { grid-template-columns: 1fr; }
+      .fight-grid { grid-template-columns: 1fr; }
+      .skeleton-grid { grid-template-columns: 1fr; }
+      .key-panel { flex-direction: column; align-items: flex-start; }
+      .key-panel input { width: 100%; }
+      .header-meta { width: 100%; justify-content: flex-start; }
+    }
+    @media (max-width: 400px) {
+      .page { padding: 0 10px 48px; }
+      .fight-card { padding: 12px; }
+    }
+    .btn, .key-panel input, button { min-height: 44px; }
+    @media (min-width: 601px) {
+      .btn, button { min-height: 32px; }
+      .key-panel input { min-height: 32px; }
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <span class="logo">UFC Odds Risk Intel<span class="logo-sub">Dashboard</span></span>
+    </div>
+    <div class="header-meta">
+      <span class="quota-badge hidden" id="quotaBadge" title="Odds API requests remaining"></span>
+      <span class="last-updated hidden" id="lastUpdated"></span>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+    </div>
+  </header>
+
+  <div class="key-panel">
+    <div>
+      <label for="apiKeyInput">The Odds API Key <span style="color:var(--muted)">(optional)</span></label>
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="new-password" spellcheck="false" maxlength="200">
+      <div class="key-hint">Stored in localStorage only, never logged. Without it, Polymarket data only.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-accent" id="applyKeyBtn" type="button">Apply Key</button>
+      <button class="btn btn-danger hidden" id="clearKeyBtn" type="button">Clear API Key</button>
+    </div>
+  </div>
+
+  <div id="banners" role="status" aria-live="polite"></div>
+
+  <div id="spotlightSection" class="spotlight-section hidden"></div>
+
+  <div class="summary-strip">
+    <div class="summary-card">
+      <div class="summary-title">Safest Bets</div>
+      <div class="loading-state" id="safestLoading" style="padding:20px 0;">
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
+      </div>
+      <ul class="summary-list hidden" id="safestList" role="list"></ul>
+      <p class="summary-empty hidden" id="safestEmpty">No lock-tier fights found.</p>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Upset Watch</div>
+      <div class="loading-state" id="upsetLoading" style="padding:20px 0;">
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
+      </div>
+      <ul class="summary-list hidden" id="upsetList" role="list"></ul>
+      <p class="summary-empty hidden" id="upsetEmpty">No high-upset-potential fights found.</p>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Fight Cards</span>
+    <span class="count-badge hidden" id="fightCount"></span>
+  </div>
+  <div id="fightGrid" class="fight-grid" role="list">
+    <div class="loading-state" id="mainLoading" style="grid-column:1/-1;">
+      <div class="spinner"></div>
+      <span class="loading-text">Fetching live odds&hellip;</span>
+    </div>
+  </div>
+  <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;"></div>
+</div>
+<div class="selftest-bar hidden" id="selftestBar"></div>
+
+<script>
+'use strict';
+
+// ===================================================
+// CONSTANTS
+// ===================================================
+var CACHE_VERSION      = 'v2';
+var CACHE_TTL_MS       = 15 * 60 * 1000;
+var FETCH_TIMEOUT_MS   = 8000;
+var POLY_CACHE_KEY     = 'pattaya-poly-v2';
+var ODDS_CACHE_KEY     = 'pattaya-odds-v2';
+var ODDS_API_LS_KEY    = 'pattaya-odds-api-key';
+var PROB_SUM_MAX       = 0.10;
+var QUOTA_WARN         = 50;
+var QUOTA_CRITICAL     = 10;
+var POLY_BASE          = 'https://clob.polymarket.com';
+var ODDS_BASE          = 'https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds';
+var TIER               = { LOCK:'lock', LEAN:'lean', TOSSUP:'tossup', UPSET:'upset' };
+var BANNER_AUTO_DISMISS_MS = 12000;
+var POLY_MAX_PAGES     = 3;
+var POLY_PAGE_SIZE     = 50;
+
+// Spec-exact thresholds
+var DISAGREE_LOW_MAX   = 0.03;  // <3% = Strong Consensus
+var DISAGREE_MED_MAX   = 0.08;  // 3-8% = Some Disagreement
+                                 // >8% = Books Disagree Significantly
+
+var TIER_LOCK_MIN      = 0.75;  // >=75% = Lock
+var TIER_LEAN_MIN      = 0.60;  // 60-74% = Lean
+var TIER_TOSSUP_MIN    = 0.45;  // 45-59% = Toss-Up
+                                 // <45% = Upset Alert
+
+var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
+
+// Touch detection
+var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// ===================================================
+// SAFE GUARDS
+// ===================================================
+function safeNum(v)  { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function safeStr(v)  { if (typeof v !== 'string') return null; var s=v.trim(); return s.length?s:null; }
+function clamp(v,lo,hi){ var n=safeNum(v); return n===null?lo:Math.max(lo,Math.min(hi,n)); }
+function sanitize(s) { if(typeof s!=='string')return'Unknown'; return s.replace(/[\x00-\x1f\x7f]/g,'').trim().slice(0,100)||'Unknown'; }
+
+// ===================================================
+// CACHE
+// ===================================================
+var cache = (function() {
+  var avail = null;
+  function ok() {
+    if (avail !== null) return avail;
+    try { sessionStorage.setItem('__p','1'); sessionStorage.removeItem('__p'); avail=true; }
+    catch(e){ avail=false; }
+    return avail;
+  }
+  function write(key, data) {
+    if (!ok()) return;
+    try { sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data })); }
+    catch(e){}
+  }
+  function read(key) {
+    if (!ok()) return null;
+    var raw; try { raw=sessionStorage.getItem(key); } catch(e){ return null; }
+    if (!raw) return null;
+    var entry; try { entry=JSON.parse(raw); } catch(e){ try{sessionStorage.removeItem(key);}catch(e2){} return null; }
+    if (!entry||typeof entry!=='object'||entry.version!==CACHE_VERSION) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
+    var ts=safeNum(entry.ts); var now=Date.now();
+    if (ts===null||ts>now||now-ts>CACHE_TTL_MS) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
+    return entry.data!==undefined?entry.data:null;
+  }
+  function remove(key) { if(!ok())return; try{sessionStorage.removeItem(key);}catch(e){} }
+  function clearAll() { remove(POLY_CACHE_KEY); remove(ODDS_CACHE_KEY); }
+  return { write:write, read:read, remove:remove, clearAll:clearAll };
+})();
+
+// ===================================================
+// VALIDATORS
+// ===================================================
+function parsePolyPage(raw) {
+  if (!raw||typeof raw!=='object'||!Array.isArray(raw.data)) return null;
+  var fights=[];
+  for (var i=0;i<raw.data.length;i++) {
+    var item=raw.data[i];
+    if (!item||typeof item!=='object') continue;
+    if (!Array.isArray(item.outcomes)||item.outcomes.length<2) continue;
+    if (!Array.isArray(item.outcomePrices)||item.outcomePrices.length<2) continue;
+    var f1=safeStr(item.outcomes[0]), f2=safeStr(item.outcomes[1]);
+    if (!f1||!f2) continue;
+    var p1r=parseFloat(item.outcomePrices[0]), p2r=parseFloat(item.outcomePrices[1]);
+    if (!isFinite(p1r)||!isFinite(p2r)||p1r<0||p1r>1||p2r<0||p2r>1) continue;
+    var sum=p1r+p2r, dev=Math.abs(sum-1);
+    if (dev>PROB_SUM_MAX) continue;
+    var norm=dev>0?sum:1;
+    var id=safeStr(item.conditionId||item.id||'')||('poly-'+fights.length);
+    fights.push({ id:id, f1:sanitize(f1), f2:sanitize(f2), polyP1:clamp(p1r/norm,0,1), polyP2:clamp(p2r/norm,0,1) });
+  }
+  return fights;
+}
+
+function americanToImplied(a) {
+  var n=safeNum(a); if(n===null||n===0)return null;
+  return n>0 ? 100/(n+100) : Math.abs(n)/(Math.abs(n)+100);
+}
+
+function impliedToAmerican(p) {
+  if (p===null||p===undefined||!isFinite(p)||p<=0||p>=1) return null;
+  return p>=0.5 ? Math.round(-100*p/(1-p)) : Math.round(100*(1-p)/p);
+}
+
+function formatAmerican(odds) {
+  if (odds===null) return '';
+  return odds>0 ? ('+'+odds) : String(odds);
+}
+
+function validateOddsAPI(raw) {
+  if (!Array.isArray(raw)) return null;
+  var fights=[];
+  for (var i=0;i<raw.length;i++) {
+    var ev=raw[i];
+    if (!ev||typeof ev!=='object') continue;
+    var home=safeStr(ev.home_team), away=safeStr(ev.away_team);
+    if (!home||!away) continue;
+    if (!Array.isArray(ev.bookmakers)||!ev.bookmakers.length) continue;
+    var sh=0,sa=0,cnt=0;
+    var commenceTime=safeStr(ev.commence_time)||null;
+    for (var b=0;b<ev.bookmakers.length;b++) {
+      var bk=ev.bookmakers[b];
+      if (!bk||!Array.isArray(bk.markets)) continue;
+      for (var m=0;m<bk.markets.length;m++) {
+        var mkt=bk.markets[m];
+        if (!mkt||mkt.key!=='h2h'||!Array.isArray(mkt.outcomes)||mkt.outcomes.length<2) continue;
+        var hp=null,ap=null;
+        for (var o=0;o<mkt.outcomes.length;o++) {
+          var oc=mkt.outcomes[o];
+          if (!oc||typeof oc!=='object') continue;
+          var nm=safeStr(oc.name), pr=safeNum(oc.price); if(!nm||pr===null)continue;
+          if (nm===home) hp=americanToImplied(pr);
+          else if (nm===away) ap=americanToImplied(pr);
+        }
+        if (hp===null||ap===null) continue;
+        var s=hp+ap, d=Math.abs(s-1);
+        if (d>PROB_SUM_MAX) continue;
+        sh+=hp/s; sa+=ap/s; cnt++;
+      }
+    }
+    if (!cnt) continue;
+    var fid=safeStr(ev.id||'')||('odds-'+fights.length);
+    fights.push({ id:fid, f1:sanitize(home), f2:sanitize(away), oddsP1:clamp(sh/cnt,0,1), oddsP2:clamp(sa/cnt,0,1), commenceTime:commenceTime });
+  }
+  return fights;
+}
+
+// ===================================================
+// COMPUTE
+// ===================================================
+function wilsonCI(p, n) {
+  if (n<=0||p<0||p>1) return { lo:p, hi:p };
+  var z=1.96, z2=z*z;
+  var c=(p+z2/(2*n))/(1+z2/n);
+  var margin=(z/(1+z2/n))*Math.sqrt((p*(1-p)/n)+z2/(4*n*n));
+  return { lo:clamp(c-margin,0,1), hi:clamp(c+margin,0,1) };
+}
+
+function riskTier(p) {
+  return p>=TIER_LOCK_MIN ? TIER.LOCK
+       : p>=TIER_LEAN_MIN ? TIER.LEAN
+       : p>=TIER_TOSSUP_MIN ? TIER.TOSSUP
+       : TIER.UPSET;
+}
+
+function upsetScore(u) { return clamp(Math.round(u*200),0,100); }
+
+function disagreement(a,b) {
+  if (a===null||b===null) return { level:'na', delta:null };
+  var d=Math.abs(a-b);
+  return {
+    level: d<DISAGREE_LOW_MAX ? 'low'
+         : d<=DISAGREE_MED_MAX ? 'med'
+         : 'high',
+    delta: d
+  };
+}
+
+function computeFight(f) {
+  var probs=[];
+  if (f.polyP1!=null) probs.push(f.polyP1);
+  if (f.oddsP1!=null) probs.push(f.oddsP1);
+  if (!probs.length) return null;
+  var cP1=probs.reduce(function(a,b){return a+b;},0)/probs.length;
+  var cP2=clamp(1-cP1,0,1);
+  var fav1=cP1>=cP2;
+  var favP=fav1?cP1:cP2, dogP=fav1?cP2:cP1;
+  return {
+    id:f.id, f1:f.f1, f2:f.f2,
+    favName:fav1?f.f1:f.f2, dogName:fav1?f.f2:f.f1,
+    favProb:favP, underdogProb:dogP,
+    consensusP1:cP1, consensusP2:cP2,
+    americanP1:impliedToAmerican(cP1), americanP2:impliedToAmerican(cP2),
+    ci:wilsonCI(favP, probs.length*20),
+    tier:riskTier(favP),
+    upset:upsetScore(dogP),
+    disagree:disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null),
+    sources:{ poly:f.polyP1!=null, odds:f.oddsP1!=null },
+    polyP1:f.polyP1!=null?f.polyP1:null,
+    oddsP1:f.oddsP1!=null?f.oddsP1:null,
+    commenceTime:f.commenceTime||null
+  };
+}
+
+// ===================================================
+// SPOTLIGHT — pick the most interesting fight
+// ===================================================
+function identifySpotlight(computed) {
+  if (!computed.length) return null;
+  // Priority 1: Upset Alert with highest disagreement
+  var upsets = computed.filter(function(f){ return f.tier === TIER.UPSET; });
+  if (upsets.length) {
+    upsets.sort(function(a,b){ return b.upset - a.upset; });
+    return { fight: upsets[0], reason: 'Upset Alert — the underdog has a real shot' };
+  }
+  // Priority 2: Highest disagreement across all fights
+  var withDis = computed.filter(function(f){ return f.disagree.delta !== null; });
+  if (withDis.length) {
+    withDis.sort(function(a,b){ return (b.disagree.delta||0) - (a.disagree.delta||0); });
+    if (withDis[0].disagree.delta > 0.03) {
+      return { fight: withDis[0], reason: 'Books disagree most on this fight' };
+    }
+  }
+  // Priority 3: Lock with lowest favProb (closest to dropping tier)
+  var locks = computed.filter(function(f){ return f.tier === TIER.LOCK; });
+  if (locks.length) {
+    locks.sort(function(a,b){ return a.favProb - b.favProb; });
+    return { fight: locks[0], reason: 'Closest lock to the lean line' };
+  }
+  // Fallback: first fight
+  return { fight: computed[0], reason: 'Featured fight' };
+}
+
+// ===================================================
+// EVENT GROUPING — cluster fights by commence_time
+// ===================================================
+function groupByEvent(computed) {
+  var hasDate = computed.some(function(f){ return f.commenceTime; });
+  if (!hasDate) {
+    // Check if only poly data (no dates)
+    var allPoly = computed.every(function(f){ return !f.sources.odds; });
+    return [{ name: allPoly ? 'UFC Markets' : 'Upcoming UFC', fights: computed }];
+  }
+  // Group by date (YYYY-MM-DD from commence_time)
+  var groups = {};
+  var order = [];
+  for (var i = 0; i < computed.length; i++) {
+    var f = computed[i];
+    var dateKey = f.commenceTime ? f.commenceTime.slice(0, 10) : 'unknown';
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+      order.push(dateKey);
+    }
+    groups[dateKey].push(f);
+  }
+  order.sort();
+  return order.map(function(key) {
+    var label = key === 'unknown' ? 'Upcoming UFC' : formatEventDate(key);
+    return { name: label, fights: groups[key] };
+  });
+}
+
+function formatEventDate(isoDate) {
+  try {
+    var d = new Date(isoDate + 'T00:00:00Z');
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return 'UFC — ' + months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+  } catch(e) {
+    return 'Upcoming UFC';
+  }
+}
+
+// ===================================================
+// FETCH - Polymarket with pagination
+// ===================================================
+async function fetchPolymarket() {
+  var cached=cache.read(POLY_CACHE_KEY);
+  if (cached!==null) return { fights:cached, error:null, fromCache:true };
+
+  var allFights=[];
+  var cursor=null;
+
+  for (var page=0; page<POLY_MAX_PAGES; page++) {
+    var ctrl=new AbortController();
+    var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
+    try {
+      var params=new URLSearchParams({ tag_slug:'ufc', active:'true', limit:String(POLY_PAGE_SIZE) });
+      if (cursor) params.set('next_cursor', cursor);
+
+      var resp;
+      try {
+        resp=await fetch(POLY_BASE+'/markets?'+params,
+          { signal:ctrl.signal, headers:{'Accept':'application/json'} });
+      } catch(e) {
+        if (allFights.length) break;
+        return { fights:null, error:e&&e.name==='AbortError'?'Polymarket timed out (>8s)':'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
+      }
+      if (!resp.ok) {
+        if (allFights.length) break;
+        return { fights:null, error:'Polymarket HTTP '+resp.status };
+      }
+      var body; try { body=await resp.json(); } catch(e){
+        if (allFights.length) break;
+        return { fights:null, error:'Polymarket: invalid JSON' };
+      }
+      var fights=parsePolyPage(body);
+      if (!fights) {
+        if (allFights.length) break;
+        return { fights:null, error:'Polymarket: unexpected response shape' };
+      }
+      for (var fi=0;fi<fights.length;fi++) allFights.push(fights[fi]);
+
+      var nextCursor=safeStr(body.next_cursor);
+      if (!nextCursor||fights.length<POLY_PAGE_SIZE) break;
+      cursor=nextCursor;
+    } finally { clearTimeout(timer); }
+  }
+
+  if (!allFights.length) return { fights:null, error:'Polymarket: no UFC markets found' };
+
+  // Deduplicate by id
+  var seen={};
+  var deduped=[];
+  for (var di=0;di<allFights.length;di++) {
+    if (seen[allFights[di].id]) continue;
+    seen[allFights[di].id]=true;
+    deduped.push(allFights[di]);
+  }
+
+  cache.write(POLY_CACHE_KEY, deduped);
+  return { fights:deduped, error:null, fromCache:false };
+}
+
+async function fetchOddsAPI(apiKey) {
+  var key=typeof apiKey==='string'?apiKey.trim():'';
+  if (!key) return { fights:null, error:'No API key', quotaRemaining:null };
+  var cached=cache.read(ODDS_CACHE_KEY);
+  if (cached!==null) return { fights:cached, error:null, quotaRemaining:null, fromCache:true };
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
+  try {
+    var p=new URLSearchParams({ apiKey:key, regions:'us', markets:'h2h', bookmakers:'draftkings,fanduel' });
+    var resp;
+    try {
+      resp=await fetch(ODDS_BASE+'/?'+p,{ signal:ctrl.signal, headers:{'Accept':'application/json'} });
+    } catch(e) {
+      return { fights:null, error:e&&e.name==='AbortError'?'Odds API timed out (>8s)':'Odds API network error: '+String(e&&e.message||e).slice(0,120), quotaRemaining:null };
+    }
+    var qr=resp.headers.get('x-requests-remaining');
+    var quota=qr!==null?parseInt(qr,10):null;
+    if (resp.status===401||resp.status===403) return { fights:null, error:'Odds API: Invalid or unauthorized key', quotaRemaining:quota };
+    if (resp.status===422||resp.status===429) return { fights:null, error:'Odds API: Quota exceeded', quotaRemaining:0 };
+    if (!resp.ok) return { fights:null, error:'Odds API HTTP '+resp.status, quotaRemaining:quota };
+    var body; try { body=await resp.json(); } catch(e){ return { fights:null, error:'Odds API: invalid JSON', quotaRemaining:quota }; }
+    var fights=validateOddsAPI(body);
+    if (!fights) return { fights:null, error:'Odds API: unexpected shape', quotaRemaining:quota };
+    cache.write(ODDS_CACHE_KEY, fights);
+    return { fights:fights, error:null, quotaRemaining:quota, fromCache:false };
+  } finally { clearTimeout(timer); }
+}
+
+// ===================================================
+// MERGE
+// ===================================================
+function lastName(n) { if(!n)return''; var parts=n.trim().split(/\s+/); return parts[parts.length-1].toLowerCase(); }
+
+function mergeResults(poly, odds) {
+  if (!poly) return (odds||[]).map(function(f){return Object.assign({},f);});
+  if (!odds) return poly.map(function(f){return Object.assign({},f);});
+  var used={}, out=[];
+  for (var i=0;i<poly.length;i++) {
+    var pf=poly[i];
+    var pl1=lastName(pf.f1), pl2=lastName(pf.f2);
+    var bi=null;
+    for (var j=0;j<odds.length;j++) {
+      if (used[j]) continue;
+      var ol1=lastName(odds[j].f1), ol2=lastName(odds[j].f2);
+      if ((ol1===pl1&&ol2===pl2)||(ol1===pl2&&ol2===pl1)){ bi=j; break; }
+    }
+    if (bi!==null) { used[bi]=true; out.push(Object.assign({},pf,{oddsP1:odds[bi].oddsP1,oddsP2:odds[bi].oddsP2,commenceTime:odds[bi].commenceTime||null})); }
+    else out.push(Object.assign({},pf,{oddsP1:null,oddsP2:null}));
+  }
+  for (var k=0;k<odds.length;k++) { if(!used[k]) out.push(Object.assign({},odds[k],{polyP1:null,polyP2:null})); }
+  return out;
+}
+
+// ===================================================
+// DOM HELPERS
+// ===================================================
+function $(id) { return document.getElementById(id); }
+var bannersEl=$('banners'), fightGridEl=$('fightGrid'), mainLoadEl=$('mainLoading'),
+    fightCountEl=$('fightCount'), safestListEl=$('safestList'), safestEmptyEl=$('safestEmpty'),
+    safestLoadEl=$('safestLoading'), upsetListEl=$('upsetList'), upsetEmptyEl=$('upsetEmpty'),
+    upsetLoadEl=$('upsetLoading'), lastUpdEl=$('lastUpdated'), quotaBadgeEl=$('quotaBadge'),
+    skeletonGridEl=$('skeletonGrid'), spotlightEl=$('spotlightSection');
+
+// Track open popovers globally for dismiss
+var activePopover = null;
+
+function clearBanners() { while(bannersEl.firstChild)bannersEl.removeChild(bannersEl.firstChild); }
+
+function dismissBanner(el) {
+  if (!el||!el.parentNode) return;
+  el.classList.add('banner-dismiss');
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+}
+
+function addBanner(type,title,msg,autoDismiss) {
+  var icons={warn:'\u26A0',danger:'\u2716',info:'\u2139',success:'\u2714'};
+  var d=document.createElement('div'); d.className='banner banner-'+type;
+  d.setAttribute('role',type==='danger'?'alert':'status');
+  var ic=document.createElement('span'); ic.className='banner-icon'; ic.setAttribute('aria-hidden','true'); ic.textContent=icons[type]||'\u2139'; d.appendChild(ic);
+  var bd=document.createElement('div'); bd.className='banner-body';
+  if(title){var t=document.createElement('div');t.className='banner-title';t.textContent=title;bd.appendChild(t);}
+  if(msg){var m=document.createElement('div');m.textContent=msg;bd.appendChild(m);}
+  d.appendChild(bd);
+
+  var cls=document.createElement('button'); cls.className='banner-close'; cls.type='button';
+  cls.setAttribute('aria-label','Dismiss'); cls.textContent='\u00D7';
+  cls.addEventListener('click',function(){dismissBanner(d);});
+  d.appendChild(cls);
+
+  bannersEl.appendChild(d);
+
+  if (autoDismiss!==false && (type==='info'||type==='success')) {
+    setTimeout(function(){dismissBanner(d);}, BANNER_AUTO_DISMISS_MS);
+  }
+}
+
+function pct(p) { return Math.round(p*100)+'%'; }
+
+function makeBar(prob,tier) {
+  var cm={lock:'var(--lock)',lean:'var(--lean)',tossup:'var(--tossup)',upset:'var(--upset)'};
+  var w=document.createElement('div'); w.className='prob-bar-wrap';
+  var f=document.createElement('div'); f.className='prob-bar-fill';
+  f.style.width=pct(clamp(prob,0,1)); f.style.background=cm[tier]||'var(--accent)';
+  w.appendChild(f); return w;
+}
+
+function makeCIBar(ci,favP) {
+  var row=document.createElement('div'); row.className='ci-row';
+  var lo=document.createElement('span'); lo.textContent=pct(ci.lo); row.appendChild(lo);
+  var tr=document.createElement('div'); tr.className='ci-track'; tr.style.flex='1';
+  var fl=document.createElement('div'); fl.className='ci-fill';
+  fl.style.left=(clamp(ci.lo,0,1)*100)+'%'; fl.style.width=((clamp(ci.hi,0,1)-clamp(ci.lo,0,1))*100)+'%';
+  tr.appendChild(fl);
+  var cn=document.createElement('div'); cn.className='ci-center'; cn.style.left='calc('+(clamp(favP,0,1)*100)+'% - 1px)'; tr.appendChild(cn);
+  row.appendChild(tr);
+  var hi=document.createElement('span'); hi.textContent=pct(ci.hi); row.appendChild(hi);
+  var lb=document.createElement('span'); lb.style.cssText='font-size:0.65rem;color:var(--muted);margin-left:4px;'; lb.textContent='95% CI'; row.appendChild(lb);
+  return row;
+}
+
+function makeMeter(u, dogName) {
+  var w=document.createElement('div'); w.className='meter-row';
+  var lr=document.createElement('div'); lr.className='meter-label';
+  var ll=document.createElement('span'); ll.textContent='Upset Potential'; lr.appendChild(ll);
+  var rv=document.createElement('span'); rv.className='meter-value'; rv.textContent=String(clamp(u,0,100)); lr.appendChild(rv);
+  w.appendChild(lr);
+  var tr=document.createElement('div'); tr.className='meter-track';
+  var fl=document.createElement('div'); fl.className='meter-fill'; fl.style.width=clamp(u,0,100)+'%';
+  var pct100=clamp(u,0,100); fl.style.background=pct100<30?'var(--lock)':pct100<60?'var(--warn)':'var(--danger)';
+  tr.appendChild(fl); w.appendChild(tr);
+
+  // Upset warning when meter >= 50 (CSS-based icon instead of emoji)
+  if (pct100>=UPSET_WARN_THRESHOLD && dogName) {
+    var warn=document.createElement('div');
+    warn.className='upset-warning';
+    var icon=document.createElement('span');
+    icon.className='upset-warning-icon';
+    icon.setAttribute('aria-hidden','true');
+    warn.appendChild(icon);
+    var txt=document.createElement('span');
+    txt.textContent=sanitize(dogName) + ' can win this';
+    warn.appendChild(txt);
+    w.appendChild(warn);
+  }
+
+  return w;
+}
+
+function makeSourcePopover(c) {
+  var pop=document.createElement('div');
+  pop.className='source-popover';
+  pop.setAttribute('role','tooltip');
+
+  if (c.sources.poly) {
+    var r1=document.createElement('div'); r1.className='source-popover-row';
+    var n1=document.createElement('span'); n1.className='source-popover-name'; n1.textContent='Polymarket'; r1.appendChild(n1);
+    var v1=document.createElement('span'); v1.className='source-popover-value'; v1.textContent=pct(c.polyP1 != null ? c.polyP1 : 0); r1.appendChild(v1);
+    pop.appendChild(r1);
+  }
+  if (c.sources.odds) {
+    var r2=document.createElement('div'); r2.className='source-popover-row';
+    var n2=document.createElement('span'); n2.className='source-popover-name'; n2.textContent='Odds API (DK/FD)'; r2.appendChild(n2);
+    var v2=document.createElement('span'); v2.className='source-popover-value'; v2.textContent=pct(c.oddsP1 != null ? c.oddsP1 : 0); r2.appendChild(v2);
+    pop.appendChild(r2);
+  }
+
+  var sourceCount = (c.sources.poly ? 1 : 0) + (c.sources.odds ? 1 : 0);
+  if (sourceCount === 1) {
+    var note=document.createElement('div');
+    note.className='source-popover-note';
+    note.textContent='Single source — no cross-validation available';
+    pop.appendChild(note);
+  }
+
+  return pop;
+}
+
+function makeDisagreeRow(dis,sources,fightData) {
+  var row=document.createElement('div'); row.className='disagree-row';
+  row.setAttribute('tabindex','0');
+  row.setAttribute('aria-label','Source agreement details. Activate to show breakdown.');
+  var left=document.createElement('div'); left.style.cssText='display:flex;flex-direction:column;gap:2px;';
+  var lm={low:'Strong Consensus',med:'Some Disagreement',high:'Books Disagree Significantly',na:'Single Source'};
+  var lc={low:'disagree-low',med:'disagree-med',high:'disagree-high',na:'disagree-na'};
+  var lv=document.createElement('span'); lv.className='disagree-level '+(lc[dis.level]||'disagree-na'); lv.textContent=lm[dis.level]||'N/A'; left.appendChild(lv);
+  if (dis.delta!==null){var dl=document.createElement('span');dl.style.cssText='font-size:0.65rem;color:var(--muted);';dl.textContent='\u0394'+Math.round(dis.delta*100)+'pp';left.appendChild(dl);}
+  row.appendChild(left);
+  var tg=document.createElement('div'); tg.className='source-tags';
+  var pt=document.createElement('span'); pt.className='source-tag '+(sources.poly?'source-tag-ok':'source-tag-err'); pt.textContent='Poly'; tg.appendChild(pt);
+  var ot=document.createElement('span'); ot.className='source-tag '+(sources.odds?'source-tag-ok':'source-tag-err'); ot.textContent='Odds'; tg.appendChild(ot);
+  row.appendChild(tg);
+
+  // Source detail popover
+  if (fightData) {
+    var popover = makeSourcePopover(fightData);
+    row.appendChild(popover);
+
+    if (IS_TOUCH) {
+      // Touch: click to toggle
+      row.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isVisible = popover.classList.contains('visible');
+        dismissActivePopover();
+        if (!isVisible) {
+          popover.classList.add('visible');
+          activePopover = popover;
+        }
+      });
+    } else {
+      // Desktop: hover to reveal
+      row.addEventListener('mouseenter', function() {
+        dismissActivePopover();
+        popover.classList.add('visible');
+        activePopover = popover;
+      });
+      row.addEventListener('mouseleave', function() {
+        popover.classList.remove('visible');
+        if (activePopover === popover) activePopover = null;
+      });
+    }
+
+    // Keyboard: Enter/Space to toggle
+    row.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        var isVisible = popover.classList.contains('visible');
+        dismissActivePopover();
+        if (!isVisible) {
+          popover.classList.add('visible');
+          activePopover = popover;
+        }
+      } else if (e.key === 'Escape') {
+        popover.classList.remove('visible');
+        if (activePopover === popover) activePopover = null;
+      }
+    });
+  }
+
+  return row;
+}
+
+function dismissActivePopover() {
+  if (activePopover) {
+    activePopover.classList.remove('visible');
+    activePopover = null;
+  }
+}
+
+// Dismiss popover on outside click
+document.addEventListener('click', function() { dismissActivePopover(); });
+
+function renderCard(c, index) {
+  var card=document.createElement('div'); card.className='fight-card'; card.setAttribute('data-tier',c.tier); card.setAttribute('role','listitem');
+  card.setAttribute('tabindex','0');
+  card.style.animationDelay=(index * 0.06) + 's';
+  var hdr=document.createElement('div'); hdr.className='fight-header';
+  var mu=document.createElement('div'); mu.className='fight-matchup';
+
+  // Determine fav/dog for coloring
+  var f1IsFav = c.consensusP1 >= c.consensusP2;
+  var isEven = Math.abs(c.consensusP1 - c.consensusP2) < 0.01;
+
+  var r1=document.createElement('div'); r1.className='fighter-row';
+  var n1=document.createElement('span');
+  n1.className='fighter-name' + (isEven ? ' fighter-name-even' : (f1IsFav ? ' fighter-name-fav' : ' fighter-name-dog'));
+  n1.textContent=c.f1; r1.appendChild(n1);
+  var p1=document.createElement('span'); p1.className='fighter-prob'; p1.textContent=pct(c.consensusP1); r1.appendChild(p1);
+  var a1=formatAmerican(c.americanP1);
+  if (a1) { var od1=document.createElement('span'); od1.className='fighter-odds'; od1.textContent=a1; r1.appendChild(od1); }
+  mu.appendChild(r1); mu.appendChild(makeBar(c.consensusP1,c.tier));
+
+  var vs=document.createElement('div'); vs.className='vs-divider'; vs.textContent='vs'; mu.appendChild(vs);
+
+  var r2=document.createElement('div'); r2.className='fighter-row';
+  var n2=document.createElement('span');
+  n2.className='fighter-name' + (isEven ? ' fighter-name-even' : (f1IsFav ? ' fighter-name-dog' : ' fighter-name-fav'));
+  n2.textContent=c.f2; r2.appendChild(n2);
+  var p2=document.createElement('span'); p2.className='fighter-prob'; p2.textContent=pct(c.consensusP2); r2.appendChild(p2);
+  var a2=formatAmerican(c.americanP2);
+  if (a2) { var od2=document.createElement('span'); od2.className='fighter-odds'; od2.textContent=a2; r2.appendChild(od2); }
+  mu.appendChild(r2); hdr.appendChild(mu);
+
+  var tb=document.createElement('span');
+  var tl={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
+  tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
+  card.appendChild(hdr);
+  card.appendChild(makeCIBar(c.ci,c.favProb));
+  card.appendChild(makeMeter(c.upset, c.dogName));
+  card.appendChild(makeDisagreeRow(c.disagree,c.sources,c));
+
+  // Keyboard: Enter on card scrolls to popover area
+  card.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dismissActivePopover();
+    }
+  });
+
+  return card;
+}
+
+function renderSpotlight(computed) {
+  spotlightEl.innerHTML = '';
+  var spot = identifySpotlight(computed);
+  if (!spot) { spotlightEl.classList.add('hidden'); return; }
+
+  spotlightEl.classList.remove('hidden');
+  var card = document.createElement('div');
+  card.className = 'spotlight-card';
+
+  var label = document.createElement('div');
+  label.className = 'spotlight-label';
+  label.textContent = 'Fight Spotlight';
+  card.appendChild(label);
+
+  var matchup = document.createElement('div');
+  matchup.className = 'spotlight-matchup';
+  matchup.textContent = spot.fight.f1 + ' vs ' + spot.fight.f2;
+  card.appendChild(matchup);
+
+  var reason = document.createElement('div');
+  reason.className = 'spotlight-reason';
+  reason.textContent = spot.reason;
+  card.appendChild(reason);
+
+  var stats = document.createElement('div');
+  stats.className = 'spotlight-stats';
+
+  // Tier stat
+  var tierStat = document.createElement('div');
+  tierStat.className = 'spotlight-stat';
+  var tierLabel = document.createElement('span');
+  tierLabel.className = 'spotlight-stat-label';
+  tierLabel.textContent = 'Tier';
+  tierStat.appendChild(tierLabel);
+  var tierVal = document.createElement('span');
+  tierVal.className = 'spotlight-stat-value';
+  var tierNames = {lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
+  tierVal.textContent = tierNames[spot.fight.tier] || spot.fight.tier;
+  tierVal.style.color = 'var(--' + spot.fight.tier + ')';
+  tierStat.appendChild(tierVal);
+  stats.appendChild(tierStat);
+
+  // Fav prob stat
+  var favStat = document.createElement('div');
+  favStat.className = 'spotlight-stat';
+  var favLabel = document.createElement('span');
+  favLabel.className = 'spotlight-stat-label';
+  favLabel.textContent = 'Favorite';
+  favStat.appendChild(favLabel);
+  var favVal = document.createElement('span');
+  favVal.className = 'spotlight-stat-value';
+  favVal.style.color = 'var(--fav-color)';
+  favVal.textContent = spot.fight.favName + ' ' + pct(spot.fight.favProb);
+  favStat.appendChild(favVal);
+  stats.appendChild(favStat);
+
+  // Upset score stat
+  var upsetStat = document.createElement('div');
+  upsetStat.className = 'spotlight-stat';
+  var upsetLabel = document.createElement('span');
+  upsetLabel.className = 'spotlight-stat-label';
+  upsetLabel.textContent = 'Upset Score';
+  upsetStat.appendChild(upsetLabel);
+  var upsetVal = document.createElement('span');
+  upsetVal.className = 'spotlight-stat-value';
+  upsetVal.textContent = spot.fight.upset + '/100';
+  upsetVal.style.color = spot.fight.upset >= 50 ? 'var(--danger)' : 'var(--warn)';
+  upsetStat.appendChild(upsetVal);
+  stats.appendChild(upsetStat);
+
+  card.appendChild(stats);
+  spotlightEl.appendChild(card);
+}
+
+function showSkeletons(count) {
+  while(skeletonGridEl.firstChild) skeletonGridEl.removeChild(skeletonGridEl.firstChild);
+  for (var i=0; i<count; i++) {
+    var card=document.createElement('div'); card.className='skeleton-card';
+    var l1=document.createElement('div'); l1.className='skeleton-line skeleton-line-wide'; card.appendChild(l1);
+    var l2=document.createElement('div'); l2.className='skeleton-line skeleton-line-med'; card.appendChild(l2);
+    var l3=document.createElement('div'); l3.className='skeleton-line skeleton-line-bar'; card.appendChild(l3);
+    var l4=document.createElement('div'); l4.className='skeleton-line skeleton-line-short'; card.appendChild(l4);
+    var l5=document.createElement('div'); l5.className='skeleton-line skeleton-line-wide'; card.appendChild(l5);
+    var l6=document.createElement('div'); l6.className='skeleton-line skeleton-line-bar'; card.appendChild(l6);
+    skeletonGridEl.appendChild(card);
+  }
+  skeletonGridEl.style.display='';
+}
+
+function hideSkeletons() {
+  skeletonGridEl.style.display='none';
+}
+
+function renderSummary(computed) {
+  safestLoadEl.classList.add('hidden'); upsetLoadEl.classList.add('hidden');
+  var safest=computed.filter(function(f){return f.tier===TIER.LOCK;}).sort(function(a,b){return b.favProb-a.favProb;}).slice(0,5);
+  if (!safest.length) { safestEmptyEl.classList.remove('hidden'); }
+  else {
+    safestListEl.classList.remove('hidden'); while(safestListEl.firstChild)safestListEl.removeChild(safestListEl.firstChild);
+    for(var i=0;i<safest.length;i++){
+      var f=safest[i];
+      var li=document.createElement('li');li.className='summary-item';
+      var d=document.createElement('span');d.className='summary-dot';d.style.background='var(--lock)';li.appendChild(d);
+      var nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.favName;li.appendChild(nm);
+      var vsSpan=document.createElement('span');vsSpan.className='summary-vs';vsSpan.textContent='vs '+f.dogName;li.appendChild(vsSpan);
+      var pr=document.createElement('span');pr.className='summary-prob';pr.textContent=pct(f.favProb);li.appendChild(pr);
+      safestListEl.appendChild(li);
+    }
+  }
+  var upsets=computed.filter(function(f){return f.tier===TIER.TOSSUP||f.tier===TIER.UPSET;}).sort(function(a,b){return b.upset-a.upset;}).slice(0,5);
+  if (!upsets.length) { upsetEmptyEl.classList.remove('hidden'); }
+  else {
+    upsetListEl.classList.remove('hidden'); while(upsetListEl.firstChild)upsetListEl.removeChild(upsetListEl.firstChild);
+    for(var j=0;j<upsets.length;j++){
+      var uf=upsets[j];
+      var uli=document.createElement('li');uli.className='summary-item';
+      var ud=document.createElement('span');ud.className='summary-dot';ud.style.background=uf.tier===TIER.UPSET?'var(--upset)':'var(--tossup)';uli.appendChild(ud);
+      var unm=document.createElement('span');unm.className='summary-name';unm.textContent=uf.dogName;uli.appendChild(unm);
+      var uvsSpan=document.createElement('span');uvsSpan.className='summary-vs';uvsSpan.textContent='vs '+uf.favName;uli.appendChild(uvsSpan);
+      var usc=document.createElement('span');usc.className='summary-prob';usc.textContent=uf.upset+'/100';uli.appendChild(usc);
+      upsetListEl.appendChild(uli);
+    }
+  }
+}
+
+function renderFights(computed) {
+  mainLoadEl.classList.add('hidden');
+  hideSkeletons();
+  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
+  for(var r=0;r<old.length;r++) old[r].remove();
+  if (!computed.length) {
+    fightCountEl.classList.add('hidden');
+    var em=document.createElement('div'); em.className='empty-state'; em.textContent='No active UFC markets found. Check back closer to fight night.'; fightGridEl.appendChild(em);
+    return;
+  }
+  fightCountEl.classList.remove('hidden'); fightCountEl.textContent=computed.length+' fight'+(computed.length!==1?'s':'');
+  var to={lock:0,lean:1,tossup:2,upset:3};
+  var sorted=computed.slice().sort(function(a,b){ var ta=to[a.tier]!==undefined?to[a.tier]:4, tb=to[b.tier]!==undefined?to[b.tier]:4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
+
+  // Group by event
+  var groups = groupByEvent(sorted);
+  var cardIndex = 0;
+
+  for (var g = 0; g < groups.length; g++) {
+    // Insert event group header if multiple groups
+    if (groups.length > 1) {
+      var gh = document.createElement('div');
+      gh.className = 'event-group-header';
+      var gn = document.createElement('span');
+      gn.className = 'event-group-name';
+      gn.textContent = groups[g].name;
+      gh.appendChild(gn);
+      var gc = document.createElement('span');
+      gc.className = 'event-group-count';
+      gc.textContent = groups[g].fights.length + ' fight' + (groups[g].fights.length !== 1 ? 's' : '');
+      gh.appendChild(gc);
+      fightGridEl.appendChild(gh);
+    }
+    for (var i = 0; i < groups[g].fights.length; i++) {
+      fightGridEl.appendChild(renderCard(groups[g].fights[i], cardIndex++));
+    }
+  }
+}
+
+function updateQuotaBadge(quota) {
+  if (quota===null||quota===undefined||!isFinite(quota)) { quotaBadgeEl.classList.add('hidden'); return; }
+  quotaBadgeEl.classList.remove('hidden');
+  quotaBadgeEl.textContent='API: '+quota+' left';
+  quotaBadgeEl.className='quota-badge';
+  if (quota<=QUOTA_CRITICAL) quotaBadgeEl.classList.add('quota-critical');
+  else if (quota<=QUOTA_WARN) quotaBadgeEl.classList.add('quota-low');
+  else quotaBadgeEl.classList.add('quota-ok');
+}
+
+function showAllFailed() {
+  mainLoadEl.classList.add('hidden');
+  hideSkeletons();
+  spotlightEl.classList.add('hidden');
+  safestLoadEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
+  upsetLoadEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
+  addBanner('danger','No data available','All data sources failed. Check your network and API key, then refresh.', false);
+  var old=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
+  for(var r=0;r<old.length;r++) old[r].remove();
+  var em=document.createElement('div'); em.className='empty-state'; em.textContent='No data available \u2014 see error above.'; fightGridEl.appendChild(em);
+}
+
+// ===================================================
+// KEY MANAGEMENT
+// ===================================================
+function loadKey() { try{ var k=localStorage.getItem(ODDS_API_LS_KEY); return typeof k==='string'&&k.trim()?k.trim():null; }catch(e){return null;} }
+function saveKey(k) { var t=typeof k==='string'?k.trim():''; if(!t)return false; try{localStorage.setItem(ODDS_API_LS_KEY,t);return true;}catch(e){return false;} }
+function removeKey() { try{localStorage.removeItem(ODDS_API_LS_KEY);}catch(e){} }
+
+var apiKeyInput=$('apiKeyInput'), applyKeyBtn=$('applyKeyBtn'), clearKeyBtn=$('clearKeyBtn'), refreshBtn=$('refreshBtn');
+
+function updateKeyUI() {
+  if (loadKey()) { clearKeyBtn.classList.remove('hidden'); apiKeyInput.placeholder='\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'; apiKeyInput.value=''; }
+  else { clearKeyBtn.classList.add('hidden'); apiKeyInput.placeholder='Paste your API key\u2026'; }
+}
+
+// ===================================================
+// MAIN ORCHESTRATION
+// ===================================================
+var isRunning=false;
+
+async function run(force) {
+  if (isRunning) return;
+  isRunning=true;
+  refreshBtn.setAttribute('disabled','');
+
+  try {
+    clearBanners();
+    var oldCards=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
+    for(var r=0;r<oldCards.length;r++) oldCards[r].remove();
+    mainLoadEl.classList.remove('hidden');
+    showSkeletons(6);
+    spotlightEl.classList.add('hidden');
+    safestLoadEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
+    upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
+    if (force) cache.clearAll();
+
+    var apiKey=loadKey();
+    if (!apiKey) addBanner('info','No Odds API key','Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
+
+    var results=await Promise.all([
+      fetchPolymarket(),
+      apiKey?fetchOddsAPI(apiKey):Promise.resolve({fights:null,error:null,quotaRemaining:null})
+    ]);
+    var polyRes=results[0], oddsRes=results[1];
+
+    if (polyRes.error) addBanner('warn','Polymarket unavailable',polyRes.error, false);
+    if (apiKey&&oddsRes.error&&oddsRes.error!=='No API key') addBanner('warn','Odds API unavailable',oddsRes.error, false);
+
+    var qr=oddsRes.quotaRemaining;
+    updateQuotaBadge(isFinite(qr)?qr:null);
+    if (qr!==null&&isFinite(qr)&&qr<QUOTA_WARN) addBanner('warn','Odds API quota low: '+qr+' requests remaining','Consider refreshing less frequently to preserve quota.', false);
+
+    if (!polyRes.fights&&!oddsRes.fights) { showAllFailed(); return; }
+
+    var merged=mergeResults(polyRes.fights, oddsRes.fights);
+    var computed=merged.map(computeFight).filter(Boolean);
+
+    renderSpotlight(computed);
+    renderSummary(computed);
+    renderFights(computed);
+
+    var now=new Date(); lastUpdEl.textContent='Updated '+now.toLocaleTimeString(); lastUpdEl.classList.remove('hidden');
+
+    var cachedSources=[];
+    if (polyRes.fromCache) cachedSources.push('Polymarket');
+    if (oddsRes.fromCache) cachedSources.push('Odds API');
+    if (cachedSources.length) addBanner('info',null,'Using cached data: '+cachedSources.join(', ')+' (15-min TTL). Click Refresh to force reload.');
+  } finally {
+    isRunning=false;
+    refreshBtn.removeAttribute('disabled');
+  }
+}
+
+// ===================================================
+// RUNTIME SELF-TESTS (55+)
+// ===================================================
+function runSelfTests() {
+  var results=[];
+  function assert(name, fn) {
+    try {
+      var ok=fn();
+      results.push({ name:name, pass:!!ok, error:ok?null:'assertion false' });
+    } catch(e) {
+      results.push({ name:name, pass:false, error:String(e&&e.message||e).slice(0,80) });
+    }
+  }
+
+  // --- safeNum (4) ---
+  assert('safeNum(42)===42', function(){return safeNum(42)===42;});
+  assert('safeNum(NaN)===null', function(){return safeNum(NaN)===null;});
+  assert('safeNum(Infinity)===null', function(){return safeNum(Infinity)===null;});
+  assert('safeNum("x")===null', function(){return safeNum("x")===null;});
+
+  // --- safeStr (4) ---
+  assert('safeStr("")===null', function(){return safeStr("")===null;});
+  assert('safeStr("hi")==="hi"', function(){return safeStr("hi")==="hi";});
+  assert('safeStr(123)===null', function(){return safeStr(123)===null;});
+  assert('safeStr("  ")===null', function(){return safeStr("  ")===null;});
+
+  // --- clamp (4) ---
+  assert('clamp(5,0,10)===5', function(){return clamp(5,0,10)===5;});
+  assert('clamp(-1,0,10)===0', function(){return clamp(-1,0,10)===0;});
+  assert('clamp(99,0,10)===10', function(){return clamp(99,0,10)===10;});
+  assert('clamp(NaN,0,10)===0', function(){return clamp(NaN,0,10)===0;});
+
+  // --- sanitize (3) ---
+  assert('sanitize strips control', function(){return sanitize("a\x00b")==="ab";});
+  assert('sanitize truncates 100', function(){return sanitize("x".repeat(200)).length===100;});
+  assert('sanitize(null)==="Unknown"', function(){return sanitize(null)==="Unknown";});
+
+  // --- americanToImplied (4) ---
+  assert('american -200 -> ~0.667', function(){var v=americanToImplied(-200);return v!==null&&Math.abs(v-0.6667)<0.01;});
+  assert('american +150 -> 0.4', function(){var v=americanToImplied(150);return v!==null&&Math.abs(v-0.4)<0.01;});
+  assert('american 0 -> null', function(){return americanToImplied(0)===null;});
+  assert('american -100 -> 0.5', function(){var v=americanToImplied(-100);return v!==null&&Math.abs(v-0.5)<0.01;});
+
+  // --- impliedToAmerican (5) ---
+  assert('implied 0.6667 -> ~-200', function(){var v=impliedToAmerican(0.6667);return v!==null&&v<=-195&&v>=-205;});
+  assert('implied 0.4 -> ~+150', function(){var v=impliedToAmerican(0.4);return v!==null&&v>=145&&v<=155;});
+  assert('implied 0 -> null', function(){return impliedToAmerican(0)===null;});
+  assert('implied 1 -> null', function(){return impliedToAmerican(1)===null;});
+  assert('implied 0.5 -> -100', function(){var v=impliedToAmerican(0.5);return v===null||v===-100;});
+
+  // --- formatAmerican (3) ---
+  assert('formatAmerican positive', function(){return formatAmerican(150)==='+150';});
+  assert('formatAmerican negative', function(){return formatAmerican(-200)==='-200';});
+  assert('formatAmerican null', function(){return formatAmerican(null)==='';});
+
+  // --- riskTier SPEC-EXACT boundary tests (8) ---
+  assert('tier 0.80=lock', function(){return riskTier(0.80)===TIER.LOCK;});
+  assert('tier 0.75=lock (boundary)', function(){return riskTier(0.75)===TIER.LOCK;});
+  assert('tier 0.749=lean (just below lock)', function(){return riskTier(0.749)===TIER.LEAN;});
+  assert('tier 0.65=lean', function(){return riskTier(0.65)===TIER.LEAN;});
+  assert('tier 0.60=lean (boundary)', function(){return riskTier(0.60)===TIER.LEAN;});
+  assert('tier 0.599=tossup (just below lean)', function(){return riskTier(0.599)===TIER.TOSSUP;});
+  assert('tier 0.50=tossup', function(){return riskTier(0.50)===TIER.TOSSUP;});
+  assert('tier 0.45=tossup (boundary)', function(){return riskTier(0.45)===TIER.TOSSUP;});
+  assert('tier 0.449=upset (just below tossup)', function(){return riskTier(0.449)===TIER.UPSET;});
+  assert('tier 0.40=upset', function(){return riskTier(0.40)===TIER.UPSET;});
+  assert('tier 1.0=lock', function(){return riskTier(1.0)===TIER.LOCK;});
+  assert('tier 0.0=upset', function(){return riskTier(0.0)===TIER.UPSET;});
+
+  // --- wilsonCI (3) ---
+  assert('wilsonCI range', function(){var ci=wilsonCI(0.7,40);return ci.lo<0.7&&ci.hi>0.7&&ci.lo>=0&&ci.hi<=1;});
+  assert('wilsonCI degenerate', function(){var ci=wilsonCI(0.5,0);return ci.lo===0.5&&ci.hi===0.5;});
+  assert('wilsonCI extremes clamped', function(){var ci=wilsonCI(0.99,2);return ci.lo>=0&&ci.hi<=1;});
+
+  // --- upsetScore (4) ---
+  assert('upset 0->0', function(){return upsetScore(0)===0;});
+  assert('upset 0.5->100', function(){return upsetScore(0.5)===100;});
+  assert('upset clamped high', function(){return upsetScore(1)===100;});
+  assert('upset 0.25->50', function(){return upsetScore(0.25)===50;});
+
+  // --- disagreement SPEC-EXACT boundary tests (10) ---
+  assert('disagree null->na', function(){return disagreement(null,0.5).level==='na';});
+  assert('disagree both null->na', function(){return disagreement(null,null).level==='na';});
+  assert('disagree 0pp delta->low (Strong Consensus)', function(){return disagreement(0.7,0.7).level==='low';});
+  assert('disagree 2pp delta->low (<3%)', function(){return disagreement(0.7,0.72).level==='low';});
+  assert('disagree 2.9pp->low (just under 3%)', function(){return disagreement(0.70,0.729).level==='low';});
+  assert('disagree 3pp->med (3% boundary)', function(){return disagreement(0.70,0.73).level==='med';});
+  assert('disagree 5pp->med (mid range)', function(){return disagreement(0.70,0.75).level==='med';});
+  assert('disagree 8pp->med (8% boundary)', function(){return disagreement(0.70,0.78).level==='med';});
+  assert('disagree 8.1pp->high (just over 8%)', function(){return disagreement(0.70,0.781).level==='high';});
+  assert('disagree 20pp->high (Books Disagree)', function(){return disagreement(0.7,0.9).level==='high';});
+
+  // --- disagreement delta correctness (2) ---
+  assert('disagree delta correct', function(){var r=disagreement(0.7,0.8);return r.delta!==null&&Math.abs(r.delta-0.1)<0.001;});
+  assert('disagree na delta is null', function(){return disagreement(null,0.5).delta===null;});
+
+  // --- computeFight (4) ---
+  assert('computeFight valid', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:null,oddsP2:null});
+    return r&&r.favName==='A'&&r.tier===TIER.LEAN&&r.favProb===0.7;
+  });
+  assert('computeFight no data->null', function(){return computeFight({id:'t',f1:'A',f2:'B'})===null;});
+  assert('computeFight merged sources', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.8,polyP2:0.2,oddsP1:0.7,oddsP2:0.3});
+    return r&&r.favName==='A'&&r.favProb===0.75&&r.tier===TIER.LOCK;
+  });
+  assert('computeFight upset tier', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.4,polyP2:0.6,oddsP1:null,oddsP2:null});
+    return r&&r.favName==='B'&&r.tier===TIER.LEAN;
+  });
+
+  // --- merge (4) ---
+  assert('merge poly only', function(){
+    var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6}],null);
+    return r.length===1&&r[0].f1==='A';
+  });
+  assert('merge odds only', function(){
+    var r=mergeResults(null,[{id:'1',f1:'A',f2:'B',oddsP1:0.6}]);
+    return r.length===1&&r[0].f1==='A';
+  });
+  assert('merge both null->empty', function(){
+    var r=mergeResults(null,null);
+    return Array.isArray(r)&&r.length===0;
+  });
+  assert('merge matching fighters', function(){
+    var r=mergeResults(
+      [{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],
+      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
+    );
+    return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6;
+  });
+
+  // --- validatePoly (3) ---
+  assert('validatePoly rejects null', function(){return parsePolyPage(null)===null;});
+  assert('validatePoly rejects {}', function(){return parsePolyPage({})===null;});
+  assert('validatePoly rejects bad probs', function(){
+    var r=parsePolyPage({data:[{outcomes:['A','B'],outcomePrices:['2.0','0.5']}]});
+    return r!==null&&r.length===0;
+  });
+
+  // --- validateOdds (2) ---
+  assert('validateOdds rejects null', function(){return validateOddsAPI(null)===null;});
+  assert('validateOdds rejects string', function(){return validateOddsAPI("bad")===null;});
+
+  // --- lastName (3) ---
+  assert('lastName single', function(){return lastName('Jones')==='jones';});
+  assert('lastName multi', function(){return lastName('John Smith')==='smith';});
+  assert('lastName empty', function(){return lastName('')==='';});
+
+  // --- pct formatting (2) ---
+  assert('pct 0.75 -> 75%', function(){return pct(0.75)==='75%';});
+  assert('pct 0 -> 0%', function(){return pct(0)==='0%';});
+
+  // --- constant sanity checks (3) ---
+  assert('DISAGREE_LOW_MAX is 0.03', function(){return DISAGREE_LOW_MAX===0.03;});
+  assert('DISAGREE_MED_MAX is 0.08', function(){return DISAGREE_MED_MAX===0.08;});
+  assert('UPSET_WARN_THRESHOLD is 50', function(){return UPSET_WARN_THRESHOLD===50;});
+
+  // === NEW TESTS (Run B additions) ===
+
+  // --- identifySpotlight (3) ---
+  assert('spotlight picks upset fight first', function(){
+    var fights = [
+      {tier:'lock',favProb:0.85,upset:20,disagree:{level:'low',delta:0.02}},
+      {tier:'upset',favProb:0.42,upset:80,disagree:{level:'high',delta:0.12}}
+    ];
+    var s = identifySpotlight(fights);
+    return s && s.fight.tier === 'upset' && s.reason.indexOf('Upset') >= 0;
+  });
+  assert('spotlight picks highest disagreement when no upsets', function(){
+    var fights = [
+      {tier:'lock',favProb:0.8,upset:10,disagree:{level:'low',delta:0.02}},
+      {tier:'lean',favProb:0.65,upset:30,disagree:{level:'high',delta:0.09}}
+    ];
+    var s = identifySpotlight(fights);
+    return s && s.fight.tier === 'lean';
+  });
+  assert('spotlight returns null for empty array', function(){
+    return identifySpotlight([]) === null;
+  });
+
+  // --- groupByEvent (1) ---
+  assert('groupByEvent groups undated as single group', function(){
+    var fights = [
+      {commenceTime:null,sources:{poly:true,odds:false}},
+      {commenceTime:null,sources:{poly:true,odds:false}}
+    ];
+    var groups = groupByEvent(fights);
+    return groups.length === 1 && groups[0].name === 'UFC Markets';
+  });
+
+  // --- fav/underdog coloring in computeFight (1) ---
+  assert('computeFight preserves polyP1 for popover', function(){
+    var r = computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:0.65,oddsP2:0.35});
+    return r && r.polyP1 === 0.7 && r.oddsP1 === 0.65;
+  });
+
+  // Render results
+  var bar=$('selftestBar');
+  var passed=results.filter(function(r){return r.pass;}).length;
+  var failed=results.filter(function(r){return !r.pass;});
+  bar.classList.remove('hidden');
+
+  if (!failed.length) {
+    var span=document.createElement('span');
+    span.className='selftest-pass';
+    span.textContent='Self-test: '+passed+'/'+results.length+' passed';
+    bar.appendChild(span);
+  } else {
+    var fspan=document.createElement('span');
+    fspan.className='selftest-fail';
+    fspan.textContent='Self-test: '+failed.length+' FAILED of '+results.length;
+    bar.appendChild(fspan);
+    var det=document.createElement('span');
+    det.style.cssText='margin-left:8px;font-size:0.65rem;';
+    det.textContent=failed.map(function(f){return f.name+': '+f.error;}).join(' | ');
+    bar.appendChild(det);
+  }
+
+  return { passed:passed, total:results.length, failures:failed };
+}
+
+// ===================================================
+// EVENT LISTENERS
+// ===================================================
+applyKeyBtn.addEventListener('click',function(){
+  var v=apiKeyInput.value, t=typeof v==='string'?v.trim():'';
+  if (!t){addBanner('warn','API key required','Enter a valid key before applying.', false);return;}
+  if (!saveKey(t)){addBanner('danger','Could not save key','localStorage may be blocked in this browser.', false);return;}
+  apiKeyInput.value=''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
+});
+clearKeyBtn.addEventListener('click',function(){
+  removeKey(); cache.clearAll(); apiKeyInput.value=''; updateKeyUI(); quotaBadgeEl.classList.add('hidden');
+  addBanner('info','API key cleared','Odds API data will no longer be fetched.'); run(false);
+});
+refreshBtn.addEventListener('click',function(){run(true);});
+apiKeyInput.addEventListener('keydown',function(e){ if(e.key==='Enter')applyKeyBtn.click(); });
+
+document.addEventListener('DOMContentLoaded',function(){
+  runSelfTests();
+  updateKeyUI();
+  run(false);
+});
+</script>
+</body>
+</html>

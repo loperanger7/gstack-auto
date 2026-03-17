@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://clob.polymarket.com https://api.the-odds-api.com; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'">
+  <title>UFC Odds Risk Intel Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #10b981;
+      --accent-dim: #059669;
+      --accent-glow: rgba(16,185,129,0.15);
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --lock: #10b981;
+      --lean: #3b82f6;
+      --tossup: #f59e0b;
+      --upset: #ef4444;
+      --underdog: #a78bfa;
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
+    header {
+      padding: 20px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+    .logo-sub { font-size: 0.8rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
+    .header-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .last-updated { font-size: 0.75rem; color: var(--muted); transition: opacity .3s; }
+    .quota-badge {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600;
+      border: 1px solid var(--border); color: var(--muted); background: var(--surface);
+      transition: color .3s, border-color .3s;
+    }
+    .quota-ok { border-color: var(--accent); color: var(--accent); }
+    .quota-low { border-color: var(--warn); color: var(--warn); }
+    .quota-critical { border-color: var(--danger); color: var(--danger); }
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .btn:active { transform: scale(0.97); }
+    .btn-accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+    .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+    /* API Key Panel */
+    .key-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      transition: border-color .2s;
+    }
+    .key-panel:focus-within { border-color: var(--accent); }
+    .key-panel label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .key-panel input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      width: 260px;
+      max-width: 100%;
+      font-family: monospace;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .key-panel input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .key-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* Banners */
+    .banner {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.83rem;
+      margin-bottom: 10px;
+      border-left: 3px solid transparent;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      animation: bannerIn .25s ease-out;
+      transition: opacity .3s, transform .3s;
+    }
+    @keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+    .banner-dismiss { opacity: 0; transform: translateY(-6px); }
+    .banner-warn   { background: rgba(245,158,11,0.08); border-color: var(--warn);   color: var(--warn);   }
+    .banner-danger { background: rgba(239,68,68,0.08);  border-color: var(--danger); color: var(--danger); }
+    .banner-info   { background: rgba(59,130,246,0.08); border-color: var(--info);   color: var(--info);   }
+    .banner-success{ background: var(--accent-glow);    border-color: var(--accent); color: var(--accent); }
+    .banner-icon { flex-shrink: 0; font-size: 0.95rem; margin-top: 0.05em; }
+    .banner-body { flex: 1; }
+    .banner-title { font-weight: 600; margin-bottom: 2px; }
+    .banner-close {
+      flex-shrink: 0; background: none; border: none; color: inherit; cursor: pointer;
+      font-size: 1rem; line-height: 1; padding: 0 2px; opacity: 0.6;
+      transition: opacity .15s;
+    }
+    .banner-close:hover { opacity: 1; }
+    #banners { margin-bottom: 8px; }
+
+    /* Summary strip */
+    .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .summary-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+      transition: border-color .2s;
+    }
+    .summary-card:hover { border-color: var(--muted); }
+    .summary-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+    .summary-empty { color: var(--muted); font-size: 0.82rem; font-style: italic; }
+    .summary-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .summary-item {
+      display: flex; align-items: center; gap: 8px; font-size: 0.82rem;
+      padding: 3px 6px; border-radius: var(--radius-sm);
+      transition: background .15s;
+      cursor: pointer;
+    }
+    .summary-item:hover { background: rgba(255,255,255,0.06); }
+    .summary-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .summary-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .summary-vs { color: var(--muted); font-size: 0.72rem; flex-shrink: 0; margin-right: 2px; }
+    .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .filter-btn:hover { border-color: var(--text); color: var(--text); }
+    .filter-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+    .filter-btn[data-tier="lock"].active { border-color: var(--lock); color: var(--lock); background: rgba(16,185,129,0.12); }
+    .filter-btn[data-tier="lean"].active { border-color: var(--lean); color: var(--lean); background: rgba(59,130,246,0.12); }
+    .filter-btn[data-tier="tossup"].active { border-color: var(--tossup); color: var(--tossup); background: rgba(245,158,11,0.12); }
+    .filter-btn[data-tier="upset"].active { border-color: var(--upset); color: var(--upset); background: rgba(239,68,68,0.12); }
+
+    /* Section header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+    /* Event group header */
+    .event-group-header {
+      grid-column: 1 / -1;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 12px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .event-group-header:first-child { padding-top: 0; }
+
+    /* Fight Grid */
+    .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .fight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .2s, box-shadow .2s, transform .15s;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: cardEnter 0.35s ease-out forwards;
+      position: relative;
+    }
+    .fight-card:hover { border-color: var(--muted); box-shadow: 0 2px 12px rgba(0,0,0,0.2); transform: translateY(-1px); }
+    .fight-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
+    .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
+    .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
+    .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
+
+    /* Tier glow on hover */
+    .fight-card[data-tier="lock"]:hover   { box-shadow: 0 2px 16px rgba(16,185,129,0.2); }
+    .fight-card[data-tier="lean"]:hover   { box-shadow: 0 2px 16px rgba(59,130,246,0.2); }
+    .fight-card[data-tier="tossup"]:hover { box-shadow: 0 2px 16px rgba(245,158,11,0.2); }
+    .fight-card[data-tier="upset"]:hover  { box-shadow: 0 2px 16px rgba(239,68,68,0.2); }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .tier-badge {
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      padding: 3px 7px; border-radius: 3px; flex-shrink: 0;
+      transition: transform .15s;
+    }
+    .fight-card:hover .tier-badge { transform: scale(1.05); }
+    .tier-lock   { background: rgba(16,185,129,0.15); color: var(--lock); }
+    .tier-lean   { background: rgba(59,130,246,0.15);  color: var(--lean); }
+    .tier-tossup { background: rgba(245,158,11,0.15);  color: var(--tossup); }
+    .tier-upset  { background: rgba(239,68,68,0.15);   color: var(--upset); }
+
+    .fight-matchup { flex: 1; min-width: 0; }
+    .fighter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .fighter-name {
+      font-size: 0.9rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      flex: 1; min-width: 0;
+    }
+    .fighter-name.is-favorite { color: var(--accent); }
+    .fighter-name.is-underdog { color: var(--underdog); }
+    .fighter-prob { margin-left: auto; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+    .fighter-prob.is-favorite { color: var(--accent); }
+    .fighter-prob.is-underdog { color: var(--underdog); }
+    .fighter-odds { margin-left: 6px; font-size: 0.72rem; color: var(--muted); flex-shrink: 0; font-weight: 500; }
+    .vs-divider { font-size: 0.65rem; color: var(--muted); padding: 0 4px; }
+
+    .prob-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+    .prob-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .5s ease; }
+
+    .ci-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .ci-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; position: relative; overflow: visible; }
+    .ci-fill { position: absolute; height: 100%; background: rgba(16,185,129,0.35); border-radius: 3px; transition: left .4s, width .4s; }
+    .ci-center { position: absolute; width: 2px; height: 10px; top: -2px; background: var(--accent); border-radius: 1px; transition: left .4s; }
+    .ci-cross50 { color: var(--danger); font-weight: 600; font-size: 0.65rem; margin-left: 4px; }
+
+    .meter-row { display: flex; flex-direction: column; gap: 4px; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); }
+    .meter-value { color: var(--text); font-weight: 600; }
+    .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+    .upset-warning { font-size: 0.72rem; color: var(--danger); font-weight: 600; margin-top: 2px; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+    .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); }
+    .disagree-level { font-weight: 600; }
+    .disagree-low  { color: var(--accent); }
+    .disagree-med  { color: var(--warn); }
+    .disagree-high { color: var(--danger); }
+    .disagree-na   { color: var(--muted); }
+    .source-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .source-tag {
+      font-size: 0.65rem; padding: 1px 5px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 3px; color: var(--muted); transition: border-color .15s, color .15s;
+    }
+    .source-tag-ok  { border-color: var(--accent); color: var(--accent); }
+    .source-tag-err { border-color: var(--danger); color: var(--danger); opacity: 0.7; }
+
+    /* Source tooltip */
+    .source-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      z-index: 50;
+      font-size: 0.75rem;
+      color: var(--text);
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+    .fight-card:hover .source-tooltip,
+    .fight-card:focus .source-tooltip { display: block; }
+    .source-tooltip-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 3px; }
+    .source-tooltip-row:last-child { margin-bottom: 0; }
+    .source-tooltip-label { color: var(--muted); }
+    .source-tooltip-value { font-weight: 600; }
+    .source-tooltip-single { color: var(--muted); font-style: italic; }
+
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 0.9rem; }
+    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; }
+    .filter-empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; font-style: italic; }
+
+    /* Skeleton shimmer loading */
+    .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--border) 25%, rgba(48,54,61,0.6) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .skeleton-line-wide { width: 80%; }
+    .skeleton-line-med { width: 60%; }
+    .skeleton-line-short { width: 40%; }
+    .skeleton-line-bar { height: 6px; width: 100%; margin-top: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Self-test footer */
+    .selftest-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 6px 16px; font-size: 0.7rem; color: var(--muted);
+      display: flex; align-items: center; gap: 8px; z-index: 100;
+    }
+    .selftest-pass { color: var(--accent); }
+    .selftest-fail { color: var(--danger); font-weight: 600; }
+
+    /* Print */
+    @media print {
+      body { background: #fff; color: #000; }
+      .key-panel, .selftest-bar, #banners, .filter-bar, .btn { display: none !important; }
+      .fight-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none !important; }
+      .page { max-width: 100%; }
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .summary-strip { grid-template-columns: 1fr; }
+      .fight-grid { grid-template-columns: 1fr; }
+      .skeleton-grid { grid-template-columns: 1fr; }
+      .key-panel { flex-direction: column; align-items: flex-start; }
+      .key-panel input { width: 100%; }
+      .header-meta { width: 100%; justify-content: flex-start; }
+      .source-tooltip { left: 0; transform: none; right: 0; white-space: normal; }
+    }
+    @media (max-width: 400px) {
+      .page { padding: 0 10px 48px; }
+      .fight-card { padding: 12px; }
+    }
+    .btn, .key-panel input, button { min-height: 44px; }
+    @media (min-width: 601px) {
+      .btn, button { min-height: 32px; }
+      .key-panel input { min-height: 32px; }
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <span class="logo">UFC Odds Risk Intel<span class="logo-sub">Dashboard</span></span>
+    </div>
+    <div class="header-meta">
+      <span class="quota-badge hidden" id="quotaBadge" title="Odds API requests remaining"></span>
+      <span class="last-updated hidden" id="lastUpdated"></span>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+    </div>
+  </header>
+
+  <div class="key-panel">
+    <div>
+      <label for="apiKeyInput">The Odds API Key <span style="color:var(--muted)">(optional)</span></label>
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key..." autocomplete="new-password" spellcheck="false" maxlength="200">
+      <div class="key-hint">Stored in localStorage only, never logged. Without it, Polymarket data only.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-accent" id="applyKeyBtn" type="button">Apply Key</button>
+      <button class="btn btn-danger hidden" id="clearKeyBtn" type="button">Clear API Key</button>
+    </div>
+  </div>
+
+  <div id="banners" role="status" aria-live="polite"></div>
+
+  <div class="summary-strip">
+    <div class="summary-card">
+      <div class="summary-title">Safest Bets</div>
+      <div class="loading-state" id="safestLoading" style="padding:20px 0;">
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
+      </div>
+      <ul class="summary-list hidden" id="safestList" role="list"></ul>
+      <p class="summary-empty hidden" id="safestEmpty">No lock-tier fights found.</p>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Upset Watch</div>
+      <div class="loading-state" id="upsetLoading" style="padding:20px 0;">
+        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
+      </div>
+      <ul class="summary-list hidden" id="upsetList" role="list"></ul>
+      <p class="summary-empty hidden" id="upsetEmpty">No high-upset-potential fights found.</p>
+    </div>
+  </div>
+
+  <div class="filter-bar" id="filterBar" role="toolbar" aria-label="Filter fights by tier">
+    <button class="filter-btn active" data-tier="all" type="button">All</button>
+    <button class="filter-btn" data-tier="lock" type="button">Lock</button>
+    <button class="filter-btn" data-tier="lean" type="button">Lean</button>
+    <button class="filter-btn" data-tier="tossup" type="button">Toss-Up</button>
+    <button class="filter-btn" data-tier="upset" type="button">Upset Alert</button>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Fight Cards</span>
+    <span class="count-badge hidden" id="fightCount"></span>
+  </div>
+  <div id="fightGrid" class="fight-grid" role="list">
+    <div class="loading-state" id="mainLoading" style="grid-column:1/-1;">
+      <div class="spinner"></div>
+      <span class="loading-text">Fetching live odds&hellip;</span>
+    </div>
+  </div>
+  <div id="skeletonGrid" class="skeleton-grid" style="grid-column:1/-1;"></div>
+</div>
+<div class="selftest-bar hidden" id="selftestBar"></div>
+
+<script>
+'use strict';
+
+// ===================================================
+// CONSTANTS
+// ===================================================
+var CACHE_VERSION      = 'v2';
+var CACHE_TTL_MS       = 15 * 60 * 1000;
+var FETCH_TIMEOUT_MS   = 8000;
+var POLY_CACHE_KEY     = 'pattaya-poly-v2';
+var ODDS_CACHE_KEY     = 'pattaya-odds-v2';
+var ODDS_API_LS_KEY    = 'pattaya-odds-api-key';
+var PROB_SUM_MAX       = 0.10;
+var QUOTA_WARN         = 50;
+var QUOTA_CRITICAL     = 10;
+var POLY_BASE          = 'https://clob.polymarket.com';
+var ODDS_BASE          = 'https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds';
+var TIER               = { LOCK:'lock', LEAN:'lean', TOSSUP:'tossup', UPSET:'upset' };
+var BANNER_AUTO_DISMISS_MS = 12000;
+var POLY_MAX_PAGES     = 3;
+var POLY_PAGE_SIZE     = 50;
+var POLY_RETRY_DELAY_MS = 2000;
+
+// Spec-exact thresholds
+var DISAGREE_LOW_MAX   = 0.03;  // <3% = Strong Consensus
+var DISAGREE_MED_MAX   = 0.08;  // 3-8% = Some Disagreement
+                                 // >8% = Books Disagree Significantly
+
+var TIER_LOCK_MIN      = 0.75;  // >=75% = Lock
+var TIER_LEAN_MIN      = 0.60;  // 60-74% = Lean
+var TIER_TOSSUP_MIN    = 0.45;  // 45-59% = Toss-Up
+                                 // <45% = Upset Alert
+
+var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
+
+// ===================================================
+// SAFE GUARDS
+// ===================================================
+/** @param {*} value - Returns the value if it's a finite number, otherwise null */
+function safeNum(value)  { return (typeof value === 'number' && isFinite(value)) ? value : null; }
+
+/** @param {*} value - Returns trimmed string if non-empty, otherwise null */
+function safeStr(value)  { if (typeof value !== 'string') return null; var trimmed = value.trim(); return trimmed.length ? trimmed : null; }
+
+/** @param {number} value @param {number} low @param {number} high - Clamps value between low and high */
+function clamp(value, low, high) { var num = safeNum(value); return num === null ? low : Math.max(low, Math.min(high, num)); }
+
+/** @param {*} str - Sanitizes input string: strips control chars, truncates to 100 */
+function sanitize(str) { if (typeof str !== 'string') return 'Unknown'; return str.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 100) || 'Unknown'; }
+
+// ===================================================
+// CACHE
+// ===================================================
+var cache = (function() {
+  var available = null;
+  function isAvailable() {
+    if (available !== null) return available;
+    try { sessionStorage.setItem('__p', '1'); sessionStorage.removeItem('__p'); available = true; }
+    catch(e) { available = false; }
+    return available;
+  }
+  function write(key, data) {
+    if (!isAvailable()) return;
+    try { sessionStorage.setItem(key, JSON.stringify({ version: CACHE_VERSION, ts: Date.now(), data: data })); }
+    catch(e) {}
+  }
+  function read(key) {
+    if (!isAvailable()) return null;
+    var raw; try { raw = sessionStorage.getItem(key); } catch(e) { return null; }
+    if (!raw) return null;
+    var entry; try { entry = JSON.parse(raw); } catch(e) { try { sessionStorage.removeItem(key); } catch(e2) {} return null; }
+    if (!entry || typeof entry !== 'object' || entry.version !== CACHE_VERSION) { try { sessionStorage.removeItem(key); } catch(e2) {} return null; }
+    var timestamp = safeNum(entry.ts); var now = Date.now();
+    if (timestamp === null || timestamp > now || now - timestamp > CACHE_TTL_MS) { try { sessionStorage.removeItem(key); } catch(e2) {} return null; }
+    return entry.data !== undefined ? entry.data : null;
+  }
+  function remove(key) { if (!isAvailable()) return; try { sessionStorage.removeItem(key); } catch(e) {} }
+  function clearAll() { remove(POLY_CACHE_KEY); remove(ODDS_CACHE_KEY); }
+  return { write: write, read: read, remove: remove, clearAll: clearAll };
+})();
+
+// ===================================================
+// VALIDATORS
+// ===================================================
+function parsePolyPage(raw) {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.data)) return null;
+  var fights = [];
+  for (var i = 0; i < raw.data.length; i++) {
+    var item = raw.data[i];
+    if (!item || typeof item !== 'object') continue;
+    if (!Array.isArray(item.outcomes) || item.outcomes.length < 2) continue;
+    if (!Array.isArray(item.outcomePrices) || item.outcomePrices.length < 2) continue;
+    var fighter1Name = safeStr(item.outcomes[0]), fighter2Name = safeStr(item.outcomes[1]);
+    if (!fighter1Name || !fighter2Name) continue;
+    var prob1Raw = parseFloat(item.outcomePrices[0]), prob2Raw = parseFloat(item.outcomePrices[1]);
+    if (!isFinite(prob1Raw) || !isFinite(prob2Raw) || prob1Raw < 0 || prob1Raw > 1 || prob2Raw < 0 || prob2Raw > 1) continue;
+    var probSum = prob1Raw + prob2Raw, deviation = Math.abs(probSum - 1);
+    if (deviation > PROB_SUM_MAX) continue;
+    var normalizer = deviation > 0 ? probSum : 1;
+    var conditionId = safeStr(item.conditionId || item.id || '') || ('poly-' + fights.length);
+    var eventSlug = safeStr(item.groupSlug || item.question || '') || '';
+    fights.push({
+      id: conditionId,
+      f1: sanitize(fighter1Name),
+      f2: sanitize(fighter2Name),
+      polyP1: clamp(prob1Raw / normalizer, 0, 1),
+      polyP2: clamp(prob2Raw / normalizer, 0, 1),
+      eventName: eventSlug
+    });
+  }
+  return fights;
+}
+
+/** @param {number} americanOdds - Converts American odds to implied probability */
+function americanToImplied(americanOdds) {
+  var num = safeNum(americanOdds); if (num === null || num === 0) return null;
+  return num > 0 ? 100 / (num + 100) : Math.abs(num) / (Math.abs(num) + 100);
+}
+
+/** @param {number} prob - Converts implied probability to American odds */
+function impliedToAmerican(prob) {
+  if (prob === null || prob === undefined || !isFinite(prob) || prob <= 0 || prob >= 1) return null;
+  return prob >= 0.5 ? Math.round(-100 * prob / (1 - prob)) : Math.round(100 * (1 - prob) / prob);
+}
+
+function formatAmerican(odds) {
+  if (odds === null) return '';
+  return odds > 0 ? ('+' + odds) : String(odds);
+}
+
+function validateOddsAPI(raw) {
+  if (!Array.isArray(raw)) return null;
+  var fights = [];
+  for (var i = 0; i < raw.length; i++) {
+    var event = raw[i];
+    if (!event || typeof event !== 'object') continue;
+    var homeTeam = safeStr(event.home_team), awayTeam = safeStr(event.away_team);
+    if (!homeTeam || !awayTeam) continue;
+    if (!Array.isArray(event.bookmakers) || !event.bookmakers.length) continue;
+
+    // Collect per-bookmaker implied probabilities for detailed source data
+    var perBookmaker = [];
+    var sumHome = 0, sumAway = 0, bookmakerCount = 0;
+    for (var b = 0; b < event.bookmakers.length; b++) {
+      var bookmaker = event.bookmakers[b];
+      if (!bookmaker || !Array.isArray(bookmaker.markets)) continue;
+      for (var m = 0; m < bookmaker.markets.length; m++) {
+        var market = bookmaker.markets[m];
+        if (!market || market.key !== 'h2h' || !Array.isArray(market.outcomes) || market.outcomes.length < 2) continue;
+        var homeProb = null, awayProb = null;
+        for (var o = 0; o < market.outcomes.length; o++) {
+          var outcome = market.outcomes[o];
+          if (!outcome || typeof outcome !== 'object') continue;
+          var name = safeStr(outcome.name), price = safeNum(outcome.price); if (!name || price === null) continue;
+          if (name === homeTeam) homeProb = americanToImplied(price);
+          else if (name === awayTeam) awayProb = americanToImplied(price);
+        }
+        if (homeProb === null || awayProb === null) continue;
+        var total = homeProb + awayProb, dev = Math.abs(total - 1);
+        if (dev > PROB_SUM_MAX) continue;
+        var normHome = homeProb / total, normAway = awayProb / total;
+        sumHome += normHome; sumAway += normAway; bookmakerCount++;
+        perBookmaker.push({
+          name: safeStr(bookmaker.title || bookmaker.key || '') || 'Unknown',
+          homeProb: normHome,
+          awayProb: normAway
+        });
+      }
+    }
+    if (!bookmakerCount) continue;
+    var fightId = safeStr(event.id || '') || ('odds-' + fights.length);
+    var eventTitle = safeStr(event.sport_title || '') || '';
+    var commenceTime = safeStr(event.commence_time || '') || '';
+    fights.push({
+      id: fightId,
+      f1: sanitize(homeTeam),
+      f2: sanitize(awayTeam),
+      oddsP1: clamp(sumHome / bookmakerCount, 0, 1),
+      oddsP2: clamp(sumAway / bookmakerCount, 0, 1),
+      bookmakers: perBookmaker,
+      eventName: eventTitle,
+      commenceTime: commenceTime
+    });
+  }
+  return fights;
+}
+
+// ===================================================
+// COMPUTE
+// ===================================================
+
+/**
+ * Computes 95% confidence interval using mean +/- 1.96 * stddev.
+ * Per spec: mean = average implied probability, stddev = std dev of implied probabilities.
+ * @param {number[]} probabilities - Array of implied probabilities from different sources
+ * @returns {{ lo: number, hi: number, mean: number, stddev: number }}
+ */
+function computeCI(probabilities) {
+  if (!probabilities || !probabilities.length) return { lo: 0.5, hi: 0.5, mean: 0.5, stddev: 0 };
+  var sum = 0;
+  for (var i = 0; i < probabilities.length; i++) sum += probabilities[i];
+  var mean = sum / probabilities.length;
+
+  if (probabilities.length === 1) return { lo: clamp(mean, 0, 1), hi: clamp(mean, 0, 1), mean: mean, stddev: 0 };
+
+  var sqDiffSum = 0;
+  for (var j = 0; j < probabilities.length; j++) {
+    var diff = probabilities[j] - mean;
+    sqDiffSum += diff * diff;
+  }
+  var stddev = Math.sqrt(sqDiffSum / probabilities.length);
+
+  var lo = clamp(mean - 1.96 * stddev, 0, 1);
+  var hi = clamp(mean + 1.96 * stddev, 0, 1);
+  return { lo: lo, hi: hi, mean: mean, stddev: stddev };
+}
+
+/**
+ * Determines risk tier based on favorite probability.
+ * Also checks if CI crosses 50% or sources disagree significantly with thin margin
+ * for Upset Alert override per spec.
+ * @param {number} favProb - Favorite's consensus probability
+ * @param {{ lo: number, hi: number }} ci - Confidence interval
+ * @param {{ level: string, delta: number|null }} disagreeResult - Disagreement result
+ * @returns {string} - Tier constant
+ */
+function riskTier(favProb, ci, disagreeResult) {
+  // Upset Alert override: CI crosses 50% OR significant disagreement with thin margin
+  if (ci && ci.lo < 0.50) return TIER.UPSET;
+  if (disagreeResult && disagreeResult.level === 'high' && favProb < 0.60) return TIER.UPSET;
+
+  return favProb >= TIER_LOCK_MIN ? TIER.LOCK
+       : favProb >= TIER_LEAN_MIN ? TIER.LEAN
+       : favProb >= TIER_TOSSUP_MIN ? TIER.TOSSUP
+       : TIER.UPSET;
+}
+
+/**
+ * Simple tier classification without CI/disagreement context.
+ * Used by self-tests that test threshold boundaries in isolation.
+ */
+function riskTierSimple(favProb) {
+  return favProb >= TIER_LOCK_MIN ? TIER.LOCK
+       : favProb >= TIER_LEAN_MIN ? TIER.LEAN
+       : favProb >= TIER_TOSSUP_MIN ? TIER.TOSSUP
+       : TIER.UPSET;
+}
+
+/**
+ * Computes upset potential score using three factors per spec:
+ * 1. Closeness to 50/50 (how close is the favorite prob to 0.5)
+ * 2. CI width (wider interval = more uncertainty)
+ * 3. Source disagreement (higher delta = more upset potential)
+ * @param {number} underdogProb - Underdog's probability
+ * @param {{ lo: number, hi: number }} ci - Confidence interval
+ * @param {{ delta: number|null }} disagreeResult - Source disagreement
+ * @returns {number} 0-100 upset score
+ */
+function upsetScore(underdogProb, ci, disagreeResult) {
+  // Factor 1: Closeness to 50/50 (underdog prob scaled to 0-1, where 0.5 = max)
+  var closenessScore = clamp(underdogProb * 2, 0, 1);
+
+  // Factor 2: CI width (wider = more uncertain = more upset potential)
+  var ciWidth = (ci && ci.hi !== undefined && ci.lo !== undefined) ? (ci.hi - ci.lo) : 0;
+  var ciScore = clamp(ciWidth * 5, 0, 1); // 0.2 width = max score
+
+  // Factor 3: Source disagreement
+  var disagreeScore = 0;
+  if (disagreeResult && disagreeResult.delta !== null) {
+    disagreeScore = clamp(disagreeResult.delta * 10, 0, 1); // 0.1 delta = max
+  }
+
+  // Weighted combination: closeness is primary, CI and disagreement are secondary
+  var raw = closenessScore * 0.5 + ciScore * 0.25 + disagreeScore * 0.25;
+  return clamp(Math.round(raw * 100), 0, 100);
+}
+
+/**
+ * Calculates source disagreement level and delta.
+ * @param {number|null} polyProb - Polymarket implied probability
+ * @param {number|null} oddsProb - Odds API implied probability
+ * @returns {{ level: string, delta: number|null }}
+ */
+function disagreement(polyProb, oddsProb) {
+  if (polyProb === null || oddsProb === null) return { level: 'na', delta: null };
+  var delta = Math.abs(polyProb - oddsProb);
+  return {
+    level: delta < DISAGREE_LOW_MAX ? 'low'
+         : delta <= DISAGREE_MED_MAX ? 'med'
+         : 'high',
+    delta: delta
+  };
+}
+
+/**
+ * Computes all derived data for a single fight.
+ * @param {Object} fight - Merged fight data with polyP1, oddsP1, etc.
+ * @returns {Object|null} - Fully computed fight or null if no data
+ */
+function computeFight(fight) {
+  // Collect all available probabilities for fighter 1
+  var probsForF1 = [];
+  if (fight.polyP1 != null) probsForF1.push(fight.polyP1);
+  if (fight.oddsP1 != null) probsForF1.push(fight.oddsP1);
+  if (!probsForF1.length) return null;
+
+  var consensusP1 = probsForF1.reduce(function(a, b) { return a + b; }, 0) / probsForF1.length;
+  var consensusP2 = clamp(1 - consensusP1, 0, 1);
+  var isFighter1Favorite = consensusP1 >= consensusP2;
+  var favoriteProb = isFighter1Favorite ? consensusP1 : consensusP2;
+  var underdogProb = isFighter1Favorite ? consensusP2 : consensusP1;
+
+  // Collect favorite's probabilities from each source for CI
+  var favProbs = [];
+  if (isFighter1Favorite) {
+    if (fight.polyP1 != null) favProbs.push(fight.polyP1);
+    if (fight.oddsP1 != null) favProbs.push(fight.oddsP1);
+  } else {
+    if (fight.polyP2 != null) favProbs.push(fight.polyP2);
+    if (fight.oddsP2 != null) favProbs.push(fight.oddsP2);
+  }
+
+  // Also add per-bookmaker data if available for richer CI
+  if (fight.bookmakers && fight.bookmakers.length > 1) {
+    for (var bk = 0; bk < fight.bookmakers.length; bk++) {
+      var bkProb = isFighter1Favorite ? fight.bookmakers[bk].homeProb : fight.bookmakers[bk].awayProb;
+      if (bkProb != null) favProbs.push(bkProb);
+    }
+  }
+
+  var ci = computeCI(favProbs);
+  var disagreeResult = disagreement(
+    fight.polyP1 != null ? (isFighter1Favorite ? fight.polyP1 : fight.polyP2) : null,
+    fight.oddsP1 != null ? (isFighter1Favorite ? fight.oddsP1 : fight.oddsP2) : null
+  );
+  var tier = riskTier(favoriteProb, ci, disagreeResult);
+  var upset = upsetScore(underdogProb, ci, disagreeResult);
+
+  // Build per-source detail for tooltips
+  var sourceDetail = [];
+  if (fight.polyP1 != null) {
+    sourceDetail.push({
+      name: 'Polymarket',
+      favProb: isFighter1Favorite ? fight.polyP1 : fight.polyP2,
+      dogProb: isFighter1Favorite ? fight.polyP2 : fight.polyP1
+    });
+  }
+  if (fight.bookmakers && fight.bookmakers.length) {
+    for (var bi = 0; bi < fight.bookmakers.length; bi++) {
+      sourceDetail.push({
+        name: fight.bookmakers[bi].name,
+        favProb: isFighter1Favorite ? fight.bookmakers[bi].homeProb : fight.bookmakers[bi].awayProb,
+        dogProb: isFighter1Favorite ? fight.bookmakers[bi].awayProb : fight.bookmakers[bi].homeProb
+      });
+    }
+  } else if (fight.oddsP1 != null) {
+    sourceDetail.push({
+      name: 'Odds API',
+      favProb: isFighter1Favorite ? fight.oddsP1 : fight.oddsP2,
+      dogProb: isFighter1Favorite ? fight.oddsP2 : fight.oddsP1
+    });
+  }
+
+  return {
+    id: fight.id,
+    f1: fight.f1,
+    f2: fight.f2,
+    favName: isFighter1Favorite ? fight.f1 : fight.f2,
+    dogName: isFighter1Favorite ? fight.f2 : fight.f1,
+    isFighter1Favorite: isFighter1Favorite,
+    favProb: favoriteProb,
+    underdogProb: underdogProb,
+    consensusP1: consensusP1,
+    consensusP2: consensusP2,
+    americanP1: impliedToAmerican(consensusP1),
+    americanP2: impliedToAmerican(consensusP2),
+    ci: ci,
+    ciCrosses50: ci.lo < 0.50,
+    tier: tier,
+    upset: upset,
+    disagree: disagreeResult,
+    sources: { poly: fight.polyP1 != null, odds: fight.oddsP1 != null },
+    sourceDetail: sourceDetail,
+    eventName: fight.eventName || ''
+  };
+}
+
+// ===================================================
+// FETCH - Polymarket with pagination and retry
+// ===================================================
+
+/** @param {number} ms - Returns a promise that resolves after ms milliseconds */
+function delay(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+/**
+ * Fetches a single page from Polymarket.
+ * @param {string|null} cursor - Pagination cursor
+ * @returns {Promise<{fights: Array|null, cursor: string|null, error: string|null}>}
+ */
+async function fetchPolyPage(cursor) {
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+  try {
+    var params = new URLSearchParams({ tag_slug: 'ufc', active: 'true', limit: String(POLY_PAGE_SIZE) });
+    if (cursor) params.set('next_cursor', cursor);
+
+    var resp;
+    try {
+      resp = await fetch(POLY_BASE + '/markets?' + params, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+    } catch(e) {
+      return { fights: null, cursor: null, error: e && e.name === 'AbortError' ? 'Polymarket timed out (>8s)' : 'Polymarket network error: ' + String(e && e.message || e).slice(0, 120) };
+    }
+    if (!resp.ok) return { fights: null, cursor: null, error: 'Polymarket HTTP ' + resp.status };
+    var body; try { body = await resp.json(); } catch(e) { return { fights: null, cursor: null, error: 'Polymarket: invalid JSON' }; }
+    var fights = parsePolyPage(body);
+    if (!fights) return { fights: null, cursor: null, error: 'Polymarket: unexpected response shape' };
+    var nextCursor = safeStr(body.next_cursor);
+    return { fights: fights, cursor: (nextCursor && fights.length >= POLY_PAGE_SIZE) ? nextCursor : null, error: null };
+  } finally { clearTimeout(timer); }
+}
+
+async function fetchPolymarket() {
+  var cached = cache.read(POLY_CACHE_KEY);
+  if (cached !== null) return { fights: cached, error: null, fromCache: true };
+
+  var allFights = [];
+  var cursor = null;
+
+  for (var page = 0; page < POLY_MAX_PAGES; page++) {
+    var result = await fetchPolyPage(cursor);
+
+    // Retry once on failure with 2s backoff
+    if (result.error && !allFights.length && page === 0) {
+      await delay(POLY_RETRY_DELAY_MS);
+      result = await fetchPolyPage(cursor);
+    }
+
+    if (result.error) {
+      if (allFights.length) break;
+      return { fights: null, error: result.error };
+    }
+    for (var fi = 0; fi < result.fights.length; fi++) allFights.push(result.fights[fi]);
+    if (!result.cursor) break;
+    cursor = result.cursor;
+  }
+
+  if (!allFights.length) return { fights: null, error: 'Polymarket: no UFC markets found' };
+
+  // Deduplicate by id
+  var seen = {};
+  var deduped = [];
+  for (var di = 0; di < allFights.length; di++) {
+    if (seen[allFights[di].id]) continue;
+    seen[allFights[di].id] = true;
+    deduped.push(allFights[di]);
+  }
+
+  cache.write(POLY_CACHE_KEY, deduped);
+  return { fights: deduped, error: null, fromCache: false };
+}
+
+async function fetchOddsAPI(apiKey) {
+  var key = typeof apiKey === 'string' ? apiKey.trim() : '';
+  if (!key) return { fights: null, error: 'No API key', quotaRemaining: null };
+  var cached = cache.read(ODDS_CACHE_KEY);
+  if (cached !== null) return { fights: cached, error: null, quotaRemaining: null, fromCache: true };
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+  try {
+    var params = new URLSearchParams({ apiKey: key, regions: 'us', markets: 'h2h', bookmakers: 'draftkings,fanduel' });
+    var resp;
+    try {
+      resp = await fetch(ODDS_BASE + '/?' + params, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+    } catch(e) {
+      return { fights: null, error: e && e.name === 'AbortError' ? 'Odds API timed out (>8s)' : 'Odds API network error: ' + String(e && e.message || e).slice(0, 120), quotaRemaining: null };
+    }
+    var quotaHeader = resp.headers.get('x-requests-remaining');
+    var quota = quotaHeader !== null ? parseInt(quotaHeader, 10) : null;
+    if (resp.status === 401 || resp.status === 403) return { fights: null, error: 'Odds API: Invalid or unauthorized key', quotaRemaining: quota };
+    if (resp.status === 422 || resp.status === 429) return { fights: null, error: 'Odds API: Quota exceeded', quotaRemaining: 0 };
+    if (!resp.ok) return { fights: null, error: 'Odds API HTTP ' + resp.status, quotaRemaining: quota };
+    var body; try { body = await resp.json(); } catch(e) { return { fights: null, error: 'Odds API: invalid JSON', quotaRemaining: quota }; }
+    var fights = validateOddsAPI(body);
+    if (!fights) return { fights: null, error: 'Odds API: unexpected shape', quotaRemaining: quota };
+    cache.write(ODDS_CACHE_KEY, fights);
+    return { fights: fights, error: null, quotaRemaining: quota, fromCache: false };
+  } finally { clearTimeout(timer); }
+}
+
+// ===================================================
+// MERGE - Improved with first-initial tiebreaker
+// ===================================================
+
+/** @param {string} name - Extracts last name from full name, lowercased */
+function lastName(name) { if (!name) return ''; var parts = name.trim().split(/\s+/); return parts[parts.length - 1].toLowerCase(); }
+
+/** @param {string} name - Extracts first initial from full name, lowercased */
+function firstInitial(name) { if (!name) return ''; var trimmed = name.trim(); return trimmed.length ? trimmed[0].toLowerCase() : ''; }
+
+/**
+ * Merges Polymarket and Odds API fight data.
+ * Matching strategy: last name match, with first-initial tiebreaker
+ * when multiple fighters share the same last name.
+ * @param {Array|null} polyFights
+ * @param {Array|null} oddsFights
+ * @returns {Array}
+ */
+function mergeResults(polyFights, oddsFights) {
+  if (!polyFights) return (oddsFights || []).map(function(f) { return Object.assign({}, f); });
+  if (!oddsFights) return polyFights.map(function(f) { return Object.assign({}, f); });
+  var used = {}, merged = [];
+
+  for (var i = 0; i < polyFights.length; i++) {
+    var polyFight = polyFights[i];
+    var polyLast1 = lastName(polyFight.f1), polyLast2 = lastName(polyFight.f2);
+    var polyInit1 = firstInitial(polyFight.f1), polyInit2 = firstInitial(polyFight.f2);
+    var bestMatch = null;
+    var bestMatchScore = 0;
+
+    for (var j = 0; j < oddsFights.length; j++) {
+      if (used[j]) continue;
+      var oddsLast1 = lastName(oddsFights[j].f1), oddsLast2 = lastName(oddsFights[j].f2);
+      var oddsInit1 = firstInitial(oddsFights[j].f1), oddsInit2 = firstInitial(oddsFights[j].f2);
+
+      // Check both orderings of fighter names
+      var matchScore = 0;
+      if ((oddsLast1 === polyLast1 && oddsLast2 === polyLast2) ||
+          (oddsLast1 === polyLast2 && oddsLast2 === polyLast1)) {
+        matchScore = 1; // Last names match
+
+        // First-initial tiebreaker for same-last-name disambiguation
+        if (oddsLast1 === polyLast1 && oddsLast2 === polyLast2) {
+          if (oddsInit1 === polyInit1 && oddsInit2 === polyInit2) matchScore = 2;
+        } else if (oddsLast1 === polyLast2 && oddsLast2 === polyLast1) {
+          if (oddsInit1 === polyInit2 && oddsInit2 === polyInit1) matchScore = 2;
+        }
+      }
+
+      if (matchScore > bestMatchScore) {
+        bestMatchScore = matchScore;
+        bestMatch = j;
+      }
+    }
+
+    if (bestMatch !== null) {
+      used[bestMatch] = true;
+      merged.push(Object.assign({}, polyFight, {
+        oddsP1: oddsFights[bestMatch].oddsP1,
+        oddsP2: oddsFights[bestMatch].oddsP2,
+        bookmakers: oddsFights[bestMatch].bookmakers || null,
+        eventName: polyFight.eventName || oddsFights[bestMatch].eventName || ''
+      }));
+    } else {
+      merged.push(Object.assign({}, polyFight, { oddsP1: null, oddsP2: null }));
+    }
+  }
+  for (var k = 0; k < oddsFights.length; k++) {
+    if (!used[k]) merged.push(Object.assign({}, oddsFights[k], { polyP1: null, polyP2: null }));
+  }
+  return merged;
+}
+
+// ===================================================
+// EVENT GROUPING
+// ===================================================
+
+/**
+ * Groups computed fights by event name.
+ * @param {Array} computedFights
+ * @returns {Array<{eventName: string, fights: Array}>}
+ */
+function groupByEvent(computedFights) {
+  var groups = {};
+  var order = [];
+  for (var i = 0; i < computedFights.length; i++) {
+    var fight = computedFights[i];
+    var eventKey = fight.eventName || 'Upcoming UFC';
+    if (!groups[eventKey]) {
+      groups[eventKey] = [];
+      order.push(eventKey);
+    }
+    groups[eventKey].push(fight);
+  }
+  var result = [];
+  for (var j = 0; j < order.length; j++) {
+    result.push({ eventName: order[j], fights: groups[order[j]] });
+  }
+  return result;
+}
+
+// ===================================================
+// DOM HELPERS
+// ===================================================
+function $(id) { return document.getElementById(id); }
+var bannersEl = $('banners'), fightGridEl = $('fightGrid'), mainLoadEl = $('mainLoading'),
+    fightCountEl = $('fightCount'), safestListEl = $('safestList'), safestEmptyEl = $('safestEmpty'),
+    safestLoadEl = $('safestLoading'), upsetListEl = $('upsetList'), upsetEmptyEl = $('upsetEmpty'),
+    upsetLoadEl = $('upsetLoading'), lastUpdEl = $('lastUpdated'), quotaBadgeEl = $('quotaBadge'),
+    skeletonGridEl = $('skeletonGrid'), filterBarEl = $('filterBar');
+
+// Track current state for filtering
+var currentComputedFights = [];
+var currentFilter = 'all';
+
+function clearBanners() { while (bannersEl.firstChild) bannersEl.removeChild(bannersEl.firstChild); }
+
+function dismissBanner(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.add('banner-dismiss');
+  setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+}
+
+function addBanner(type, title, msg, autoDismiss) {
+  var icons = { warn: '\u26A0', danger: '\u2716', info: '\u2139', success: '\u2714' };
+  var bannerDiv = document.createElement('div'); bannerDiv.className = 'banner banner-' + type;
+  bannerDiv.setAttribute('role', type === 'danger' ? 'alert' : 'status');
+  var icon = document.createElement('span'); icon.className = 'banner-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = icons[type] || '\u2139'; bannerDiv.appendChild(icon);
+  var body = document.createElement('div'); body.className = 'banner-body';
+  if (title) { var titleEl = document.createElement('div'); titleEl.className = 'banner-title'; titleEl.textContent = title; body.appendChild(titleEl); }
+  if (msg) { var msgEl = document.createElement('div'); msgEl.textContent = msg; body.appendChild(msgEl); }
+  bannerDiv.appendChild(body);
+
+  var closeBtn = document.createElement('button'); closeBtn.className = 'banner-close'; closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Dismiss'); closeBtn.textContent = '\u00D7';
+  closeBtn.addEventListener('click', function() { dismissBanner(bannerDiv); });
+  bannerDiv.appendChild(closeBtn);
+
+  bannersEl.appendChild(bannerDiv);
+
+  if (autoDismiss !== false && (type === 'info' || type === 'success')) {
+    setTimeout(function() { dismissBanner(bannerDiv); }, BANNER_AUTO_DISMISS_MS);
+  }
+}
+
+function pct(prob) { return Math.round(prob * 100) + '%'; }
+
+function makeBar(prob, tier) {
+  var colorMap = { lock: 'var(--lock)', lean: 'var(--lean)', tossup: 'var(--tossup)', upset: 'var(--upset)' };
+  var wrapper = document.createElement('div'); wrapper.className = 'prob-bar-wrap';
+  var fill = document.createElement('div'); fill.className = 'prob-bar-fill';
+  fill.style.width = pct(clamp(prob, 0, 1)); fill.style.background = colorMap[tier] || 'var(--accent)';
+  wrapper.appendChild(fill); return wrapper;
+}
+
+function makeCIBar(ci, favProb) {
+  var row = document.createElement('div'); row.className = 'ci-row';
+  var loLabel = document.createElement('span'); loLabel.textContent = pct(ci.lo); row.appendChild(loLabel);
+  var track = document.createElement('div'); track.className = 'ci-track'; track.style.flex = '1';
+  var fill = document.createElement('div'); fill.className = 'ci-fill';
+  fill.style.left = (clamp(ci.lo, 0, 1) * 100) + '%'; fill.style.width = ((clamp(ci.hi, 0, 1) - clamp(ci.lo, 0, 1)) * 100) + '%';
+  track.appendChild(fill);
+  var center = document.createElement('div'); center.className = 'ci-center'; center.style.left = 'calc(' + (clamp(favProb, 0, 1) * 100) + '% - 1px)'; track.appendChild(center);
+  row.appendChild(track);
+  var hiLabel = document.createElement('span'); hiLabel.textContent = pct(ci.hi); row.appendChild(hiLabel);
+  var ciLabel = document.createElement('span'); ciLabel.style.cssText = 'font-size:0.65rem;color:var(--muted);margin-left:4px;'; ciLabel.textContent = '95% CI'; row.appendChild(ciLabel);
+
+  // Indicate if CI crosses 50%
+  if (ci.lo < 0.50) {
+    var crossLabel = document.createElement('span'); crossLabel.className = 'ci-cross50'; crossLabel.textContent = 'crosses 50%'; row.appendChild(crossLabel);
+  }
+  return row;
+}
+
+function makeMeter(upsetValue, dogName) {
+  var wrapper = document.createElement('div'); wrapper.className = 'meter-row';
+  var labelRow = document.createElement('div'); labelRow.className = 'meter-label';
+  var labelText = document.createElement('span'); labelText.textContent = 'Upset Potential'; labelRow.appendChild(labelText);
+  var valueText = document.createElement('span'); valueText.className = 'meter-value'; valueText.textContent = String(clamp(upsetValue, 0, 100)); labelRow.appendChild(valueText);
+  wrapper.appendChild(labelRow);
+  var track = document.createElement('div'); track.className = 'meter-track';
+  var fill = document.createElement('div'); fill.className = 'meter-fill'; fill.style.width = clamp(upsetValue, 0, 100) + '%';
+  var pctVal = clamp(upsetValue, 0, 100); fill.style.background = pctVal < 30 ? 'var(--lock)' : pctVal < 60 ? 'var(--warn)' : 'var(--danger)';
+  track.appendChild(fill); wrapper.appendChild(track);
+
+  if (pctVal >= UPSET_WARN_THRESHOLD && dogName) {
+    var warn = document.createElement('div');
+    warn.className = 'upset-warning';
+    warn.textContent = '\u26A0\uFE0F ' + sanitize(dogName) + ' can win this';
+    wrapper.appendChild(warn);
+  }
+
+  return wrapper;
+}
+
+function makeDisagreeRow(disagreeResult, sources) {
+  var row = document.createElement('div'); row.className = 'disagree-row';
+  var left = document.createElement('div'); left.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
+  var levelLabels = { low: 'Strong Consensus', med: 'Some Disagreement', high: 'Books Disagree Significantly', na: 'Single Source' };
+  var levelClasses = { low: 'disagree-low', med: 'disagree-med', high: 'disagree-high', na: 'disagree-na' };
+  var levelSpan = document.createElement('span'); levelSpan.className = 'disagree-level ' + (levelClasses[disagreeResult.level] || 'disagree-na'); levelSpan.textContent = levelLabels[disagreeResult.level] || 'N/A'; left.appendChild(levelSpan);
+  if (disagreeResult.delta !== null) { var deltaSpan = document.createElement('span'); deltaSpan.style.cssText = 'font-size:0.65rem;color:var(--muted);'; deltaSpan.textContent = '\u0394' + Math.round(disagreeResult.delta * 100) + 'pp'; left.appendChild(deltaSpan); }
+  row.appendChild(left);
+  var tags = document.createElement('div'); tags.className = 'source-tags';
+  var polyTag = document.createElement('span'); polyTag.className = 'source-tag ' + (sources.poly ? 'source-tag-ok' : 'source-tag-err'); polyTag.textContent = 'Poly'; tags.appendChild(polyTag);
+  var oddsTag = document.createElement('span'); oddsTag.className = 'source-tag ' + (sources.odds ? 'source-tag-ok' : 'source-tag-err'); oddsTag.textContent = 'Odds'; tags.appendChild(oddsTag);
+  row.appendChild(tags); return row;
+}
+
+/**
+ * Builds a source-detail tooltip showing per-source odds on hover.
+ * @param {Object} computed - Computed fight data
+ * @returns {HTMLElement}
+ */
+function makeSourceTooltip(computed) {
+  var tooltip = document.createElement('div');
+  tooltip.className = 'source-tooltip';
+
+  if (computed.sourceDetail.length === 0) {
+    var noData = document.createElement('div'); noData.className = 'source-tooltip-single'; noData.textContent = 'No source data';
+    tooltip.appendChild(noData);
+    return tooltip;
+  }
+
+  // Header
+  var headerRow = document.createElement('div'); headerRow.className = 'source-tooltip-row';
+  var headerLabel = document.createElement('span'); headerLabel.className = 'source-tooltip-label'; headerLabel.textContent = 'Source';
+  var headerFav = document.createElement('span'); headerFav.className = 'source-tooltip-label'; headerFav.textContent = computed.favName;
+  var headerDog = document.createElement('span'); headerDog.className = 'source-tooltip-label'; headerDog.textContent = computed.dogName;
+  headerRow.appendChild(headerLabel); headerRow.appendChild(headerFav); headerRow.appendChild(headerDog);
+  tooltip.appendChild(headerRow);
+
+  for (var i = 0; i < computed.sourceDetail.length; i++) {
+    var source = computed.sourceDetail[i];
+    var sourceRow = document.createElement('div'); sourceRow.className = 'source-tooltip-row';
+    var nameSpan = document.createElement('span'); nameSpan.className = 'source-tooltip-label'; nameSpan.textContent = source.name;
+    var favSpan = document.createElement('span'); favSpan.className = 'source-tooltip-value'; favSpan.textContent = pct(source.favProb);
+    var dogSpan = document.createElement('span'); dogSpan.className = 'source-tooltip-value'; dogSpan.textContent = pct(source.dogProb);
+    sourceRow.appendChild(nameSpan); sourceRow.appendChild(favSpan); sourceRow.appendChild(dogSpan);
+    tooltip.appendChild(sourceRow);
+  }
+
+  if (computed.sourceDetail.length === 1) {
+    var singleNote = document.createElement('div'); singleNote.className = 'source-tooltip-single'; singleNote.textContent = 'Single source only';
+    tooltip.appendChild(singleNote);
+  }
+
+  return tooltip;
+}
+
+function renderCard(computed, index) {
+  var card = document.createElement('div'); card.className = 'fight-card'; card.setAttribute('data-tier', computed.tier);
+  card.setAttribute('role', 'listitem'); card.setAttribute('tabindex', '0');
+  card.setAttribute('data-fight-id', computed.id);
+  card.style.animationDelay = (index * 0.06) + 's';
+
+  var header = document.createElement('div'); header.className = 'fight-header';
+  var matchup = document.createElement('div'); matchup.className = 'fight-matchup';
+
+  // Fighter 1 row with favorite/underdog color coding
+  var row1 = document.createElement('div'); row1.className = 'fighter-row';
+  var name1 = document.createElement('span');
+  name1.className = 'fighter-name' + (computed.isFighter1Favorite ? ' is-favorite' : ' is-underdog');
+  name1.textContent = computed.f1; row1.appendChild(name1);
+  var prob1 = document.createElement('span');
+  prob1.className = 'fighter-prob' + (computed.isFighter1Favorite ? ' is-favorite' : ' is-underdog');
+  prob1.textContent = pct(computed.consensusP1); row1.appendChild(prob1);
+  var american1 = formatAmerican(computed.americanP1);
+  if (american1) { var odds1 = document.createElement('span'); odds1.className = 'fighter-odds'; odds1.textContent = american1; row1.appendChild(odds1); }
+  matchup.appendChild(row1); matchup.appendChild(makeBar(computed.consensusP1, computed.tier));
+
+  var vsDiv = document.createElement('div'); vsDiv.className = 'vs-divider'; vsDiv.textContent = 'vs'; matchup.appendChild(vsDiv);
+
+  // Fighter 2 row with favorite/underdog color coding
+  var row2 = document.createElement('div'); row2.className = 'fighter-row';
+  var name2 = document.createElement('span');
+  name2.className = 'fighter-name' + (!computed.isFighter1Favorite ? ' is-favorite' : ' is-underdog');
+  name2.textContent = computed.f2; row2.appendChild(name2);
+  var prob2 = document.createElement('span');
+  prob2.className = 'fighter-prob' + (!computed.isFighter1Favorite ? ' is-favorite' : ' is-underdog');
+  prob2.textContent = pct(computed.consensusP2); row2.appendChild(prob2);
+  var american2 = formatAmerican(computed.americanP2);
+  if (american2) { var odds2 = document.createElement('span'); odds2.className = 'fighter-odds'; odds2.textContent = american2; row2.appendChild(odds2); }
+  matchup.appendChild(row2); header.appendChild(matchup);
+
+  var tierBadge = document.createElement('span');
+  var tierLabels = { lock: 'Lock', lean: 'Lean', tossup: 'Toss-Up', upset: 'Upset Alert' };
+  tierBadge.className = 'tier-badge tier-' + computed.tier; tierBadge.textContent = tierLabels[computed.tier] || computed.tier; header.appendChild(tierBadge);
+  card.appendChild(header);
+  card.appendChild(makeCIBar(computed.ci, computed.favProb));
+  card.appendChild(makeMeter(computed.upset, computed.dogName));
+  card.appendChild(makeDisagreeRow(computed.disagree, computed.sources));
+
+  // Source tooltip (shown on hover/focus)
+  card.appendChild(makeSourceTooltip(computed));
+
+  return card;
+}
+
+function showSkeletons(count) {
+  while (skeletonGridEl.firstChild) skeletonGridEl.removeChild(skeletonGridEl.firstChild);
+  for (var i = 0; i < count; i++) {
+    var card = document.createElement('div'); card.className = 'skeleton-card';
+    var l1 = document.createElement('div'); l1.className = 'skeleton-line skeleton-line-wide'; card.appendChild(l1);
+    var l2 = document.createElement('div'); l2.className = 'skeleton-line skeleton-line-med'; card.appendChild(l2);
+    var l3 = document.createElement('div'); l3.className = 'skeleton-line skeleton-line-bar'; card.appendChild(l3);
+    var l4 = document.createElement('div'); l4.className = 'skeleton-line skeleton-line-short'; card.appendChild(l4);
+    var l5 = document.createElement('div'); l5.className = 'skeleton-line skeleton-line-wide'; card.appendChild(l5);
+    var l6 = document.createElement('div'); l6.className = 'skeleton-line skeleton-line-bar'; card.appendChild(l6);
+    skeletonGridEl.appendChild(card);
+  }
+  skeletonGridEl.style.display = '';
+}
+
+function hideSkeletons() {
+  skeletonGridEl.style.display = 'none';
+}
+
+/**
+ * Scrolls to a specific fight card by fight ID.
+ * If the fight is filtered out, removes the filter first.
+ * @param {string} fightId
+ */
+function scrollToFight(fightId) {
+  // If current filter hides this fight, reset to 'all'
+  var targetCard = fightGridEl.querySelector('[data-fight-id="' + fightId + '"]');
+  if (!targetCard) {
+    filterByTier('all');
+    targetCard = fightGridEl.querySelector('[data-fight-id="' + fightId + '"]');
+  }
+  if (targetCard) {
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetCard.focus();
+  }
+}
+
+function renderSummary(computed) {
+  safestLoadEl.classList.add('hidden'); upsetLoadEl.classList.add('hidden');
+  var safest = computed.filter(function(f) { return f.tier === TIER.LOCK; }).sort(function(a, b) { return b.favProb - a.favProb; }).slice(0, 5);
+  if (!safest.length) { safestEmptyEl.classList.remove('hidden'); }
+  else {
+    safestListEl.classList.remove('hidden'); while (safestListEl.firstChild) safestListEl.removeChild(safestListEl.firstChild);
+    for (var i = 0; i < safest.length; i++) {
+      var fight = safest[i];
+      var li = document.createElement('li'); li.className = 'summary-item';
+      li.setAttribute('data-scroll-to', fight.id);
+      li.addEventListener('click', (function(fid) { return function() { scrollToFight(fid); }; })(fight.id));
+      var dot = document.createElement('span'); dot.className = 'summary-dot'; dot.style.background = 'var(--lock)'; li.appendChild(dot);
+      var nameSpan = document.createElement('span'); nameSpan.className = 'summary-name'; nameSpan.textContent = fight.favName; li.appendChild(nameSpan);
+      var vsSpan = document.createElement('span'); vsSpan.className = 'summary-vs'; vsSpan.textContent = 'vs ' + fight.dogName; li.appendChild(vsSpan);
+      var probSpan = document.createElement('span'); probSpan.className = 'summary-prob'; probSpan.textContent = pct(fight.favProb); li.appendChild(probSpan);
+      safestListEl.appendChild(li);
+    }
+  }
+  var upsets = computed.filter(function(f) { return f.tier === TIER.TOSSUP || f.tier === TIER.UPSET; }).sort(function(a, b) { return b.upset - a.upset; }).slice(0, 5);
+  if (!upsets.length) { upsetEmptyEl.classList.remove('hidden'); }
+  else {
+    upsetListEl.classList.remove('hidden'); while (upsetListEl.firstChild) upsetListEl.removeChild(upsetListEl.firstChild);
+    for (var j = 0; j < upsets.length; j++) {
+      var upsetFight = upsets[j];
+      var uli = document.createElement('li'); uli.className = 'summary-item';
+      uli.setAttribute('data-scroll-to', upsetFight.id);
+      uli.addEventListener('click', (function(fid) { return function() { scrollToFight(fid); }; })(upsetFight.id));
+      var udot = document.createElement('span'); udot.className = 'summary-dot'; udot.style.background = upsetFight.tier === TIER.UPSET ? 'var(--upset)' : 'var(--tossup)'; uli.appendChild(udot);
+      var unameSpan = document.createElement('span'); unameSpan.className = 'summary-name'; unameSpan.textContent = upsetFight.dogName; uli.appendChild(unameSpan);
+      var uvsSpan = document.createElement('span'); uvsSpan.className = 'summary-vs'; uvsSpan.textContent = 'vs ' + upsetFight.favName; uli.appendChild(uvsSpan);
+      var uscoreSpan = document.createElement('span'); uscoreSpan.className = 'summary-prob'; uscoreSpan.textContent = upsetFight.upset + '/100'; uli.appendChild(uscoreSpan);
+      upsetListEl.appendChild(uli);
+    }
+  }
+}
+
+/**
+ * Filters displayed fight cards by tier.
+ * @param {string} tier - 'all', 'lock', 'lean', 'tossup', or 'upset'
+ */
+function filterByTier(tier) {
+  currentFilter = tier;
+
+  // Update active button
+  var buttons = filterBarEl.querySelectorAll('.filter-btn');
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].classList.toggle('active', buttons[i].getAttribute('data-tier') === tier);
+  }
+
+  // Re-render with filter
+  renderFightsFiltered(currentComputedFights, tier);
+}
+
+/**
+ * Renders fight cards with optional tier filter, grouped by event.
+ * @param {Array} computed
+ * @param {string} tierFilter
+ */
+function renderFightsFiltered(computed, tierFilter) {
+  // Clear existing cards and group headers
+  var old = fightGridEl.querySelectorAll('.fight-card,.empty-state,.filter-empty-state,.event-group-header');
+  for (var r = 0; r < old.length; r++) old[r].remove();
+
+  var filtered = tierFilter === 'all' ? computed : computed.filter(function(f) { return f.tier === tierFilter; });
+
+  if (!filtered.length && computed.length) {
+    var tierLabels = { lock: 'Lock', lean: 'Lean', tossup: 'Toss-Up', upset: 'Upset Alert' };
+    var emptyMsg = document.createElement('div'); emptyMsg.className = 'filter-empty-state';
+    emptyMsg.textContent = 'No fights match the "' + (tierLabels[tierFilter] || tierFilter) + '" filter.';
+    fightGridEl.appendChild(emptyMsg);
+    fightCountEl.textContent = '0 fights';
+    return;
+  }
+
+  if (!filtered.length) {
+    fightCountEl.classList.add('hidden');
+    var emptyState = document.createElement('div'); emptyState.className = 'empty-state'; emptyState.textContent = 'No active UFC markets found. Check back closer to fight night.'; fightGridEl.appendChild(emptyState);
+    return;
+  }
+
+  fightCountEl.classList.remove('hidden'); fightCountEl.textContent = filtered.length + ' fight' + (filtered.length !== 1 ? 's' : '');
+
+  // Sort by tier priority then probability
+  var tierOrder = { lock: 0, lean: 1, tossup: 2, upset: 3 };
+  var sorted = filtered.slice().sort(function(a, b) {
+    var ta = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 4;
+    var tb = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 4;
+    return ta !== tb ? ta - tb : b.favProb - a.favProb;
+  });
+
+  // Group by event
+  var groups = groupByEvent(sorted);
+  var cardIndex = 0;
+
+  for (var g = 0; g < groups.length; g++) {
+    // Only show event header if there are multiple groups
+    if (groups.length > 1) {
+      var groupHeader = document.createElement('div'); groupHeader.className = 'event-group-header';
+      groupHeader.textContent = groups[g].eventName;
+      fightGridEl.appendChild(groupHeader);
+    }
+    for (var f = 0; f < groups[g].fights.length; f++) {
+      fightGridEl.appendChild(renderCard(groups[g].fights[f], cardIndex++));
+    }
+  }
+}
+
+function renderFights(computed) {
+  mainLoadEl.classList.add('hidden');
+  hideSkeletons();
+  currentComputedFights = computed;
+  renderFightsFiltered(computed, currentFilter);
+}
+
+function updateQuotaBadge(quota) {
+  if (quota === null || quota === undefined || !isFinite(quota)) { quotaBadgeEl.classList.add('hidden'); return; }
+  quotaBadgeEl.classList.remove('hidden');
+  quotaBadgeEl.textContent = 'API: ' + quota + ' left';
+  quotaBadgeEl.className = 'quota-badge';
+  if (quota <= QUOTA_CRITICAL) quotaBadgeEl.classList.add('quota-critical');
+  else if (quota <= QUOTA_WARN) quotaBadgeEl.classList.add('quota-low');
+  else quotaBadgeEl.classList.add('quota-ok');
+}
+
+function showAllFailed() {
+  mainLoadEl.classList.add('hidden');
+  hideSkeletons();
+  safestLoadEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
+  upsetLoadEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
+  addBanner('danger', 'No data available', 'All data sources failed. Check your network and API key, then refresh.', false);
+  var old = fightGridEl.querySelectorAll('.fight-card,.empty-state,.filter-empty-state,.event-group-header');
+  for (var r = 0; r < old.length; r++) old[r].remove();
+  var emptyState = document.createElement('div'); emptyState.className = 'empty-state'; emptyState.textContent = 'No data available \u2014 see error above.'; fightGridEl.appendChild(emptyState);
+}
+
+// ===================================================
+// KEY MANAGEMENT
+// ===================================================
+function loadKey() { try { var k = localStorage.getItem(ODDS_API_LS_KEY); return typeof k === 'string' && k.trim() ? k.trim() : null; } catch(e) { return null; } }
+function saveKey(key) { var trimmed = typeof key === 'string' ? key.trim() : ''; if (!trimmed) return false; try { localStorage.setItem(ODDS_API_LS_KEY, trimmed); return true; } catch(e) { return false; } }
+function removeKey() { try { localStorage.removeItem(ODDS_API_LS_KEY); } catch(e) {} }
+
+var apiKeyInput = $('apiKeyInput'), applyKeyBtn = $('applyKeyBtn'), clearKeyBtn = $('clearKeyBtn'), refreshBtn = $('refreshBtn');
+
+function updateKeyUI() {
+  if (loadKey()) { clearKeyBtn.classList.remove('hidden'); apiKeyInput.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'; apiKeyInput.value = ''; }
+  else { clearKeyBtn.classList.add('hidden'); apiKeyInput.placeholder = 'Paste your API key\u2026'; }
+}
+
+// ===================================================
+// KEYBOARD NAVIGATION
+// ===================================================
+function setupKeyboardNav() {
+  document.addEventListener('keydown', function(e) {
+    var cards = Array.from(fightGridEl.querySelectorAll('.fight-card'));
+    if (!cards.length) return;
+
+    var focused = document.activeElement;
+    var currentIndex = cards.indexOf(focused);
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      var nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, cards.length - 1);
+      cards[nextIndex].focus();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      var prevIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+      cards[prevIndex].focus();
+    } else if (e.key === 'Enter' && currentIndex >= 0) {
+      // Toggle tooltip visibility on Enter for accessibility
+      cards[currentIndex].focus();
+    }
+  });
+}
+
+// ===================================================
+// MAIN ORCHESTRATION
+// ===================================================
+var isRunning = false;
+
+async function run(force) {
+  if (isRunning) return;
+  isRunning = true;
+  refreshBtn.setAttribute('disabled', '');
+
+  try {
+    clearBanners();
+    var oldCards = fightGridEl.querySelectorAll('.fight-card,.empty-state,.filter-empty-state,.event-group-header');
+    for (var r = 0; r < oldCards.length; r++) oldCards[r].remove();
+    mainLoadEl.classList.remove('hidden');
+    showSkeletons(6);
+    safestLoadEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
+    upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
+    if (force) cache.clearAll();
+
+    var apiKey = loadKey();
+    if (!apiKey) addBanner('info', 'No Odds API key', 'Showing Polymarket data only. Add your key above for DraftKings/FanDuel odds.');
+
+    var results = await Promise.all([
+      fetchPolymarket(),
+      apiKey ? fetchOddsAPI(apiKey) : Promise.resolve({ fights: null, error: null, quotaRemaining: null })
+    ]);
+    var polyResult = results[0], oddsResult = results[1];
+
+    if (polyResult.error) addBanner('warn', 'Polymarket unavailable', polyResult.error, false);
+    if (apiKey && oddsResult.error && oddsResult.error !== 'No API key') addBanner('warn', 'Odds API unavailable', oddsResult.error, false);
+
+    var quotaRemaining = oddsResult.quotaRemaining;
+    updateQuotaBadge(isFinite(quotaRemaining) ? quotaRemaining : null);
+    if (quotaRemaining !== null && isFinite(quotaRemaining) && quotaRemaining < QUOTA_WARN) addBanner('warn', 'Odds API quota low: ' + quotaRemaining + ' requests remaining', 'Consider refreshing less frequently to preserve quota.', false);
+
+    if (!polyResult.fights && !oddsResult.fights) { showAllFailed(); return; }
+
+    var merged = mergeResults(polyResult.fights, oddsResult.fights);
+    var computed = merged.map(computeFight).filter(Boolean);
+
+    renderSummary(computed);
+    renderFights(computed);
+
+    var now = new Date(); lastUpdEl.textContent = 'Updated ' + now.toLocaleTimeString(); lastUpdEl.classList.remove('hidden');
+
+    var cachedSources = [];
+    if (polyResult.fromCache) cachedSources.push('Polymarket');
+    if (oddsResult.fromCache) cachedSources.push('Odds API');
+    if (cachedSources.length) addBanner('info', null, 'Using cached data: ' + cachedSources.join(', ') + ' (15-min TTL). Click Refresh to force reload.');
+  } finally {
+    isRunning = false;
+    refreshBtn.removeAttribute('disabled');
+  }
+}
+
+// ===================================================
+// RUNTIME SELF-TESTS (65+)
+// ===================================================
+function runSelfTests() {
+  var results = [];
+  function assert(name, fn) {
+    try {
+      var ok = fn();
+      results.push({ name: name, pass: !!ok, error: ok ? null : 'assertion false' });
+    } catch(e) {
+      results.push({ name: name, pass: false, error: String(e && e.message || e).slice(0, 80) });
+    }
+  }
+
+  // --- safeNum (4) ---
+  assert('safeNum(42)===42', function() { return safeNum(42) === 42; });
+  assert('safeNum(NaN)===null', function() { return safeNum(NaN) === null; });
+  assert('safeNum(Infinity)===null', function() { return safeNum(Infinity) === null; });
+  assert('safeNum("x")===null', function() { return safeNum("x") === null; });
+
+  // --- safeStr (4) ---
+  assert('safeStr("")===null', function() { return safeStr("") === null; });
+  assert('safeStr("hi")==="hi"', function() { return safeStr("hi") === "hi"; });
+  assert('safeStr(123)===null', function() { return safeStr(123) === null; });
+  assert('safeStr("  ")===null', function() { return safeStr("  ") === null; });
+
+  // --- clamp (4) ---
+  assert('clamp(5,0,10)===5', function() { return clamp(5, 0, 10) === 5; });
+  assert('clamp(-1,0,10)===0', function() { return clamp(-1, 0, 10) === 0; });
+  assert('clamp(99,0,10)===10', function() { return clamp(99, 0, 10) === 10; });
+  assert('clamp(NaN,0,10)===0', function() { return clamp(NaN, 0, 10) === 0; });
+
+  // --- sanitize (3) ---
+  assert('sanitize strips control', function() { return sanitize("a\x00b") === "ab"; });
+  assert('sanitize truncates 100', function() { return sanitize("x".repeat(200)).length === 100; });
+  assert('sanitize(null)==="Unknown"', function() { return sanitize(null) === "Unknown"; });
+
+  // --- americanToImplied (4) ---
+  assert('american -200 -> ~0.667', function() { var v = americanToImplied(-200); return v !== null && Math.abs(v - 0.6667) < 0.01; });
+  assert('american +150 -> 0.4', function() { var v = americanToImplied(150); return v !== null && Math.abs(v - 0.4) < 0.01; });
+  assert('american 0 -> null', function() { return americanToImplied(0) === null; });
+  assert('american -100 -> 0.5', function() { var v = americanToImplied(-100); return v !== null && Math.abs(v - 0.5) < 0.01; });
+
+  // --- impliedToAmerican (5) ---
+  assert('implied 0.6667 -> ~-200', function() { var v = impliedToAmerican(0.6667); return v !== null && v <= -195 && v >= -205; });
+  assert('implied 0.4 -> ~+150', function() { var v = impliedToAmerican(0.4); return v !== null && v >= 145 && v <= 155; });
+  assert('implied 0 -> null', function() { return impliedToAmerican(0) === null; });
+  assert('implied 1 -> null', function() { return impliedToAmerican(1) === null; });
+  assert('implied 0.5 -> -100', function() { var v = impliedToAmerican(0.5); return v === null || v === -100; });
+
+  // --- formatAmerican (3) ---
+  assert('formatAmerican positive', function() { return formatAmerican(150) === '+150'; });
+  assert('formatAmerican negative', function() { return formatAmerican(-200) === '-200'; });
+  assert('formatAmerican null', function() { return formatAmerican(null) === ''; });
+
+  // --- riskTierSimple boundary tests (12) ---
+  assert('tier 0.80=lock', function() { return riskTierSimple(0.80) === TIER.LOCK; });
+  assert('tier 0.75=lock (boundary)', function() { return riskTierSimple(0.75) === TIER.LOCK; });
+  assert('tier 0.749=lean (just below lock)', function() { return riskTierSimple(0.749) === TIER.LEAN; });
+  assert('tier 0.65=lean', function() { return riskTierSimple(0.65) === TIER.LEAN; });
+  assert('tier 0.60=lean (boundary)', function() { return riskTierSimple(0.60) === TIER.LEAN; });
+  assert('tier 0.599=tossup (just below lean)', function() { return riskTierSimple(0.599) === TIER.TOSSUP; });
+  assert('tier 0.50=tossup', function() { return riskTierSimple(0.50) === TIER.TOSSUP; });
+  assert('tier 0.45=tossup (boundary)', function() { return riskTierSimple(0.45) === TIER.TOSSUP; });
+  assert('tier 0.449=upset (just below tossup)', function() { return riskTierSimple(0.449) === TIER.UPSET; });
+  assert('tier 0.40=upset', function() { return riskTierSimple(0.40) === TIER.UPSET; });
+  assert('tier 1.0=lock', function() { return riskTierSimple(1.0) === TIER.LOCK; });
+  assert('tier 0.0=upset', function() { return riskTierSimple(0.0) === TIER.UPSET; });
+
+  // --- riskTier with CI crossing 50% (3) ---
+  assert('riskTier: CI crosses 50% -> upset', function() { return riskTier(0.65, { lo: 0.48, hi: 0.82 }, { level: 'low', delta: 0.01 }) === TIER.UPSET; });
+  assert('riskTier: CI above 50% -> lean', function() { return riskTier(0.65, { lo: 0.55, hi: 0.75 }, { level: 'low', delta: 0.01 }) === TIER.LEAN; });
+  assert('riskTier: high disagree + thin margin -> upset', function() { return riskTier(0.58, { lo: 0.52, hi: 0.64 }, { level: 'high', delta: 0.12 }) === TIER.UPSET; });
+
+  // --- computeCI (5) ---
+  assert('computeCI single source -> zero width', function() { var ci = computeCI([0.7]); return ci.lo === ci.hi && Math.abs(ci.mean - 0.7) < 0.001; });
+  assert('computeCI two equal sources -> zero width', function() { var ci = computeCI([0.7, 0.7]); return ci.lo === ci.hi && Math.abs(ci.mean - 0.7) < 0.001; });
+  assert('computeCI two sources -> mean centered', function() { var ci = computeCI([0.6, 0.8]); return Math.abs(ci.mean - 0.7) < 0.001; });
+  assert('computeCI range clamped to [0,1]', function() { var ci = computeCI([0.95, 0.99]); return ci.lo >= 0 && ci.hi <= 1; });
+  assert('computeCI empty -> 0.5', function() { var ci = computeCI([]); return ci.mean === 0.5; });
+
+  // --- upsetScore 3-factor (4) ---
+  assert('upsetScore: underdog 0.5 high potential', function() { var score = upsetScore(0.5, { lo: 0.3, hi: 0.7 }, { delta: 0.1 }); return score > 50; });
+  assert('upsetScore: underdog 0.1 low potential', function() { var score = upsetScore(0.1, { lo: 0.85, hi: 0.95 }, { delta: 0.01 }); return score < 20; });
+  assert('upsetScore: wide CI increases score', function() { var narrow = upsetScore(0.3, { lo: 0.65, hi: 0.75 }, { delta: null }); var wide = upsetScore(0.3, { lo: 0.4, hi: 0.9 }, { delta: null }); return wide > narrow; });
+  assert('upsetScore: high disagree increases score', function() { var low = upsetScore(0.3, { lo: 0.6, hi: 0.8 }, { delta: 0.01 }); var high = upsetScore(0.3, { lo: 0.6, hi: 0.8 }, { delta: 0.15 }); return high > low; });
+
+  // --- wilsonCI/computeCI stddev (2) ---
+  assert('computeCI stddev correct', function() { var ci = computeCI([0.6, 0.8]); return Math.abs(ci.stddev - 0.1) < 0.001; });
+  assert('computeCI width = 2*1.96*stddev', function() { var ci = computeCI([0.6, 0.8]); var expectedWidth = 2 * 1.96 * 0.1; return Math.abs((ci.hi - ci.lo) - expectedWidth) < 0.01; });
+
+  // --- disagreement SPEC-EXACT boundary tests (10) ---
+  assert('disagree null->na', function() { return disagreement(null, 0.5).level === 'na'; });
+  assert('disagree both null->na', function() { return disagreement(null, null).level === 'na'; });
+  assert('disagree 0pp delta->low (Strong Consensus)', function() { return disagreement(0.7, 0.7).level === 'low'; });
+  assert('disagree 2pp delta->low (<3%)', function() { return disagreement(0.7, 0.72).level === 'low'; });
+  assert('disagree 2.9pp->low (just under 3%)', function() { return disagreement(0.70, 0.729).level === 'low'; });
+  assert('disagree 3pp->med (3% boundary)', function() { return disagreement(0.70, 0.73).level === 'med'; });
+  assert('disagree 5pp->med (mid range)', function() { return disagreement(0.70, 0.75).level === 'med'; });
+  assert('disagree 8pp->med (8% boundary)', function() { return disagreement(0.70, 0.78).level === 'med'; });
+  assert('disagree 8.1pp->high (just over 8%)', function() { return disagreement(0.70, 0.781).level === 'high'; });
+  assert('disagree 20pp->high (Books Disagree)', function() { return disagreement(0.7, 0.9).level === 'high'; });
+
+  // --- disagreement delta correctness (2) ---
+  assert('disagree delta correct', function() { var r = disagreement(0.7, 0.8); return r.delta !== null && Math.abs(r.delta - 0.1) < 0.001; });
+  assert('disagree na delta is null', function() { return disagreement(null, 0.5).delta === null; });
+
+  // --- computeFight (4) ---
+  assert('computeFight valid', function() {
+    var r = computeFight({ id: 't', f1: 'A', f2: 'B', polyP1: 0.7, polyP2: 0.3, oddsP1: null, oddsP2: null });
+    return r && r.favName === 'A' && r.favProb === 0.7;
+  });
+  assert('computeFight no data->null', function() { return computeFight({ id: 't', f1: 'A', f2: 'B' }) === null; });
+  assert('computeFight merged sources', function() {
+    var r = computeFight({ id: 't', f1: 'A', f2: 'B', polyP1: 0.8, polyP2: 0.2, oddsP1: 0.7, oddsP2: 0.3 });
+    return r && r.favName === 'A' && r.favProb === 0.75;
+  });
+  assert('computeFight upset tier', function() {
+    var r = computeFight({ id: 't', f1: 'A', f2: 'B', polyP1: 0.4, polyP2: 0.6, oddsP1: null, oddsP2: null });
+    return r && r.favName === 'B';
+  });
+
+  // --- computeFight CI crosses 50 (1) ---
+  assert('computeFight ciCrosses50 flag', function() {
+    var r = computeFight({ id: 't', f1: 'A', f2: 'B', polyP1: 0.55, polyP2: 0.45, oddsP1: 0.45, oddsP2: 0.55 });
+    return r && r.ciCrosses50 === true;
+  });
+
+  // --- computeFight source detail (1) ---
+  assert('computeFight has sourceDetail', function() {
+    var r = computeFight({ id: 't', f1: 'A', f2: 'B', polyP1: 0.7, polyP2: 0.3, oddsP1: 0.65, oddsP2: 0.35 });
+    return r && r.sourceDetail && r.sourceDetail.length >= 2;
+  });
+
+  // --- merge (5) ---
+  assert('merge poly only', function() {
+    var r = mergeResults([{ id: '1', f1: 'A', f2: 'B', polyP1: 0.6 }], null);
+    return r.length === 1 && r[0].f1 === 'A';
+  });
+  assert('merge odds only', function() {
+    var r = mergeResults(null, [{ id: '1', f1: 'A', f2: 'B', oddsP1: 0.6 }]);
+    return r.length === 1 && r[0].f1 === 'A';
+  });
+  assert('merge both null->empty', function() {
+    var r = mergeResults(null, null);
+    return Array.isArray(r) && r.length === 0;
+  });
+  assert('merge matching fighters', function() {
+    var r = mergeResults(
+      [{ id: '1', f1: 'John Smith', f2: 'Bob Jones', polyP1: 0.6, polyP2: 0.4 }],
+      [{ id: '2', f1: 'John Smith', f2: 'Bob Jones', oddsP1: 0.65, oddsP2: 0.35 }]
+    );
+    return r.length === 1 && r[0].oddsP1 === 0.65 && r[0].polyP1 === 0.6;
+  });
+  assert('merge same-last-name tiebreaker', function() {
+    var r = mergeResults(
+      [{ id: '1', f1: 'Alex Smith', f2: 'Bob Jones', polyP1: 0.6, polyP2: 0.4 },
+       { id: '2', f1: 'Chris Smith', f2: 'Dan Lee', polyP1: 0.7, polyP2: 0.3 }],
+      [{ id: '3', f1: 'Chris Smith', f2: 'Dan Lee', oddsP1: 0.72, oddsP2: 0.28 },
+       { id: '4', f1: 'Alex Smith', f2: 'Bob Jones', oddsP1: 0.58, oddsP2: 0.42 }]
+    );
+    return r.length === 2 && r[0].oddsP1 === 0.58 && r[1].oddsP1 === 0.72;
+  });
+
+  // --- firstName (2) ---
+  assert('firstInitial "John Smith" -> "j"', function() { return firstInitial('John Smith') === 'j'; });
+  assert('firstInitial "" -> ""', function() { return firstInitial('') === ''; });
+
+  // --- groupByEvent (3) ---
+  assert('groupByEvent groups correctly', function() {
+    var groups = groupByEvent([
+      { eventName: 'UFC 315', tier: 'lock' },
+      { eventName: 'UFC 316', tier: 'lean' },
+      { eventName: 'UFC 315', tier: 'upset' }
+    ]);
+    return groups.length === 2 && groups[0].fights.length === 2 && groups[1].fights.length === 1;
+  });
+  assert('groupByEvent empty -> empty', function() { return groupByEvent([]).length === 0; });
+  assert('groupByEvent no event name -> Upcoming UFC', function() {
+    var groups = groupByEvent([{ eventName: '', tier: 'lock' }]);
+    return groups.length === 1 && groups[0].eventName === 'Upcoming UFC';
+  });
+
+  // --- validatePoly (3) ---
+  assert('validatePoly rejects null', function() { return parsePolyPage(null) === null; });
+  assert('validatePoly rejects {}', function() { return parsePolyPage({}) === null; });
+  assert('validatePoly rejects bad probs', function() {
+    var r = parsePolyPage({ data: [{ outcomes: ['A', 'B'], outcomePrices: ['2.0', '0.5'] }] });
+    return r !== null && r.length === 0;
+  });
+
+  // --- validateOdds (2) ---
+  assert('validateOdds rejects null', function() { return validateOddsAPI(null) === null; });
+  assert('validateOdds rejects string', function() { return validateOddsAPI("bad") === null; });
+
+  // --- lastName (3) ---
+  assert('lastName single', function() { return lastName('Jones') === 'jones'; });
+  assert('lastName multi', function() { return lastName('John Smith') === 'smith'; });
+  assert('lastName empty', function() { return lastName('') === ''; });
+
+  // --- pct formatting (2) ---
+  assert('pct 0.75 -> 75%', function() { return pct(0.75) === '75%'; });
+  assert('pct 0 -> 0%', function() { return pct(0) === '0%'; });
+
+  // --- constant sanity checks (3) ---
+  assert('DISAGREE_LOW_MAX is 0.03', function() { return DISAGREE_LOW_MAX === 0.03; });
+  assert('DISAGREE_MED_MAX is 0.08', function() { return DISAGREE_MED_MAX === 0.08; });
+  assert('UPSET_WARN_THRESHOLD is 50', function() { return UPSET_WARN_THRESHOLD === 50; });
+
+  // Render results
+  var bar = $('selftestBar');
+  var passed = results.filter(function(r) { return r.pass; }).length;
+  var failed = results.filter(function(r) { return !r.pass; });
+  bar.classList.remove('hidden');
+
+  if (!failed.length) {
+    var span = document.createElement('span');
+    span.className = 'selftest-pass';
+    span.textContent = 'Self-test: ' + passed + '/' + results.length + ' passed';
+    bar.appendChild(span);
+  } else {
+    var fspan = document.createElement('span');
+    fspan.className = 'selftest-fail';
+    fspan.textContent = 'Self-test: ' + failed.length + ' FAILED of ' + results.length;
+    bar.appendChild(fspan);
+    var det = document.createElement('span');
+    det.style.cssText = 'margin-left:8px;font-size:0.65rem;';
+    det.textContent = failed.map(function(f) { return f.name + ': ' + f.error; }).join(' | ');
+    bar.appendChild(det);
+  }
+
+  return { passed: passed, total: results.length, failures: failed };
+}
+
+// ===================================================
+// EVENT LISTENERS
+// ===================================================
+applyKeyBtn.addEventListener('click', function() {
+  var value = apiKeyInput.value, trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) { addBanner('warn', 'API key required', 'Enter a valid key before applying.', false); return; }
+  if (!saveKey(trimmed)) { addBanner('danger', 'Could not save key', 'localStorage may be blocked in this browser.', false); return; }
+  apiKeyInput.value = ''; updateKeyUI(); cache.remove(ODDS_CACHE_KEY); run(false);
+});
+clearKeyBtn.addEventListener('click', function() {
+  removeKey(); cache.clearAll(); apiKeyInput.value = ''; updateKeyUI(); quotaBadgeEl.classList.add('hidden');
+  addBanner('info', 'API key cleared', 'Odds API data will no longer be fetched.'); run(false);
+});
+refreshBtn.addEventListener('click', function() { run(true); });
+apiKeyInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') applyKeyBtn.click(); });
+
+// Filter bar click handler
+filterBarEl.addEventListener('click', function(e) {
+  var btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  var tier = btn.getAttribute('data-tier');
+  if (tier) filterByTier(tier);
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  runSelfTests();
+  updateKeyUI();
+  setupKeyboardNav();
+  run(false);
+});
+</script>
+</body>
+</html>
