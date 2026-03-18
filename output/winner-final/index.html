@@ -158,38 +158,12 @@
       font-weight: 700;
       margin-bottom: 8px;
     }
-    .spotlight-matchup {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .spotlight-reason {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    .spotlight-stats {
-      display: flex;
-      gap: 20px;
-      margin-top: 12px;
-      flex-wrap: wrap;
-    }
-    .spotlight-stat {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .spotlight-stat-label {
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-    }
-    .spotlight-stat-value {
-      font-size: 1.1rem;
-      font-weight: 700;
-      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
-    }
-    /* Removed: spotlightPulse — decorative animation with no functional purpose */
+    .spotlight-matchup { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+    .spotlight-reason { font-size: 0.8rem; color: var(--muted); }
+    .spotlight-stats { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; }
+    .spotlight-stat { display: flex; flex-direction: column; gap: 2px; }
+    .spotlight-stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .spotlight-stat-value { font-size: 1.1rem; font-weight: 700; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
 
     /* Summary strip */
     .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
@@ -213,9 +187,34 @@
     .summary-prob { color: var(--muted); font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
 
     /* Section header */
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
     .section-title { font-size: 1rem; font-weight: 600; color: var(--text); }
     .count-badge { background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+    .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .filter-btn[data-tier="lock"].active { background: var(--lock); border-color: var(--lock); }
+    .filter-btn[data-tier="lean"].active { background: var(--lean); border-color: var(--lean); }
+    .filter-btn[data-tier="tossup"].active { background: var(--tossup); border-color: var(--tossup); }
+    .filter-btn[data-tier="upset"].active { background: var(--upset); border-color: var(--upset); }
 
     /* Event group header */
     .event-group-header {
@@ -227,21 +226,8 @@
       align-items: center;
       gap: 8px;
     }
-    .event-group-name {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .event-group-count {
-      font-size: 0.65rem;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1px 6px;
-    }
+    .event-group-name { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .event-group-count { font-size: 0.65rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 6px; }
 
     /* Fight Grid */
     .fight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
@@ -253,41 +239,43 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      transition: border-color .2s, box-shadow .2s, transform .15s;
+      transition: border-color .2s, box-shadow .2s;
       opacity: 0;
       animation: cardEnter 0.2s ease-out forwards;
       position: relative;
     }
-    .fight-card:hover { border-color: var(--muted); }
+    .fight-card:hover { border-color: var(--muted); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     .fight-card[data-tier="lock"]   { border-left: 3px solid var(--lock); }
     .fight-card[data-tier="lean"]   { border-left: 3px solid var(--lean); }
     .fight-card[data-tier="tossup"] { border-left: 3px solid var(--tossup); }
     .fight-card[data-tier="upset"]  { border-left: 3px solid var(--upset); }
-
-    /* Uniform hover — functional feedback, not decoration */
-    .fight-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-
-    /* Focus ring for keyboard nav */
-    .fight-card:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
+    .fight-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .fight-card:focus { outline: none; }
-
-    @keyframes cardEnter {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
 
     .fight-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .fight-header-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
     .tier-badge {
       font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
-      padding: 3px 7px; border-radius: 3px; flex-shrink: 0;
+      padding: 3px 7px; border-radius: 3px;
     }
     .tier-lock   { background: rgba(16,185,129,0.15); color: var(--lock); }
     .tier-lean   { background: rgba(59,130,246,0.15);  color: var(--lean); }
     .tier-tossup { background: rgba(245,158,11,0.15);  color: var(--tossup); }
     .tier-upset  { background: rgba(239,68,68,0.15);   color: var(--upset); }
+
+    /* Tonight badge */
+    .tonight-badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
 
     .fight-matchup { flex: 1; }
     .fighter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -313,37 +301,18 @@
     .meter-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .meter-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
 
-    /* CSS-based upset warning indicator */
     .upset-warning {
-      font-size: 0.72rem;
-      color: var(--danger);
-      font-weight: 600;
-      margin-top: 2px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      font-size: 0.72rem; color: var(--danger); font-weight: 600; margin-top: 2px;
+      display: flex; align-items: center; gap: 5px;
     }
     .upset-warning-icon {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--danger);
-      position: relative;
-      flex-shrink: 0;
+      display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--danger); position: relative; flex-shrink: 0;
     }
     .upset-warning-icon::before {
-      content: '!';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 800;
-      line-height: 1;
+      content: '!'; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); color: #fff; font-size: 10px; font-weight: 800; line-height: 1;
     }
-    /* Removed: pulse keyframe — static indicator is clearer (Rams: don't animate to distract) */
 
     /* Source detail popover */
     .disagree-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--border); cursor: pointer; position: relative; }
@@ -353,64 +322,78 @@
     .disagree-high { color: var(--danger); }
     .disagree-na   { color: var(--muted); }
     .source-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-    .source-tag {
-      font-size: 0.65rem; padding: 1px 5px; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 3px; color: var(--muted); transition: border-color .15s, color .15s;
-    }
+    .source-tag { font-size: 0.65rem; padding: 1px 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); transition: border-color .15s, color .15s; }
     .source-tag-ok  { border-color: var(--accent); color: var(--accent); }
     .source-tag-err { border-color: var(--danger); color: var(--danger); opacity: 0.7; }
 
     .source-popover {
-      display: none;
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 0;
-      right: 0;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px 12px;
-      font-size: 0.72rem;
-      z-index: 20;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      animation: popoverIn 0.15s ease-out;
+      display: none; position: absolute; bottom: calc(100% + 6px); left: 0; right: 0;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px; font-size: 0.72rem; z-index: 20;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4); animation: popoverIn 0.15s ease-out;
     }
     .source-popover.visible { display: block; }
     @keyframes popoverIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-    .source-popover-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      border-bottom: 1px solid var(--border);
-    }
+    .source-popover-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border); }
     .source-popover-row:last-child { border-bottom: none; }
     .source-popover-name { color: var(--muted); }
     .source-popover-value { font-weight: 600; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
     .source-popover-note { color: var(--muted); font-style: italic; font-size: 0.65rem; margin-top: 4px; }
-
-    /* Focus-within shows popover for keyboard users */
     .disagree-row:focus-within .source-popover { display: block; }
 
+    /* Bettor's Take */
+    .bettor-take {
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+    .take-toggle {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: color .15s;
+      font-family: inherit;
+    }
+    .take-toggle:hover { color: var(--text); }
+    .take-toggle:focus-visible { outline: 2px solid var(--accent); border-radius: 2px; }
+    .take-chevron { font-size: 0.6rem; transition: transform .2s; display: inline-block; }
+    .take-chevron.open { transform: rotate(90deg); }
+    .take-body {
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding-top: 6px;
+      line-height: 1.55;
+    }
+    .take-body.hidden { display: none; }
+    .take-verdict {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.78rem;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .take-verdict-lock   { color: var(--lock); }
+    .take-verdict-lean   { color: var(--lean); }
+    .take-verdict-tossup { color: var(--tossup); }
+    .take-verdict-upset  { color: var(--upset); }
+
+    /* Loading */
     .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--muted); }
     .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-text { font-size: 0.9rem; }
     .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 0.88rem; grid-column: 1 / -1; }
 
-    /* Skeleton shimmer loading */
+    /* Skeleton shimmer */
     .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
-    .skeleton-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .skeleton-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
     .skeleton-line {
-      height: 12px;
-      border-radius: 4px;
+      height: 12px; border-radius: 4px;
       background: linear-gradient(90deg, var(--border) 25%, rgba(48,54,61,0.6) 50%, var(--border) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s ease-in-out infinite;
@@ -432,15 +415,9 @@
     .selftest-fail { color: var(--danger); font-weight: 600; }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
       .fight-card { opacity: 1; }
     }
-
-    /* Responsive */
     @media (max-width: 600px) {
       .summary-strip { grid-template-columns: 1fr; }
       .fight-grid { grid-template-columns: 1fr; }
@@ -459,136 +436,6 @@
       .key-panel input { min-height: 32px; }
     }
     .hidden { display: none !important; }
-
-    /* Best Bet Strip */
-    .best-bet-strip {
-      background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.04) 100%);
-      border: 1px solid var(--accent);
-      border-radius: var(--radius);
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      position: relative;
-      animation: bannerIn .25s ease-out;
-    }
-    .best-bet-label {
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent);
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .best-bet-content {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      min-width: 0;
-    }
-    .best-bet-matchup {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .best-bet-prob {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--accent);
-      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
-      flex-shrink: 0;
-    }
-    .best-bet-reason {
-      font-size: 0.75rem;
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-    .best-bet-dismiss {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 1rem;
-      line-height: 1;
-      padding: 2px 4px;
-      border-radius: 3px;
-      flex-shrink: 0;
-      transition: color .15s;
-      min-height: 0;
-    }
-    .best-bet-dismiss:hover { color: var(--text); }
-    .best-bet-tonight {
-      font-size: 0.65rem;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: rgba(245,158,11,0.15);
-      color: var(--warn);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      flex-shrink: 0;
-    }
-
-    /* Bettor's Take */
-    .bettors-take {
-      font-size: 0.78rem;
-      color: var(--muted);
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-      line-height: 1.45;
-    }
-    .bettors-take-label {
-      font-style: normal;
-      font-weight: 600;
-      color: var(--accent);
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      display: block;
-      margin-bottom: 3px;
-    }
-    .bettors-take-text {
-      font-style: italic;
-    }
-
-    /* Tonight badge */
-    .tonight-badge {
-      font-size: 0.6rem;
-      font-weight: 700;
-      padding: 2px 5px;
-      border-radius: 3px;
-      background: rgba(245,158,11,0.15);
-      color: var(--warn);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      flex-shrink: 0;
-      border: 1px solid rgba(245,158,11,0.3);
-    }
-
-    /* Value edge in popover */
-    .edge-note {
-      margin-top: 6px;
-      font-size: 0.68rem;
-      padding: 4px 6px;
-      background: rgba(16,185,129,0.06);
-      border-radius: 3px;
-      border-left: 2px solid var(--accent);
-      color: var(--accent);
-      font-style: italic;
-    }
-    .edge-note-books {
-      background: rgba(59,130,246,0.06);
-      border-left-color: var(--info);
-      color: var(--info);
-    }
-
     .skip-to-content {
       position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
       background: var(--accent); color: var(--bg); padding: 8px 16px; border-radius: var(--radius);
@@ -625,25 +472,19 @@
 
   <div id="banners" role="status" aria-live="polite"></div>
 
-  <div id="bestBetSection" class="hidden" role="complementary" aria-label="Best bet recommendation"></div>
-
   <div id="spotlightSection" class="spotlight-section hidden" aria-label="Fight Spotlight"></div>
 
   <main>
   <div class="summary-strip">
     <div class="summary-card">
       <div class="summary-title">Safest Bets</div>
-      <div class="loading-state" id="safestLoading" style="padding:20px 0;">
-        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
-      </div>
+      <div class="loading-state" id="safestLoading" style="padding:20px 0;"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div></div>
       <ul class="summary-list hidden" id="safestList" role="list"></ul>
       <p class="summary-empty hidden" id="safestEmpty">No lock-tier fights found.</p>
     </div>
     <div class="summary-card">
       <div class="summary-title">Upset Watch</div>
-      <div class="loading-state" id="upsetLoading" style="padding:20px 0;">
-        <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
-      </div>
+      <div class="loading-state" id="upsetLoading" style="padding:20px 0;"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div></div>
       <ul class="summary-list hidden" id="upsetList" role="list"></ul>
       <p class="summary-empty hidden" id="upsetEmpty">No high-upset-potential fights found.</p>
     </div>
@@ -652,6 +493,13 @@
   <div class="section-header">
     <span class="section-title">Fight Cards</span>
     <span class="count-badge hidden" id="fightCount"></span>
+  </div>
+  <div class="filter-bar" id="filterBar" role="group" aria-label="Filter fights by tier">
+    <button class="filter-btn active" data-tier="all" type="button">All</button>
+    <button class="filter-btn" data-tier="lock" type="button">Lock</button>
+    <button class="filter-btn" data-tier="lean" type="button">Lean</button>
+    <button class="filter-btn" data-tier="tossup" type="button">Toss-Up</button>
+    <button class="filter-btn" data-tier="upset" type="button">Upset</button>
   </div>
   <div id="fightGrid" class="fight-grid" role="list">
     <div class="loading-state" id="mainLoading" style="grid-column:1/-1;">
@@ -686,29 +534,24 @@ var BANNER_AUTO_DISMISS_MS = 12000;
 var POLY_MAX_PAGES     = 3;
 var POLY_PAGE_SIZE     = 50;
 
-// Spec-exact thresholds
-var DISAGREE_LOW_MAX   = 0.03;  // <3% = Strong Consensus
-var DISAGREE_MED_MAX   = 0.08;  // 3-8% = Some Disagreement
-                                 // >8% = Books Disagree Significantly
+var DISAGREE_LOW_MAX   = 0.03;
+var DISAGREE_MED_MAX   = 0.08;
+var TIER_LOCK_MIN      = 0.75;
+var TIER_LEAN_MIN      = 0.60;
+var TIER_TOSSUP_MIN    = 0.45;
+var UPSET_WARN_THRESHOLD = 50;
 
-var TIER_LOCK_MIN      = 0.75;  // >=75% = Lock
-var TIER_LEAN_MIN      = 0.60;  // 60-74% = Lean
-var TIER_TOSSUP_MIN    = 0.45;  // 45-59% = Toss-Up
-                                 // <45% = Upset Alert
+// Injected API key — auto-loaded if no key saved yet
+var INJECTED_API_KEY = '49ad12f5390df660b6bec9ec01eadaf0';
 
-var UPSET_WARN_THRESHOLD = 50;  // meter >=50 shows underdog warning
-
-// Touch detection
 var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
-// API key format validation
 function validateApiKeyFormat(key) {
   if (!key || typeof key !== 'string') return false;
   var trimmed = key.trim();
   return trimmed.length >= 8 && trimmed.length <= 128 && /^[a-zA-Z0-9_\-]+$/.test(trimmed);
 }
 
-// AbortController for request lifecycle
 var _activeController = null;
 
 // ===================================================
@@ -722,14 +565,13 @@ function sanitize(s) { if(typeof s!=='string')return'Unknown'; return s.replace(
 // ===================================================
 // CACHE
 // ===================================================
-// djb2 hash for cache integrity
 function djb2(str) {
   var hash = 5381;
   for (var i = 0; i < str.length; i++) {
     hash = ((hash << 5) + hash) + str.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
-  return hash >>> 0; // Unsigned
+  return hash >>> 0;
 }
 
 var cache = (function() {
@@ -747,9 +589,8 @@ var cache = (function() {
     try {
       sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data, hash:hash }));
     } catch(e) {
-      // QuotaExceededError — clear and retry once
       try { clearAll(); sessionStorage.setItem(key, JSON.stringify({ version:CACHE_VERSION, ts:Date.now(), data:data, hash:hash })); }
-      catch(e2) { /* give up — app works without cache */ }
+      catch(e2) {}
     }
   }
   function read(key) {
@@ -760,7 +601,6 @@ var cache = (function() {
     if (!entry||typeof entry!=='object'||entry.version!==CACHE_VERSION) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
     var ts=safeNum(entry.ts); var now=Date.now();
     if (ts===null||ts>now||now-ts>CACHE_TTL_MS) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
-    // Integrity check: verify hash matches data
     if (entry.hash !== undefined) {
       var expected = djb2(JSON.stringify(entry.data));
       if (entry.hash !== expected) { try{sessionStorage.removeItem(key);}catch(e2){} return null; }
@@ -781,32 +621,23 @@ function isUFCMarket(item) {
 }
 
 function parsePolyPage(raw) {
-  // Gamma API: flat array of markets
-  // CLOB API: { data: [...], next_cursor }
   var items=Array.isArray(raw) ? raw : (raw&&Array.isArray(raw.data) ? raw.data : null);
   if (!items) return null;
   var fights=[];
   for (var i=0;i<items.length;i++) {
     var item=items[i];
     if (!item||typeof item!=='object') continue;
-    if (item.closed) continue; // Skip resolved markets
-
-    // Extract fighter names and prices from either format
+    if (item.closed) continue;
     var f1=null, f2=null, p1r=null, p2r=null;
-
-    // Gamma API format: outcomes[] + outcomePrices[]
     if (Array.isArray(item.outcomes)&&item.outcomes.length>=2&&Array.isArray(item.outcomePrices)&&item.outcomePrices.length>=2) {
       f1=safeStr(item.outcomes[0]); f2=safeStr(item.outcomes[1]);
       p1r=parseFloat(item.outcomePrices[0]); p2r=parseFloat(item.outcomePrices[1]);
     }
-    // CLOB API format: tokens[]
     else if (Array.isArray(item.tokens)&&item.tokens.length>=2) {
       f1=safeStr(item.tokens[0].outcome); f2=safeStr(item.tokens[1].outcome);
       p1r=safeNum(item.tokens[0].price); p2r=safeNum(item.tokens[1].price);
     }
-
     if (!f1||!f2) continue;
-    // Skip Yes/No prop bets — we want fighter vs fighter
     if ((f1==='Yes'&&f2==='No')||(f1==='No'&&f2==='Yes')) continue;
     if (!isFinite(p1r)||!isFinite(p2r)||p1r<0||p1r>1||p2r<0||p2r>1) continue;
     var sum=p1r+p2r, dev=Math.abs(sum-1);
@@ -875,7 +706,6 @@ function validateOddsAPI(raw) {
 // COMPUTE
 // ===================================================
 function computeCI(probs) {
-  // Spec: mean = average implied probability, stddev = std dev, 95% CI = mean ± 1.96 × stddev
   if (!probs.length) return { lo:0.5, hi:0.5, mean:0.5 };
   var sum=0;
   for (var i=0;i<probs.length;i++) sum+=probs[i];
@@ -895,10 +725,9 @@ function riskTier(p) {
 }
 
 function upsetScore(closeness, ciWidth, disagDelta) {
-  // Spec: factors are closeness to 50/50, CI width (wider = more uncertain), source disagreement
-  var closenessFactor = clamp(1 - Math.abs(closeness - 0.5) * 2, 0, 1); // 1 at 50%, 0 at 0% or 100%
-  var ciFactor = clamp(ciWidth * 5, 0, 1); // wider CI = more uncertain
-  var disagFactor = disagDelta !== null ? clamp(disagDelta * 5, 0, 1) : 0; // higher disagreement = more upset potential
+  var closenessFactor = clamp(1 - Math.abs(closeness - 0.5) * 2, 0, 1);
+  var ciFactor = clamp(ciWidth * 5, 0, 1);
+  var disagFactor = disagDelta !== null ? clamp(disagDelta * 5, 0, 1) : 0;
   var raw = closenessFactor * 0.4 + ciFactor * 0.3 + disagFactor * 0.3;
   return clamp(Math.round(raw * 100), 0, 100);
 }
@@ -907,9 +736,7 @@ function disagreement(a,b) {
   if (a===null||b===null) return { level:'na', delta:null };
   var d=Math.abs(a-b);
   return {
-    level: d<DISAGREE_LOW_MAX ? 'low'
-         : d<=DISAGREE_MED_MAX ? 'med'
-         : 'high',
+    level: d<DISAGREE_LOW_MAX ? 'low' : d<=DISAGREE_MED_MAX ? 'med' : 'high',
     delta: d
   };
 }
@@ -924,12 +751,10 @@ function computeFight(f) {
   var fav1=cP1>=cP2;
   var favP=fav1?cP1:cP2, dogP=fav1?cP2:cP1;
   var dis=disagreement(f.polyP1!=null?f.polyP1:null, f.oddsP1!=null?f.oddsP1:null);
-  // Spec-correct CI: mean ± 1.96 × stddev across sources
   var favProbs=[];
   if (f.polyP1!=null) favProbs.push(fav1?f.polyP1:clamp(1-f.polyP1,0,1));
   if (f.oddsP1!=null) favProbs.push(fav1?f.oddsP1:clamp(1-f.oddsP1,0,1));
   var ci=computeCI(favProbs);
-  // Spec: Upset Alert when CI crosses 50% OR sources disagree significantly with thin margin
   var ciCrosses50 = ci.lo < 0.5 && ci.hi > 0.5;
   var thinMarginHighDisagree = dis.level === 'high' && favP < TIER_LEAN_MIN;
   var tier = (ciCrosses50 || thinMarginHighDisagree) ? TIER.UPSET : riskTier(favP);
@@ -940,8 +765,7 @@ function computeFight(f) {
     favProb:favP, underdogProb:dogP,
     consensusP1:cP1, consensusP2:cP2,
     americanP1:impliedToAmerican(cP1), americanP2:impliedToAmerican(cP2),
-    ci:ci,
-    tier:tier,
+    ci:ci, tier:tier,
     upset:upsetScore(dogP, ciWidth, dis.delta),
     disagree:dis,
     sources:{ poly:f.polyP1!=null, odds:f.oddsP1!=null },
@@ -952,17 +776,68 @@ function computeFight(f) {
 }
 
 // ===================================================
-// SPOTLIGHT — pick the most interesting fight
+// BETTOR'S TAKE — plain-English verdict per fight
+// ===================================================
+function bettorTake(c) {
+  var fav = sanitize(c.favName);
+  var dog = sanitize(c.dogName);
+  var fp = pct(c.favProb);
+
+  // Single source warning takes priority
+  var sourceCount = (c.sources.poly ? 1 : 0) + (c.sources.odds ? 1 : 0);
+  if (sourceCount === 1) {
+    var src = c.sources.poly ? 'Polymarket' : 'Odds API';
+    if (c.tier === TIER.UPSET) {
+      return { verdict: 'Unverified Danger Zone', css: 'upset', body: src + ' only. ' + fav + ' is listed as favorite at ' + fp + ' but no cross-validation — treat with caution before betting.' };
+    }
+    return { verdict: 'Single Source', css: 'tossup', body: src + ' only — no cross-validation available. Probability of ' + fav + ' at ' + fp + ' is unconfirmed.' };
+  }
+
+  if (c.tier === TIER.LOCK) {
+    return { verdict: 'Lock', css: 'lock', body: fav + ' is the clear favorite at ' + fp + ' with strong consensus across books. Safe to back if the line suits your unit size.' };
+  }
+  if (c.tier === TIER.LEAN) {
+    if (c.disagree.level === 'high') {
+      var pp = c.disagree.delta !== null ? Math.round(c.disagree.delta * 100) + 'pp ' : '';
+      return { verdict: 'Lean — Sharp Split', css: 'lean', body: fav + ' leads at ' + fp + ' but books diverge ' + pp + '— line movement is possible. Consider waiting for settlement.' };
+    }
+    return { verdict: 'Lean', css: 'lean', body: fav + ' holds a reasonable edge at ' + fp + ' with consensus. Acceptable value if the price is right.' };
+  }
+  if (c.tier === TIER.TOSSUP) {
+    if (c.disagree.level === 'high') {
+      var pp2 = c.disagree.delta !== null ? Math.round(c.disagree.delta * 100) + 'pp' : '';
+      return { verdict: 'Sharp Divergence', css: 'tossup', body: 'Books split ' + pp2 + ' on this coin-flip. Sharp money is disagreeing — wait for line movement before committing.' };
+    }
+    return { verdict: 'Coin Flip', css: 'tossup', body: 'Razor-thin edge for ' + fav + ' at ' + fp + '. High variance, low edge. Consider skipping or fading public money.' };
+  }
+  // UPSET
+  if (c.ci.lo < 0.5 && c.ci.hi > 0.5) {
+    return { verdict: 'Danger Zone', css: 'upset', body: fav + "'s 95% CI crosses 50% — " + dog + ' has real upset equity here. Do not bet the favorite at chalk.' };
+  }
+  return { verdict: 'Upset Alert', css: 'upset', body: dog + ' is live at ' + pct(c.underdogProb) + '. The market sees genuine upset potential — the underdog is worth a look at the right price.' };
+}
+
+// ===================================================
+// TONIGHT DETECTION
+// ===================================================
+function isTonight(commenceTime) {
+  if (!commenceTime) return false;
+  try {
+    var today = new Date().toISOString().slice(0, 10);
+    return String(commenceTime).slice(0, 10) === today;
+  } catch(e) { return false; }
+}
+
+// ===================================================
+// SPOTLIGHT
 // ===================================================
 function identifySpotlight(computed) {
   if (!computed.length) return null;
-  // Priority 1: Upset Alert with highest disagreement
   var upsets = computed.filter(function(f){ return f.tier === TIER.UPSET; });
   if (upsets.length) {
     upsets.sort(function(a,b){ return b.upset - a.upset; });
-    return { fight: upsets[0], reason: 'Upset Alert — the underdog has a real shot' };
+    return { fight: upsets[0], reason: 'Upset Alert \u2014 the underdog has a real shot' };
   }
-  // Priority 2: Highest disagreement across all fights
   var withDis = computed.filter(function(f){ return f.disagree.delta !== null; });
   if (withDis.length) {
     withDis.sort(function(a,b){ return (b.disagree.delta||0) - (a.disagree.delta||0); });
@@ -970,36 +845,28 @@ function identifySpotlight(computed) {
       return { fight: withDis[0], reason: 'Books disagree most on this fight' };
     }
   }
-  // Priority 3: Lock with lowest favProb (closest to dropping tier)
   var locks = computed.filter(function(f){ return f.tier === TIER.LOCK; });
   if (locks.length) {
     locks.sort(function(a,b){ return a.favProb - b.favProb; });
     return { fight: locks[0], reason: 'Closest lock to the lean line' };
   }
-  // Fallback: first fight
   return { fight: computed[0], reason: 'Featured fight' };
 }
 
 // ===================================================
-// EVENT GROUPING — cluster fights by commence_time
+// EVENT GROUPING
 // ===================================================
 function groupByEvent(computed) {
   var hasDate = computed.some(function(f){ return f.commenceTime; });
   if (!hasDate) {
-    // Check if only poly data (no dates)
     var allPoly = computed.every(function(f){ return !f.sources.odds; });
     return [{ name: allPoly ? 'UFC Markets' : 'Upcoming UFC', fights: computed }];
   }
-  // Group by date (YYYY-MM-DD from commence_time)
-  var groups = {};
-  var order = [];
+  var groups = {}, order = [];
   for (var i = 0; i < computed.length; i++) {
     var f = computed[i];
     var dateKey = f.commenceTime ? f.commenceTime.slice(0, 10) : 'unknown';
-    if (!groups[dateKey]) {
-      groups[dateKey] = [];
-      order.push(dateKey);
-    }
+    if (!groups[dateKey]) { groups[dateKey] = []; order.push(dateKey); }
     groups[dateKey].push(f);
   }
   order.sort();
@@ -1013,28 +880,24 @@ function formatEventDate(isoDate) {
   try {
     var d = new Date(isoDate + 'T00:00:00Z');
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return 'UFC — ' + months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
-  } catch(e) {
-    return 'Upcoming UFC';
-  }
+    return 'UFC \u2014 ' + months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+  } catch(e) { return 'Upcoming UFC'; }
 }
 
 // ===================================================
-// FETCH - Polymarket with pagination
+// FETCH
 // ===================================================
 async function fetchWithRetry(url, opts, retries) {
   var lastErr;
   for (var attempt = 0; attempt <= (retries || 0); attempt++) {
     try {
       var resp = await fetch(url, opts);
-      // Don't retry 4xx — deterministic failures
       if (resp.status >= 400 && resp.status < 500) return resp;
       if (resp.ok) return resp;
-      // 5xx — retry
       lastErr = new Error('HTTP ' + resp.status);
       if (attempt < (retries || 0)) await new Promise(function(r){setTimeout(r, 2000);});
     } catch(e) {
-      if (e && e.name === 'AbortError') throw e; // Don't retry user aborts
+      if (e && e.name === 'AbortError') throw e;
       lastErr = e;
       if (attempt < (retries || 0)) await new Promise(function(r){setTimeout(r, 2000);});
     }
@@ -1045,11 +908,7 @@ async function fetchWithRetry(url, opts, retries) {
 async function fetchPolymarket(signal) {
   var cached=cache.read(POLY_CACHE_KEY);
   if (cached!==null) return { fights:cached, error:null, fromCache:true };
-
-  var allItems=[];
-  var cursor=null;
-
-  // CLOB API: cursor pagination, returns { data, next_cursor }
+  var allItems=[], cursor=null;
   for (var page=0; page<POLY_MAX_PAGES; page++) {
     var ctrl=new AbortController();
     var timer=setTimeout(function(){ctrl.abort();},FETCH_TIMEOUT_MS);
@@ -1057,52 +916,31 @@ async function fetchPolymarket(signal) {
     try {
       var params=new URLSearchParams({ tag_slug:'ufc', active:'true', limit:String(POLY_PAGE_SIZE) });
       if (cursor) params.set('next_cursor', cursor);
-
       var resp;
       try {
-        resp=await fetchWithRetry(POLY_BASE+'/markets?'+params,
-          { signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
+        resp=await fetchWithRetry(POLY_BASE+'/markets?'+params, { signal:ctrl.signal, headers:{'Accept':'application/json'} }, 1);
       } catch(e) {
         if (allItems.length) break;
         return { fights:null, error:e&&e.name==='AbortError'?'Polymarket timed out (>8s)':'Polymarket network error: '+String(e&&e.message||e).slice(0,120) };
       }
-      if (!resp.ok) {
-        if (allItems.length) break;
-        return { fights:null, error:'Polymarket HTTP '+resp.status };
-      }
-      var body; try { body=await resp.json(); } catch(e){
-        if (allItems.length) break;
-        return { fights:null, error:'Polymarket: invalid JSON' };
-      }
-
+      if (!resp.ok) { if (allItems.length) break; return { fights:null, error:'Polymarket HTTP '+resp.status }; }
+      var body; try { body=await resp.json(); } catch(e){ if (allItems.length) break; return { fights:null, error:'Polymarket: invalid JSON' }; }
       var items=Array.isArray(body) ? body : (body&&Array.isArray(body.data) ? body.data : null);
-      if (!items) {
-        if (allItems.length) break;
-        return { fights:null, error:'Polymarket: unexpected response shape' };
-      }
+      if (!items) { if (allItems.length) break; return { fights:null, error:'Polymarket: unexpected response shape' }; }
       for (var fi=0;fi<items.length;fi++) allItems.push(items[fi]);
-
       var nextCursor=body&&body.next_cursor?safeStr(body.next_cursor):null;
       if (!nextCursor||items.length<POLY_PAGE_SIZE) break;
       cursor=nextCursor;
     } finally { clearTimeout(timer); }
   }
-
-  // Client-side UFC filter (tag_slug filter is unreliable — returns all sports)
   var ufcItems=allItems.filter(isUFCMarket);
   var fights=parsePolyPage(ufcItems);
-
   if (!fights||!fights.length) return { fights:null, error:'Polymarket: no active UFC fight markets found ('+allItems.length+' total markets checked)' };
-
-  // Deduplicate by id
-  var seen={};
-  var deduped=[];
+  var seen={}, deduped=[];
   for (var di=0;di<fights.length;di++) {
     if (seen[fights[di].id]) continue;
-    seen[fights[di].id]=true;
-    deduped.push(fights[di]);
+    seen[fights[di].id]=true; deduped.push(fights[di]);
   }
-
   cache.write(POLY_CACHE_KEY, deduped);
   return { fights:deduped, error:null, fromCache:false };
 }
@@ -1151,13 +989,11 @@ function mergeResults(poly, odds) {
     var pn1=normName(pf.f1), pn2=normName(pf.f2);
     var pl1=lastName(pf.f1), pl2=lastName(pf.f2);
     var bi=null;
-    // Pass 1: exact full-name match (case-insensitive)
     for (var j=0;j<odds.length;j++) {
       if (used[j]) continue;
       var on1=normName(odds[j].f1), on2=normName(odds[j].f2);
       if ((on1===pn1&&on2===pn2)||(on1===pn2&&on2===pn1)){ bi=j; break; }
     }
-    // Pass 2: last-name match (fallback for name format differences)
     if (bi===null) {
       for (var j2=0;j2<odds.length;j2++) {
         if (used[j2]) continue;
@@ -1173,121 +1009,6 @@ function mergeResults(poly, odds) {
 }
 
 // ===================================================
-// DECISION SUPPORT — Round 2 additions
-// ===================================================
-
-var BEST_BET_DISMISS_KEY = 'pattaya-bestbet-dismissed-v1';
-var TONIGHT_HORIZON_MS   = 36 * 60 * 60 * 1000; // 36 hours
-
-// Returns true if fight is within the next 36 hours
-function isTonight(commenceTime) {
-  if (!commenceTime || typeof commenceTime !== 'string') return false;
-  try {
-    var t = new Date(commenceTime).getTime();
-    if (!isFinite(t)) return false;
-    var now = Date.now();
-    return t >= now - 3600000 && t <= now + TONIGHT_HORIZON_MS; // started up to 1h ago or upcoming
-  } catch(e) { return false; }
-}
-
-// Returns edge direction between Poly and books for the favorite
-// fight.polyP1 is always for f1; we need to orient for the favorite
-function edgeDirection(fight) {
-  if (fight.polyP1 === null || fight.polyP1 === undefined) return null;
-  if (fight.oddsP1 === null || fight.oddsP1 === undefined) return null;
-  // Orient for the favorite (favName may be f2)
-  var f1IsFav = fight.consensusP1 >= fight.consensusP2;
-  var polyFav  = f1IsFav ? fight.polyP1  : clamp(1 - fight.polyP1, 0, 1);
-  var oddsFav  = f1IsFav ? fight.oddsP1  : clamp(1 - fight.oddsP1, 0, 1);
-  var delta    = polyFav - oddsFav; // positive = Poly higher on fav
-  if (Math.abs(delta) < 0.03) return null; // not meaningful
-  return {
-    side: delta > 0 ? 'poly' : 'books',
-    favName: sanitize(fight.favName),
-    delta: Math.abs(delta)
-  };
-}
-
-// Plain-English bettor's take — pure function, no DOM
-function bettorTake(fight) {
-  var fav  = sanitize(fight.favName  || 'Favorite');
-  var dog  = sanitize(fight.dogName  || 'Underdog');
-  var favP = Math.round((fight.favProb || 0) * 100);
-  var tier = fight.tier || 'tossup';
-  var dis  = fight.disagree || { level: 'na', delta: null };
-  var upset = clamp(fight.upset, 0, 100);
-  var edge = edgeDirection(fight);
-  var tonight = isTonight(fight.commenceTime);
-  var prefix = tonight ? 'Tonight: ' : '';
-
-  if (tier === 'lock') {
-    if (dis.level === 'low' || dis.level === 'na') {
-      return prefix + 'Strong lock. ' + fav + ' at ' + favP + '% with full source consensus. Low variance — safe bet.';
-    } else if (dis.level === 'med') {
-      var dp = edge ? (Math.round(edge.delta * 100) + 'pp edge from ' + (edge.side === 'poly' ? 'Poly' : 'books')) : 'minor split';
-      return prefix + 'Lock on paper, but sources split (' + dp + '). ' + fav + ' still the play, watch for line movement.';
-    } else {
-      var ddir = edge ? (edge.side === 'poly' ? 'Poly favors ' + fav + ' harder' : 'Books favor ' + fav + ' harder') : 'significant split';
-      return prefix + 'Lock tier but books disagree significantly. ' + ddir + '. ' + fav + ' leads at ' + favP + '%.';
-    }
-  }
-
-  if (tier === 'lean') {
-    if (dis.level === 'low' || dis.level === 'na') {
-      return prefix + 'Reasonable lean on ' + fav + ' (' + favP + '%). Consensus holds, moderate edge.';
-    } else if (dis.level === 'med') {
-      return prefix + 'Soft lean — sources partially split. ' + fav + ' at ' + favP + '%. Acceptable risk.';
-    } else {
-      var edgeTxt = edge ? (edge.side === 'poly' ? 'Poly sees more value on ' + fav : 'Books see more value on ' + fav) : 'check both sources';
-      return prefix + 'Lean with caution — books disagree significantly. ' + edgeTxt + '. High-information bet.';
-    }
-  }
-
-  if (tier === 'tossup') {
-    if (upset > 60) {
-      return prefix + dog + ' has real upset potential (' + upset + '/100). Coin flip — if you bet, take the dog for value.';
-    }
-    return prefix + 'Even fight. Neither side has a convincing edge. Skip or take the ' + dog + ' for the plus-money.';
-  }
-
-  if (tier === 'upset') {
-    if (dis.level === 'high' && edge) {
-      return prefix + 'Danger zone — CI crosses 50%, sources split. ' + (edge.side === 'poly' ? 'Poly' : 'Books') + ' leans ' + fav + ' but ' + dog + ' is a live dog.';
-    }
-    return prefix + 'High-variance fight. CI crosses 50% — either fighter wins. ' + dog + ' at +odds may be the edge.';
-  }
-
-  return prefix + 'Insufficient data to form a strong opinion.';
-}
-
-// Identify best bet from all computed fights
-function bestBet(computed) {
-  if (!computed || !computed.length) return null;
-  var candidates = computed.filter(function(f) {
-    return f.tier === 'lock' || f.tier === 'lean';
-  });
-  if (!candidates.length) candidates = computed.slice();
-  // Sort: lock > lean > tossup > upset, then favProb, then tonight bonus
-  var tierOrder = { lock: 0, lean: 1, tossup: 2, upset: 3 };
-  candidates.sort(function(a, b) {
-    var ta = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 4;
-    var tb = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 4;
-    if (ta !== tb) return ta - tb;
-    // Tonight bonus: fights happening tonight score higher
-    var aTon = isTonight(a.commenceTime) ? 1 : 0;
-    var bTon = isTonight(b.commenceTime) ? 1 : 0;
-    if (bTon !== aTon) return bTon - aTon;
-    // Low disagreement preferred
-    var disOrder = { low: 0, med: 1, high: 2, na: 1 };
-    var da = disOrder[a.disagree.level] !== undefined ? disOrder[a.disagree.level] : 1;
-    var db = disOrder[b.disagree.level] !== undefined ? disOrder[b.disagree.level] : 1;
-    if (da !== db) return da - db;
-    return b.favProb - a.favProb;
-  });
-  return candidates[0] || null;
-}
-
-// ===================================================
 // DOM HELPERS
 // ===================================================
 function $(id) { return document.getElementById(id); }
@@ -1295,10 +1016,8 @@ var bannersEl=$('banners'), fightGridEl=$('fightGrid'), mainLoadEl=$('mainLoadin
     fightCountEl=$('fightCount'), safestListEl=$('safestList'), safestEmptyEl=$('safestEmpty'),
     safestLoadEl=$('safestLoading'), upsetListEl=$('upsetList'), upsetEmptyEl=$('upsetEmpty'),
     upsetLoadEl=$('upsetLoading'), lastUpdEl=$('lastUpdated'), quotaBadgeEl=$('quotaBadge'),
-    skeletonGridEl=$('skeletonGrid'), spotlightEl=$('spotlightSection'),
-    bestBetEl=$('bestBetSection');
+    skeletonGridEl=$('skeletonGrid'), spotlightEl=$('spotlightSection');
 
-// Track open popovers globally for dismiss
 var activePopover = null;
 
 function clearBanners() { while(bannersEl.firstChild)bannersEl.removeChild(bannersEl.firstChild); }
@@ -1318,14 +1037,11 @@ function addBanner(type,title,msg,autoDismiss) {
   if(title){var t=document.createElement('div');t.className='banner-title';t.textContent=title;bd.appendChild(t);}
   if(msg){var m=document.createElement('div');m.textContent=msg;bd.appendChild(m);}
   d.appendChild(bd);
-
   var cls=document.createElement('button'); cls.className='banner-close'; cls.type='button';
   cls.setAttribute('aria-label','Dismiss'); cls.textContent='\u00D7';
   cls.addEventListener('click',function(){dismissBanner(d);});
   d.appendChild(cls);
-
   bannersEl.appendChild(d);
-
   if (autoDismiss!==false && (type==='info'||type==='success')) {
     setTimeout(function(){dismissBanner(d);}, BANNER_AUTO_DISMISS_MS);
   }
@@ -1372,29 +1088,18 @@ function makeMeter(u, dogName) {
   var fl=document.createElement('div'); fl.className='meter-fill'; fl.style.width=clamp(u,0,100)+'%';
   var pct100=clamp(u,0,100); fl.style.background=pct100<30?'var(--lock)':pct100<60?'var(--warn)':'var(--danger)';
   tr.appendChild(fl); w.appendChild(tr);
-
-  // Upset warning when meter >= 50 (CSS-based icon instead of emoji)
   if (pct100>=UPSET_WARN_THRESHOLD && dogName) {
-    var warn=document.createElement('div');
-    warn.className='upset-warning';
-    var icon=document.createElement('span');
-    icon.className='upset-warning-icon';
-    icon.setAttribute('aria-hidden','true');
+    var warn=document.createElement('div'); warn.className='upset-warning';
+    var icon=document.createElement('span'); icon.className='upset-warning-icon'; icon.setAttribute('aria-hidden','true');
     warn.appendChild(icon);
-    var txt=document.createElement('span');
-    txt.textContent=sanitize(dogName) + ' can win this';
-    warn.appendChild(txt);
-    w.appendChild(warn);
+    var txt=document.createElement('span'); txt.textContent=sanitize(dogName) + ' can win this';
+    warn.appendChild(txt); w.appendChild(warn);
   }
-
   return w;
 }
 
 function makeSourcePopover(c) {
-  var pop=document.createElement('div');
-  pop.className='source-popover';
-  pop.setAttribute('role','tooltip');
-
+  var pop=document.createElement('div'); pop.className='source-popover'; pop.setAttribute('role','tooltip');
   if (c.sources.poly) {
     var r1=document.createElement('div'); r1.className='source-popover-row';
     var n1=document.createElement('span'); n1.className='source-popover-name'; n1.textContent='Polymarket'; r1.appendChild(n1);
@@ -1407,29 +1112,11 @@ function makeSourcePopover(c) {
     var v2=document.createElement('span'); v2.className='source-popover-value'; v2.textContent=pct(c.oddsP1 != null ? c.oddsP1 : 0); r2.appendChild(v2);
     pop.appendChild(r2);
   }
-
   var sourceCount = (c.sources.poly ? 1 : 0) + (c.sources.odds ? 1 : 0);
   if (sourceCount === 1) {
-    var note=document.createElement('div');
-    note.className='source-popover-note';
-    note.textContent='Single source — no cross-validation available';
-    pop.appendChild(note);
+    var note=document.createElement('div'); note.className='source-popover-note';
+    note.textContent='Single source \u2014 no cross-validation available'; pop.appendChild(note);
   }
-
-  // Value edge direction note
-  var edge = edgeDirection(c);
-  if (edge) {
-    var en = document.createElement('div');
-    en.className = 'edge-note' + (edge.side === 'books' ? ' edge-note-books' : '');
-    var deltaStr = Math.round(edge.delta * 100) + 'pp';
-    if (edge.side === 'poly') {
-      en.textContent = 'Poly favors ' + edge.favName + ' by +' + deltaStr + ' vs books — sharper edge here';
-    } else {
-      en.textContent = 'Books favor ' + edge.favName + ' by +' + deltaStr + ' vs Poly — sportsbook edge';
-    }
-    pop.appendChild(en);
-  }
-
   return pop;
 }
 
@@ -1447,65 +1134,87 @@ function makeDisagreeRow(dis,sources,fightData) {
   var pt=document.createElement('span'); pt.className='source-tag '+(sources.poly?'source-tag-ok':'source-tag-err'); pt.textContent='Poly'; tg.appendChild(pt);
   var ot=document.createElement('span'); ot.className='source-tag '+(sources.odds?'source-tag-ok':'source-tag-err'); ot.textContent='Odds'; tg.appendChild(ot);
   row.appendChild(tg);
-
-  // Source detail popover
   if (fightData) {
     var popover = makeSourcePopover(fightData);
     row.appendChild(popover);
-
     if (IS_TOUCH) {
-      // Touch: click to toggle
       row.addEventListener('click', function(e) {
         e.stopPropagation();
         var isVisible = popover.classList.contains('visible');
         dismissActivePopover();
-        if (!isVisible) {
-          popover.classList.add('visible');
-          activePopover = popover;
-        }
+        if (!isVisible) { popover.classList.add('visible'); activePopover = popover; }
       });
     } else {
-      // Desktop: hover to reveal
-      row.addEventListener('mouseenter', function() {
-        dismissActivePopover();
-        popover.classList.add('visible');
-        activePopover = popover;
-      });
-      row.addEventListener('mouseleave', function() {
-        popover.classList.remove('visible');
-        if (activePopover === popover) activePopover = null;
-      });
+      row.addEventListener('mouseenter', function() { dismissActivePopover(); popover.classList.add('visible'); activePopover = popover; });
+      row.addEventListener('mouseleave', function() { popover.classList.remove('visible'); if (activePopover === popover) activePopover = null; });
     }
-
-    // Keyboard: Enter/Space to toggle
     row.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         var isVisible = popover.classList.contains('visible');
         dismissActivePopover();
-        if (!isVisible) {
-          popover.classList.add('visible');
-          activePopover = popover;
-        }
-      } else if (e.key === 'Escape') {
-        popover.classList.remove('visible');
-        if (activePopover === popover) activePopover = null;
-      }
+        if (!isVisible) { popover.classList.add('visible'); activePopover = popover; }
+      } else if (e.key === 'Escape') { popover.classList.remove('visible'); if (activePopover === popover) activePopover = null; }
     });
   }
-
   return row;
 }
 
 function dismissActivePopover() {
-  if (activePopover) {
-    activePopover.classList.remove('visible');
-    activePopover = null;
-  }
+  if (activePopover) { activePopover.classList.remove('visible'); activePopover = null; }
 }
 
-// Dismiss popover on outside click
 document.addEventListener('click', function() { dismissActivePopover(); });
+
+function makeBettorsTake(c) {
+  var take = bettorTake(c);
+  var wrap = document.createElement('div');
+  wrap.className = 'bettor-take';
+
+  var toggle = document.createElement('button');
+  toggle.className = 'take-toggle';
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', "Bettor's Take for " + sanitize(c.f1) + ' vs ' + sanitize(c.f2));
+
+  var label = document.createElement('span');
+  label.textContent = "Bettor\u2019s Take";
+  var chev = document.createElement('span');
+  chev.className = 'take-chevron';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.textContent = '\u25B8';
+  toggle.appendChild(label);
+  toggle.appendChild(chev);
+
+  var body = document.createElement('div');
+  body.className = 'take-body hidden';
+
+  var verdictEl = document.createElement('span');
+  verdictEl.className = 'take-verdict take-verdict-' + take.css;
+  verdictEl.textContent = take.verdict;
+  body.appendChild(verdictEl);
+
+  var bodyText = document.createTextNode(take.body);
+  body.appendChild(bodyText);
+
+  toggle.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    if (expanded) {
+      body.classList.add('hidden');
+      toggle.setAttribute('aria-expanded', 'false');
+      chev.classList.remove('open');
+    } else {
+      body.classList.remove('hidden');
+      toggle.setAttribute('aria-expanded', 'true');
+      chev.classList.add('open');
+    }
+  });
+
+  wrap.appendChild(toggle);
+  wrap.appendChild(body);
+  return wrap;
+}
 
 function renderCard(c, index) {
   var tierLabels={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
@@ -1516,7 +1225,6 @@ function renderCard(c, index) {
   var hdr=document.createElement('div'); hdr.className='fight-header';
   var mu=document.createElement('div'); mu.className='fight-matchup';
 
-  // Determine fav/dog for coloring
   var f1IsFav = c.consensusP1 >= c.consensusP2;
   var isEven = Math.abs(c.consensusP1 - c.consensusP2) < 0.01;
 
@@ -1540,45 +1248,26 @@ function renderCard(c, index) {
   if (a2) { var od2=document.createElement('span'); od2.className='fighter-odds'; od2.textContent=a2; r2.appendChild(od2); }
   mu.appendChild(r2); hdr.appendChild(mu);
 
+  // Badges column (tier + optional tonight)
+  var badges = document.createElement('div');
+  badges.className = 'fight-header-badges';
   var tb=document.createElement('span');
   var tl={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
-  tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
-
-  // Tonight badge
+  tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; badges.appendChild(tb);
   if (isTonight(c.commenceTime)) {
-    var tnb = document.createElement('span');
-    tnb.className = 'tonight-badge';
-    tnb.setAttribute('aria-label', 'Fight is happening tonight');
-    tnb.textContent = 'Tonight';
-    hdr.appendChild(tnb);
+    var tn = document.createElement('span');
+    tn.className = 'tonight-badge'; tn.textContent = 'Tonight';
+    badges.appendChild(tn);
   }
-
+  hdr.appendChild(badges);
   card.appendChild(hdr);
   card.appendChild(makeCIBar(c.ci,c.favProb));
   card.appendChild(makeMeter(c.upset, c.dogName));
   card.appendChild(makeDisagreeRow(c.disagree,c.sources,c));
+  card.appendChild(makeBettorsTake(c));
 
-  // Bettor's Take
-  var take = bettorTake(c);
-  if (take) {
-    var btDiv = document.createElement('div');
-    btDiv.className = 'bettors-take';
-    var btLabel = document.createElement('span');
-    btLabel.className = 'bettors-take-label';
-    btLabel.textContent = "Bettor's Take";
-    btDiv.appendChild(btLabel);
-    var btText = document.createElement('span');
-    btText.className = 'bettors-take-text';
-    btText.textContent = take;
-    btDiv.appendChild(btText);
-    card.appendChild(btDiv);
-  }
-
-  // Keyboard: Escape dismisses popover
   card.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      dismissActivePopover();
-    }
+    if (e.key === 'Escape') { dismissActivePopover(); }
   });
 
   return card;
@@ -1588,157 +1277,43 @@ function renderSpotlight(computed) {
   spotlightEl.innerHTML = '';
   var spot = identifySpotlight(computed);
   if (!spot) { spotlightEl.classList.add('hidden'); return; }
-
   spotlightEl.classList.remove('hidden');
-  var card = document.createElement('div');
-  card.className = 'spotlight-card';
-
-  var label = document.createElement('div');
-  label.className = 'spotlight-label';
-  label.textContent = 'Fight Spotlight';
-  card.appendChild(label);
-
-  var matchup = document.createElement('div');
-  matchup.className = 'spotlight-matchup';
-  matchup.textContent = spot.fight.f1 + ' vs ' + spot.fight.f2;
-  card.appendChild(matchup);
-
-  var reason = document.createElement('div');
-  reason.className = 'spotlight-reason';
-  reason.textContent = spot.reason;
-  card.appendChild(reason);
-
-  var stats = document.createElement('div');
-  stats.className = 'spotlight-stats';
-
-  // Tier stat
-  var tierStat = document.createElement('div');
-  tierStat.className = 'spotlight-stat';
-  var tierLabel = document.createElement('span');
-  tierLabel.className = 'spotlight-stat-label';
-  tierLabel.textContent = 'Tier';
-  tierStat.appendChild(tierLabel);
-  var tierVal = document.createElement('span');
-  tierVal.className = 'spotlight-stat-value';
+  var card = document.createElement('div'); card.className = 'spotlight-card';
+  var label = document.createElement('div'); label.className = 'spotlight-label'; label.textContent = 'Fight Spotlight'; card.appendChild(label);
+  var matchup = document.createElement('div'); matchup.className = 'spotlight-matchup'; matchup.textContent = spot.fight.f1 + ' vs ' + spot.fight.f2; card.appendChild(matchup);
+  var reason = document.createElement('div'); reason.className = 'spotlight-reason'; reason.textContent = spot.reason; card.appendChild(reason);
+  var stats = document.createElement('div'); stats.className = 'spotlight-stats';
+  var tierStat = document.createElement('div'); tierStat.className = 'spotlight-stat';
+  var tierLabel = document.createElement('span'); tierLabel.className = 'spotlight-stat-label'; tierLabel.textContent = 'Tier'; tierStat.appendChild(tierLabel);
+  var tierVal = document.createElement('span'); tierVal.className = 'spotlight-stat-value';
   var tierNames = {lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
   tierVal.textContent = tierNames[spot.fight.tier] || spot.fight.tier;
-  tierVal.style.color = 'var(--' + spot.fight.tier + ')';
-  tierStat.appendChild(tierVal);
-  stats.appendChild(tierStat);
-
-  // Fav prob stat
-  var favStat = document.createElement('div');
-  favStat.className = 'spotlight-stat';
-  var favLabel = document.createElement('span');
-  favLabel.className = 'spotlight-stat-label';
-  favLabel.textContent = 'Favorite';
-  favStat.appendChild(favLabel);
-  var favVal = document.createElement('span');
-  favVal.className = 'spotlight-stat-value';
-  favVal.style.color = 'var(--fav-color)';
-  favVal.textContent = spot.fight.favName + ' ' + pct(spot.fight.favProb);
-  favStat.appendChild(favVal);
-  stats.appendChild(favStat);
-
-  // Upset score stat
-  var upsetStat = document.createElement('div');
-  upsetStat.className = 'spotlight-stat';
-  var upsetLabel = document.createElement('span');
-  upsetLabel.className = 'spotlight-stat-label';
-  upsetLabel.textContent = 'Upset Score';
-  upsetStat.appendChild(upsetLabel);
-  var upsetVal = document.createElement('span');
-  upsetVal.className = 'spotlight-stat-value';
+  tierVal.style.color = 'var(--' + spot.fight.tier + ')'; tierStat.appendChild(tierVal); stats.appendChild(tierStat);
+  var favStat = document.createElement('div'); favStat.className = 'spotlight-stat';
+  var favLabel = document.createElement('span'); favLabel.className = 'spotlight-stat-label'; favLabel.textContent = 'Favorite'; favStat.appendChild(favLabel);
+  var favVal = document.createElement('span'); favVal.className = 'spotlight-stat-value'; favVal.style.color = 'var(--fav-color)';
+  favVal.textContent = spot.fight.favName + ' ' + pct(spot.fight.favProb); favStat.appendChild(favVal); stats.appendChild(favStat);
+  var upsetStat = document.createElement('div'); upsetStat.className = 'spotlight-stat';
+  var upsetLabel = document.createElement('span'); upsetLabel.className = 'spotlight-stat-label'; upsetLabel.textContent = 'Upset Score'; upsetStat.appendChild(upsetLabel);
+  var upsetVal = document.createElement('span'); upsetVal.className = 'spotlight-stat-value';
   upsetVal.textContent = spot.fight.upset + '/100';
-  upsetVal.style.color = spot.fight.upset >= 50 ? 'var(--danger)' : 'var(--warn)';
-  upsetStat.appendChild(upsetVal);
-  stats.appendChild(upsetStat);
-
-  card.appendChild(stats);
-  spotlightEl.appendChild(card);
-}
-
-function renderBestBet(computed) {
-  bestBetEl.innerHTML = '';
-  // Check if user dismissed this session
-  var dismissed = false;
-  try { dismissed = !!sessionStorage.getItem(BEST_BET_DISMISS_KEY); } catch(e) {}
-  if (dismissed) { bestBetEl.classList.add('hidden'); return; }
-
-  var pick = bestBet(computed);
-  if (!pick) { bestBetEl.classList.add('hidden'); return; }
-
-  bestBetEl.classList.remove('hidden');
-  var strip = document.createElement('div');
-  strip.className = 'best-bet-strip';
-  strip.setAttribute('aria-label', "Best bet: " + pick.favName + " vs " + pick.dogName);
-
-  var lbl = document.createElement('span');
-  lbl.className = 'best-bet-label';
-  lbl.textContent = "Best Bet";
-  strip.appendChild(lbl);
-
-  var content = document.createElement('div');
-  content.className = 'best-bet-content';
-
-  var matchup = document.createElement('span');
-  matchup.className = 'best-bet-matchup';
-  matchup.textContent = sanitize(pick.favName) + ' to win';
-  content.appendChild(matchup);
-
-  var probEl = document.createElement('span');
-  probEl.className = 'best-bet-prob';
-  probEl.textContent = pct(pick.favProb) + ' (' + (pick.americanP1 !== null ? (pick.consensusP1 >= pick.consensusP2 ? formatAmerican(pick.americanP1) : formatAmerican(pick.americanP2)) : '—') + ')';
-  content.appendChild(probEl);
-
-  var tierNames = {lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
-  var reason = document.createElement('span');
-  reason.className = 'best-bet-reason';
-  var disText = {low:'consensus',med:'soft split',high:'split books',na:'single source'}[pick.disagree.level] || '';
-  reason.textContent = (tierNames[pick.tier] || pick.tier) + (disText ? ' · ' + disText : '');
-  content.appendChild(reason);
-
-  if (isTonight(pick.commenceTime)) {
-    var tonEl = document.createElement('span');
-    tonEl.className = 'best-bet-tonight';
-    tonEl.textContent = 'Tonight';
-    content.appendChild(tonEl);
-  }
-
-  strip.appendChild(content);
-
-  var dismiss = document.createElement('button');
-  dismiss.className = 'best-bet-dismiss';
-  dismiss.type = 'button';
-  dismiss.setAttribute('aria-label', 'Dismiss best bet recommendation');
-  dismiss.textContent = '\u00D7';
-  dismiss.addEventListener('click', function() {
-    try { sessionStorage.setItem(BEST_BET_DISMISS_KEY, '1'); } catch(e) {}
-    bestBetEl.classList.add('hidden');
-  });
-  strip.appendChild(dismiss);
-
-  bestBetEl.appendChild(strip);
+  upsetVal.style.color = spot.fight.upset >= 50 ? 'var(--danger)' : 'var(--warn)'; upsetStat.appendChild(upsetVal); stats.appendChild(upsetStat);
+  card.appendChild(stats); spotlightEl.appendChild(card);
 }
 
 function showSkeletons(count) {
   while(skeletonGridEl.firstChild) skeletonGridEl.removeChild(skeletonGridEl.firstChild);
   for (var i=0; i<count; i++) {
     var card=document.createElement('div'); card.className='skeleton-card';
-    var l1=document.createElement('div'); l1.className='skeleton-line skeleton-line-wide'; card.appendChild(l1);
-    var l2=document.createElement('div'); l2.className='skeleton-line skeleton-line-med'; card.appendChild(l2);
-    var l3=document.createElement('div'); l3.className='skeleton-line skeleton-line-bar'; card.appendChild(l3);
-    var l4=document.createElement('div'); l4.className='skeleton-line skeleton-line-short'; card.appendChild(l4);
-    var l5=document.createElement('div'); l5.className='skeleton-line skeleton-line-wide'; card.appendChild(l5);
-    var l6=document.createElement('div'); l6.className='skeleton-line skeleton-line-bar'; card.appendChild(l6);
+    ['wide','med','bar','short','wide','bar'].forEach(function(sz){
+      var l=document.createElement('div'); l.className='skeleton-line skeleton-line-'+sz; card.appendChild(l);
+    });
     skeletonGridEl.appendChild(card);
   }
   skeletonGridEl.style.display='';
 }
 
-function hideSkeletons() {
-  skeletonGridEl.style.display='none';
-}
+function hideSkeletons() { skeletonGridEl.style.display='none'; }
 
 function renderSummary(computed) {
   safestLoadEl.classList.add('hidden'); upsetLoadEl.classList.add('hidden');
@@ -1747,12 +1322,11 @@ function renderSummary(computed) {
   else {
     safestListEl.classList.remove('hidden'); while(safestListEl.firstChild)safestListEl.removeChild(safestListEl.firstChild);
     for(var i=0;i<safest.length;i++){
-      var f=safest[i];
-      var li=document.createElement('li');li.className='summary-item';
-      var d=document.createElement('span');d.className='summary-dot';d.style.background='var(--lock)';li.appendChild(d);
-      var nm=document.createElement('span');nm.className='summary-name';nm.textContent=f.favName;li.appendChild(nm);
-      var vsSpan=document.createElement('span');vsSpan.className='summary-vs';vsSpan.textContent='vs '+f.dogName;li.appendChild(vsSpan);
-      var pr=document.createElement('span');pr.className='summary-prob';pr.textContent=pct(f.favProb);li.appendChild(pr);
+      var f=safest[i]; var li=document.createElement('li'); li.className='summary-item';
+      var d=document.createElement('span'); d.className='summary-dot'; d.style.background='var(--lock)'; li.appendChild(d);
+      var nm=document.createElement('span'); nm.className='summary-name'; nm.textContent=f.favName; li.appendChild(nm);
+      var vsSpan=document.createElement('span'); vsSpan.className='summary-vs'; vsSpan.textContent='vs '+f.dogName; li.appendChild(vsSpan);
+      var pr=document.createElement('span'); pr.className='summary-prob'; pr.textContent=pct(f.favProb); li.appendChild(pr);
       safestListEl.appendChild(li);
     }
   }
@@ -1761,15 +1335,25 @@ function renderSummary(computed) {
   else {
     upsetListEl.classList.remove('hidden'); while(upsetListEl.firstChild)upsetListEl.removeChild(upsetListEl.firstChild);
     for(var j=0;j<upsets.length;j++){
-      var uf=upsets[j];
-      var uli=document.createElement('li');uli.className='summary-item';
-      var ud=document.createElement('span');ud.className='summary-dot';ud.style.background=uf.tier===TIER.UPSET?'var(--upset)':'var(--tossup)';uli.appendChild(ud);
-      var unm=document.createElement('span');unm.className='summary-name';unm.textContent=uf.dogName;uli.appendChild(unm);
-      var uvsSpan=document.createElement('span');uvsSpan.className='summary-vs';uvsSpan.textContent='vs '+uf.favName;uli.appendChild(uvsSpan);
-      var usc=document.createElement('span');usc.className='summary-prob';usc.textContent=uf.upset+'/100';uli.appendChild(usc);
+      var uf=upsets[j]; var uli=document.createElement('li'); uli.className='summary-item';
+      var ud=document.createElement('span'); ud.className='summary-dot'; ud.style.background=uf.tier===TIER.UPSET?'var(--upset)':'var(--tossup)'; uli.appendChild(ud);
+      var unm=document.createElement('span'); unm.className='summary-name'; unm.textContent=uf.dogName; uli.appendChild(unm);
+      var uvsSpan=document.createElement('span'); uvsSpan.className='summary-vs'; uvsSpan.textContent='vs '+uf.favName; uli.appendChild(uvsSpan);
+      var usc=document.createElement('span'); usc.className='summary-prob'; usc.textContent=uf.upset+'/100'; uli.appendChild(usc);
       upsetListEl.appendChild(uli);
     }
   }
+}
+
+// ===================================================
+// FILTER STATE
+// ===================================================
+var activeFilter = 'all';
+var lastComputed = [];
+
+function applyFilter(computed, filter) {
+  if (!filter || filter === 'all') return computed;
+  return computed.filter(function(f) { return f.tier === filter; });
 }
 
 function renderFights(computed) {
@@ -1777,32 +1361,31 @@ function renderFights(computed) {
   hideSkeletons();
   var old=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
   for(var r=0;r<old.length;r++) old[r].remove();
-  if (!computed.length) {
+
+  var filtered = applyFilter(computed, activeFilter);
+
+  if (!filtered.length) {
     fightCountEl.classList.add('hidden');
-    var em=document.createElement('div'); em.className='empty-state'; em.textContent='No active UFC markets found. Check back closer to fight night.'; fightGridEl.appendChild(em);
+    var em=document.createElement('div'); em.className='empty-state';
+    em.textContent = activeFilter === 'all'
+      ? 'No active UFC markets found. Check back closer to fight night.'
+      : 'No ' + activeFilter + '-tier fights found. Try a different filter.';
+    fightGridEl.appendChild(em);
     return;
   }
-  fightCountEl.classList.remove('hidden'); fightCountEl.textContent=computed.length+' fight'+(computed.length!==1?'s':'');
-  var to={lock:0,lean:1,tossup:2,upset:3};
-  var sorted=computed.slice().sort(function(a,b){ var ta=to[a.tier]!==undefined?to[a.tier]:4, tb=to[b.tier]!==undefined?to[b.tier]:4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
+  var total = computed.length;
+  fightCountEl.classList.remove('hidden');
+  fightCountEl.textContent = (filtered.length < total ? filtered.length + ' of ' + total : total) + ' fight' + (total !== 1 ? 's' : '');
 
-  // Group by event
+  var to={lock:0,lean:1,tossup:2,upset:3};
+  var sorted=filtered.slice().sort(function(a,b){ var ta=to[a.tier]!==undefined?to[a.tier]:4, tb=to[b.tier]!==undefined?to[b.tier]:4; return ta!==tb?ta-tb:b.favProb-a.favProb; });
   var groups = groupByEvent(sorted);
   var cardIndex = 0;
-
   for (var g = 0; g < groups.length; g++) {
-    // Insert event group header if multiple groups
     if (groups.length > 1) {
-      var gh = document.createElement('div');
-      gh.className = 'event-group-header';
-      var gn = document.createElement('span');
-      gn.className = 'event-group-name';
-      gn.textContent = groups[g].name;
-      gh.appendChild(gn);
-      var gc = document.createElement('span');
-      gc.className = 'event-group-count';
-      gc.textContent = groups[g].fights.length + ' fight' + (groups[g].fights.length !== 1 ? 's' : '');
-      gh.appendChild(gc);
+      var gh = document.createElement('div'); gh.className = 'event-group-header';
+      var gn = document.createElement('span'); gn.className = 'event-group-name'; gn.textContent = groups[g].name; gh.appendChild(gn);
+      var gc = document.createElement('span'); gc.className = 'event-group-count'; gc.textContent = groups[g].fights.length + ' fight' + (groups[g].fights.length !== 1 ? 's' : ''); gh.appendChild(gc);
       fightGridEl.appendChild(gh);
     }
     for (var i = 0; i < groups[g].fights.length; i++) {
@@ -1822,9 +1405,7 @@ function updateQuotaBadge(quota) {
 }
 
 function showAllFailed() {
-  mainLoadEl.classList.add('hidden');
-  hideSkeletons();
-  spotlightEl.classList.add('hidden');
+  mainLoadEl.classList.add('hidden'); hideSkeletons(); spotlightEl.classList.add('hidden');
   safestLoadEl.classList.add('hidden'); safestEmptyEl.classList.remove('hidden');
   upsetLoadEl.classList.add('hidden'); upsetEmptyEl.classList.remove('hidden');
   addBanner('danger','No data available','All data sources failed. Check your network and API key, then refresh.', false);
@@ -1854,7 +1435,6 @@ var isRunning=false;
 
 async function run(force) {
   if (isRunning) {
-    // Abort current run and reschedule
     if (_activeController) _activeController.abort();
     isRunning=false;
     setTimeout(function(){ run(force); }, 0);
@@ -1862,25 +1442,20 @@ async function run(force) {
   }
   isRunning=true;
   refreshBtn.setAttribute('disabled','');
-
-  // Create a new AbortController for this run
   if (_activeController) _activeController.abort();
   _activeController=new AbortController();
   var signal=_activeController.signal;
-
   try {
     clearBanners();
     var oldCards=fightGridEl.querySelectorAll('.fight-card,.empty-state,.event-group-header');
     for(var r=0;r<oldCards.length;r++) oldCards[r].remove();
     mainLoadEl.classList.remove('hidden');
     showSkeletons(6);
-    bestBetEl.classList.add('hidden');
     spotlightEl.classList.add('hidden');
     safestLoadEl.classList.remove('hidden'); safestListEl.classList.add('hidden'); safestEmptyEl.classList.add('hidden');
     upsetLoadEl.classList.remove('hidden'); upsetListEl.classList.add('hidden'); upsetEmptyEl.classList.add('hidden');
     if (force) cache.clearAll();
 
-    // Offline detection: try cached data if navigator says offline
     if (typeof navigator.onLine!=='undefined'&&!navigator.onLine) {
       var cachedPoly=cache.read(POLY_CACHE_KEY);
       var cachedOdds=cache.read(ODDS_CACHE_KEY);
@@ -1888,7 +1463,8 @@ async function run(force) {
         addBanner('warn','Offline','Showing cached data. Connect to the internet and refresh for live odds.', false);
         var merged=mergeResults(cachedPoly, cachedOdds);
         var computed=merged.map(computeFight).filter(Boolean);
-        renderBestBet(computed); renderSpotlight(computed); renderSummary(computed); renderFights(computed);
+        lastComputed = computed;
+        renderSpotlight(computed); renderSummary(computed); renderFights(computed);
         lastUpdEl.textContent='Cached data (offline)'; lastUpdEl.classList.remove('hidden');
         return;
       }
@@ -1902,11 +1478,9 @@ async function run(force) {
       apiKey?fetchOddsAPI(apiKey, signal):Promise.resolve({fights:null,error:null,quotaRemaining:null})
     ]);
 
-    // If aborted mid-flight, bail out silently
     if (signal.aborted) return;
 
     var polyRes=results[0], oddsRes=results[1];
-
     if (polyRes.error) addBanner('warn','Polymarket unavailable',polyRes.error, false);
     if (apiKey&&oddsRes.error&&oddsRes.error!=='No API key') addBanner('warn','Odds API unavailable',oddsRes.error, false);
 
@@ -1916,13 +1490,13 @@ async function run(force) {
 
     if (!polyRes.fights&&!oddsRes.fights) { showAllFailed(); return; }
 
-    var merged=mergeResults(polyRes.fights, oddsRes.fights);
-    var computed=merged.map(computeFight).filter(Boolean);
+    var merged2=mergeResults(polyRes.fights, oddsRes.fights);
+    var computed2=merged2.map(computeFight).filter(Boolean);
+    lastComputed = computed2;
 
-    renderBestBet(computed);
-    renderSpotlight(computed);
-    renderSummary(computed);
-    renderFights(computed);
+    renderSpotlight(computed2);
+    renderSummary(computed2);
+    renderFights(computed2);
 
     var now=new Date(); lastUpdEl.textContent='Updated '+now.toLocaleTimeString(); lastUpdEl.classList.remove('hidden');
 
@@ -1931,27 +1505,21 @@ async function run(force) {
     if (oddsRes.fromCache) cachedSources.push('Odds API');
     if (cachedSources.length) addBanner('info',null,'Using cached data: '+cachedSources.join(', ')+' (15-min TTL). Click Refresh to force reload.');
   } catch(e) {
-    if (e&&e.name==='AbortError') return; // Silently bail on abort
+    if (e&&e.name==='AbortError') return;
     throw e;
   } finally {
-    _activeController=null;
-    isRunning=false;
-    refreshBtn.removeAttribute('disabled');
+    _activeController=null; isRunning=false; refreshBtn.removeAttribute('disabled');
   }
 }
 
 // ===================================================
-// RUNTIME SELF-TESTS (55+)
+// RUNTIME SELF-TESTS (135+)
 // ===================================================
 function runSelfTests() {
   var results=[];
   function assert(name, fn) {
-    try {
-      var ok=fn();
-      results.push({ name:name, pass:!!ok, error:ok?null:'assertion false' });
-    } catch(e) {
-      results.push({ name:name, pass:false, error:String(e&&e.message||e).slice(0,80) });
-    }
+    try { var ok=fn(); results.push({ name:name, pass:!!ok, error:ok?null:'assertion false' }); }
+    catch(e) { results.push({ name:name, pass:false, error:String(e&&e.message||e).slice(0,80) }); }
   }
 
   // --- safeNum (4) ---
@@ -1995,7 +1563,7 @@ function runSelfTests() {
   assert('formatAmerican negative', function(){return formatAmerican(-200)==='-200';});
   assert('formatAmerican null', function(){return formatAmerican(null)==='';});
 
-  // --- riskTier SPEC-EXACT boundary tests (8) ---
+  // --- riskTier boundary tests (12) ---
   assert('tier 0.80=lock', function(){return riskTier(0.80)===TIER.LOCK;});
   assert('tier 0.75=lock (boundary)', function(){return riskTier(0.75)===TIER.LOCK;});
   assert('tier 0.749=lean (just below lock)', function(){return riskTier(0.749)===TIER.LEAN;});
@@ -2009,82 +1577,67 @@ function runSelfTests() {
   assert('tier 1.0=lock', function(){return riskTier(1.0)===TIER.LOCK;});
   assert('tier 0.0=upset', function(){return riskTier(0.0)===TIER.UPSET;});
 
-  // --- computeCI (4) ---
+  // --- computeCI (6) ---
   assert('computeCI single source', function(){var ci=computeCI([0.7]);return ci.lo===0.7&&ci.hi===0.7&&ci.mean===0.7;});
   assert('computeCI two sources', function(){var ci=computeCI([0.7,0.8]);return ci.mean===0.75&&ci.lo<0.75&&ci.hi>0.75;});
   assert('computeCI clamped', function(){var ci=computeCI([0.01,0.99]);return ci.lo>=0&&ci.hi<=1;});
   assert('computeCI empty', function(){var ci=computeCI([]);return ci.mean===0.5;});
+  assert('CI uses mean+/-1.96*stddev', function(){
+    var ci=computeCI([0.6,0.8]);
+    var mean=0.7, stddev=Math.sqrt(((0.6-0.7)*(0.6-0.7)+(0.8-0.7)*(0.8-0.7))/2);
+    return Math.abs(ci.lo-(mean-1.96*stddev))<0.001 && Math.abs(ci.hi-(mean+1.96*stddev))<0.001;
+  });
+  assert('CI three sources', function(){var ci=computeCI([0.5,0.6,0.7]);return ci.mean>0.59&&ci.mean<0.61&&ci.lo<ci.mean&&ci.hi>ci.mean;});
 
-  // --- upsetScore 3-factor (5) ---
+  // --- upsetScore (5) ---
   assert('upset near 50/50 high', function(){return upsetScore(0.48, 0.2, 0.1) > 50;});
   assert('upset heavy fav low', function(){return upsetScore(0.15, 0.02, 0.01) < 30;});
   assert('upset wide CI increases score', function(){return upsetScore(0.35, 0.3, 0) > upsetScore(0.35, 0.05, 0);});
   assert('upset high disagree increases score', function(){return upsetScore(0.35, 0.1, 0.15) > upsetScore(0.35, 0.1, 0);});
   assert('upset clamped 0-100', function(){return upsetScore(0.5, 1, 1) <= 100 && upsetScore(0, 0, 0) >= 0;});
 
-  // --- disagreement SPEC-EXACT boundary tests (10) ---
+  // --- disagreement boundary tests (12) ---
   assert('disagree null->na', function(){return disagreement(null,0.5).level==='na';});
   assert('disagree both null->na', function(){return disagreement(null,null).level==='na';});
-  assert('disagree 0pp delta->low (Strong Consensus)', function(){return disagreement(0.7,0.7).level==='low';});
-  assert('disagree 2pp delta->low (<3%)', function(){return disagreement(0.7,0.72).level==='low';});
-  assert('disagree 2.9pp->low (just under 3%)', function(){return disagreement(0.70,0.729).level==='low';});
-  assert('disagree 3pp->med (3% boundary)', function(){return disagreement(0.70,0.73).level==='med';});
-  assert('disagree 5pp->med (mid range)', function(){return disagreement(0.70,0.75).level==='med';});
-  assert('disagree 7.5pp->med (mid range)', function(){return disagreement(0.70,0.775).level==='med';});
-  assert('disagree 8.1pp->high (just over 8%)', function(){return disagreement(0.70,0.781).level==='high';});
-  assert('disagree 20pp->high (Books Disagree)', function(){return disagreement(0.7,0.9).level==='high';});
-
-  // --- disagreement delta correctness (2) ---
+  assert('disagree 0pp->low', function(){return disagreement(0.7,0.7).level==='low';});
+  assert('disagree 2pp->low (<3%)', function(){return disagreement(0.7,0.72).level==='low';});
+  assert('disagree 2.9pp->low', function(){return disagreement(0.70,0.729).level==='low';});
+  assert('disagree 3pp->med (boundary)', function(){return disagreement(0.70,0.73).level==='med';});
+  assert('disagree 5pp->med', function(){return disagreement(0.70,0.75).level==='med';});
+  assert('disagree 7.5pp->med', function(){return disagreement(0.70,0.775).level==='med';});
+  assert('disagree 8.1pp->high', function(){return disagreement(0.70,0.781).level==='high';});
+  assert('disagree 20pp->high', function(){return disagreement(0.7,0.9).level==='high';});
   assert('disagree delta correct', function(){var r=disagreement(0.7,0.8);return r.delta!==null&&Math.abs(r.delta-0.1)<0.001;});
   assert('disagree na delta is null', function(){return disagreement(null,0.5).delta===null;});
 
   // --- computeFight (4) ---
-  assert('computeFight valid', function(){
-    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:null,oddsP2:null});
-    return r&&r.favName==='A'&&r.tier===TIER.LEAN&&r.favProb===0.7;
-  });
+  assert('computeFight valid', function(){var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:null,oddsP2:null});return r&&r.favName==='A'&&r.tier===TIER.LEAN&&r.favProb===0.7;});
   assert('computeFight no data->null', function(){return computeFight({id:'t',f1:'A',f2:'B'})===null;});
-  assert('computeFight merged sources', function(){
-    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.8,polyP2:0.2,oddsP1:0.7,oddsP2:0.3});
-    return r&&r.favName==='A'&&r.favProb===0.75&&r.tier===TIER.LOCK;
-  });
-  assert('computeFight upset tier', function(){
-    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.4,polyP2:0.6,oddsP1:null,oddsP2:null});
-    return r&&r.favName==='B'&&r.tier===TIER.LEAN;
-  });
+  assert('computeFight merged sources', function(){var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.8,polyP2:0.2,oddsP1:0.7,oddsP2:0.3});return r&&r.favName==='A'&&r.favProb===0.75&&r.tier===TIER.LOCK;});
+  assert('computeFight upset tier', function(){var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.4,polyP2:0.6,oddsP1:null,oddsP2:null});return r&&r.favName==='B'&&r.tier===TIER.LEAN;});
 
-  // --- merge (4) ---
-  assert('merge poly only', function(){
-    var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6}],null);
-    return r.length===1&&r[0].f1==='A';
-  });
-  assert('merge odds only', function(){
-    var r=mergeResults(null,[{id:'1',f1:'A',f2:'B',oddsP1:0.6}]);
-    return r.length===1&&r[0].f1==='A';
-  });
-  assert('merge both null->empty', function(){
-    var r=mergeResults(null,null);
-    return Array.isArray(r)&&r.length===0;
-  });
+  // --- merge (6) ---
+  assert('merge poly only', function(){var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6}],null);return r.length===1&&r[0].f1==='A';});
+  assert('merge odds only', function(){var r=mergeResults(null,[{id:'1',f1:'A',f2:'B',oddsP1:0.6}]);return r.length===1&&r[0].f1==='A';});
+  assert('merge both null->empty', function(){var r=mergeResults(null,null);return Array.isArray(r)&&r.length===0;});
   assert('merge matching fighters', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]
-    );
+    var r=mergeResults([{id:'1',f1:'John Smith',f2:'Bob Jones',polyP1:0.6,polyP2:0.4}],[{id:'2',f1:'John Smith',f2:'Bob Jones',oddsP1:0.65,oddsP2:0.35}]);
     return r.length===1&&r[0].oddsP1===0.65&&r[0].polyP1===0.6;
+  });
+  assert('merge last-name fallback', function(){
+    var r=mergeResults([{id:'1',f1:'Jon Jones',f2:'Tom Aspinall',polyP1:0.6,polyP2:0.4}],[{id:'2',f1:'Jonathan Jones',f2:'Thomas Aspinall',oddsP1:0.65,oddsP2:0.35}]);
+    return r.length===1&&r[0].oddsP1===0.65;
+  });
+  assert('merge unmatched stays separate', function(){
+    var r=mergeResults([{id:'1',f1:'A',f2:'B',polyP1:0.6,polyP2:0.4}],[{id:'2',f1:'X',f2:'Y',oddsP1:0.7,oddsP2:0.3}]);
+    return r.length===2;
   });
 
   // --- validatePoly (4) ---
   assert('validatePoly rejects null', function(){return parsePolyPage(null)===null;});
   assert('validatePoly rejects {}', function(){return parsePolyPage({})===null;});
-  assert('validatePoly rejects bad probs', function(){
-    var r=parsePolyPage([{outcomes:['A','B'],outcomePrices:['2.0','0.5']}]);
-    return r!==null&&r.length===0;
-  });
-  assert('validatePoly parses Gamma format', function(){
-    var r=parsePolyPage([{question:'UFC: A vs B',outcomes:['A','B'],outcomePrices:['0.6','0.4'],closed:false}]);
-    return r!==null&&r.length===1&&r[0].f1==='A'&&Math.abs(r[0].polyP1-0.6)<0.01;
-  });
+  assert('validatePoly rejects bad probs', function(){var r=parsePolyPage([{outcomes:['A','B'],outcomePrices:['2.0','0.5']}]);return r!==null&&r.length===0;});
+  assert('validatePoly parses Gamma format', function(){var r=parsePolyPage([{question:'UFC: A vs B',outcomes:['A','B'],outcomePrices:['0.6','0.4'],closed:false}]);return r!==null&&r.length===1&&r[0].f1==='A'&&Math.abs(r[0].polyP1-0.6)<0.01;});
 
   // --- validateOdds (2) ---
   assert('validateOdds rejects null', function(){return validateOddsAPI(null)===null;});
@@ -2095,57 +1648,39 @@ function runSelfTests() {
   assert('lastName multi', function(){return lastName('John Smith')==='smith';});
   assert('lastName empty', function(){return lastName('')==='';});
 
-  // --- pct formatting (2) ---
+  // --- pct (2) ---
   assert('pct 0.75 -> 75%', function(){return pct(0.75)==='75%';});
   assert('pct 0 -> 0%', function(){return pct(0)==='0%';});
 
-  // --- constant sanity checks (3) ---
+  // --- constant sanity (3) ---
   assert('DISAGREE_LOW_MAX is 0.03', function(){return DISAGREE_LOW_MAX===0.03;});
   assert('DISAGREE_MED_MAX is 0.08', function(){return DISAGREE_MED_MAX===0.08;});
   assert('UPSET_WARN_THRESHOLD is 50', function(){return UPSET_WARN_THRESHOLD===50;});
 
-  // === NEW TESTS (Run B additions) ===
-
   // --- identifySpotlight (3) ---
-  assert('spotlight picks upset fight first', function(){
-    var fights = [
-      {tier:'lock',favProb:0.85,upset:20,disagree:{level:'low',delta:0.02}},
-      {tier:'upset',favProb:0.42,upset:80,disagree:{level:'high',delta:0.12}}
-    ];
-    var s = identifySpotlight(fights);
-    return s && s.fight.tier === 'upset' && s.reason.indexOf('Upset') >= 0;
+  assert('spotlight picks upset first', function(){
+    var fights=[{tier:'lock',favProb:0.85,upset:20,disagree:{level:'low',delta:0.02}},{tier:'upset',favProb:0.42,upset:80,disagree:{level:'high',delta:0.12}}];
+    var s=identifySpotlight(fights); return s&&s.fight.tier==='upset';
   });
   assert('spotlight picks highest disagreement when no upsets', function(){
-    var fights = [
-      {tier:'lock',favProb:0.8,upset:10,disagree:{level:'low',delta:0.02}},
-      {tier:'lean',favProb:0.65,upset:30,disagree:{level:'high',delta:0.09}}
-    ];
-    var s = identifySpotlight(fights);
-    return s && s.fight.tier === 'lean';
+    var fights=[{tier:'lock',favProb:0.8,upset:10,disagree:{level:'low',delta:0.02}},{tier:'lean',favProb:0.65,upset:30,disagree:{level:'high',delta:0.09}}];
+    var s=identifySpotlight(fights); return s&&s.fight.tier==='lean';
   });
-  assert('spotlight returns null for empty array', function(){
-    return identifySpotlight([]) === null;
-  });
+  assert('spotlight null for empty', function(){return identifySpotlight([])===null;});
 
   // --- groupByEvent (1) ---
-  assert('groupByEvent groups undated as single group', function(){
-    var fights = [
-      {commenceTime:null,sources:{poly:true,odds:false}},
-      {commenceTime:null,sources:{poly:true,odds:false}}
-    ];
-    var groups = groupByEvent(fights);
-    return groups.length === 1 && groups[0].name === 'UFC Markets';
+  assert('groupByEvent undated single group', function(){
+    var fights=[{commenceTime:null,sources:{poly:true,odds:false}},{commenceTime:null,sources:{poly:true,odds:false}}];
+    var groups=groupByEvent(fights); return groups.length===1&&groups[0].name==='UFC Markets';
   });
 
-  // --- fav/underdog coloring in computeFight (1) ---
-  assert('computeFight preserves polyP1 for popover', function(){
-    var r = computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:0.65,oddsP2:0.35});
-    return r && r.polyP1 === 0.7 && r.oddsP1 === 0.65;
+  // --- computeFight preserves source probs (1) ---
+  assert('computeFight preserves polyP1/oddsP1', function(){
+    var r=computeFight({id:'t',f1:'A',f2:'B',polyP1:0.7,polyP2:0.3,oddsP1:0.65,oddsP2:0.35});
+    return r&&r.polyP1===0.7&&r.oddsP1===0.65;
   });
 
-  // === NEW TESTS (Round 3 — Robustness Hardening) ===
-
-  // --- djb2 hash (4) ---
+  // --- djb2 (4) ---
   assert('djb2 deterministic', function(){return djb2('hello')===djb2('hello');});
   assert('djb2 different inputs differ', function(){return djb2('hello')!==djb2('world');});
   assert('djb2 empty string', function(){return typeof djb2('')==='number'&&djb2('')===5381;});
@@ -2157,165 +1692,98 @@ function runSelfTests() {
   assert('apiKey rejects null', function(){return validateApiKeyFormat(null)===false;});
   assert('apiKey rejects special chars', function(){return validateApiKeyFormat('key with spaces!')===false;});
 
-  // --- cache integrity (3) ---
-  assert('cache write+read roundtrip', function(){
-    cache.write('__test_rt', {x:42});
-    var v=cache.read('__test_rt');
-    cache.remove('__test_rt');
-    return v!==null&&v.x===42;
-  });
+  // --- cache (3) ---
+  assert('cache write+read roundtrip', function(){cache.write('__test_rt',{x:42});var v=cache.read('__test_rt');cache.remove('__test_rt');return v!==null&&v.x===42;});
   assert('cache detects corruption', function(){
-    try {
-      sessionStorage.setItem('__test_corrupt', JSON.stringify({version:CACHE_VERSION,ts:Date.now(),data:{x:1},hash:99999}));
-      var v=cache.read('__test_corrupt');
-      sessionStorage.removeItem('__test_corrupt');
-      return v===null;
-    } catch(e) { return true; } // sessionStorage blocked is OK
+    try{sessionStorage.setItem('__test_corrupt',JSON.stringify({version:CACHE_VERSION,ts:Date.now(),data:{x:1},hash:99999}));var v=cache.read('__test_corrupt');sessionStorage.removeItem('__test_corrupt');return v===null;}catch(e){return true;}
   });
   assert('cache expired returns null', function(){
-    try {
-      sessionStorage.setItem('__test_exp', JSON.stringify({version:CACHE_VERSION,ts:1,data:{x:1},hash:djb2(JSON.stringify({x:1}))}));
-      var v=cache.read('__test_exp');
-      sessionStorage.removeItem('__test_exp');
-      return v===null;
-    } catch(e) { return true; }
+    try{sessionStorage.setItem('__test_exp',JSON.stringify({version:CACHE_VERSION,ts:1,data:{x:1},hash:djb2(JSON.stringify({x:1}))}));var v=cache.read('__test_exp');sessionStorage.removeItem('__test_exp');return v===null;}catch(e){return true;}
   });
 
-  // --- computeCI spec-correct formula (3) ---
-  assert('CI uses mean±1.96*stddev', function(){
-    var ci=computeCI([0.6,0.8]);
-    var mean=0.7, stddev=Math.sqrt(((0.6-0.7)*(0.6-0.7)+(0.8-0.7)*(0.8-0.7))/2);
-    return Math.abs(ci.lo-(mean-1.96*stddev))<0.001 && Math.abs(ci.hi-(mean+1.96*stddev))<0.001;
-  });
-  assert('CI three sources', function(){
-    var ci=computeCI([0.5,0.6,0.7]);
-    return ci.mean>0.59&&ci.mean<0.61&&ci.lo<ci.mean&&ci.hi>ci.mean;
-  });
-  assert('CI single source has zero width', function(){
-    var ci=computeCI([0.65]);
-    return ci.lo===0.65&&ci.hi===0.65;
-  });
-
-  // --- merge improvements (2) ---
-  assert('merge last-name fallback', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'Jon Jones',f2:'Tom Aspinall',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'Jonathan Jones',f2:'Thomas Aspinall',oddsP1:0.65,oddsP2:0.35}]
-    );
-    return r.length===1&&r[0].oddsP1===0.65;
-  });
-  assert('merge unmatched stays separate', function(){
-    var r=mergeResults(
-      [{id:'1',f1:'A',f2:'B',polyP1:0.6,polyP2:0.4}],
-      [{id:'2',f1:'X',f2:'Y',oddsP1:0.7,oddsP2:0.3}]
-    );
-    return r.length===2;
-  });
-
-  // === NEW TESTS — Round 2 Run B: Decision Support ===
+  // === NEW Round 3 Run B tests ===
 
   // --- bettorTake (8) ---
-  assert('bettorTake lock+low returns string', function(){
-    var f={tier:'lock',favName:'Jones',dogName:'Smith',favProb:0.82,disagree:{level:'low',delta:0.01},upset:20,commenceTime:null,polyP1:0.82,oddsP1:null,consensusP1:0.82,consensusP2:0.18};
-    var t=bettorTake(f); return typeof t==='string'&&t.length>0;
+  assert('bettorTake lock verdict', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.82,underdogProb:0.18,tier:TIER.LOCK,disagree:{level:'low',delta:0.01},ci:{lo:0.79,hi:0.85},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='lock'&&t.verdict==='Lock'&&t.body.indexOf('Jones')>=0;
   });
-  assert('bettorTake lean+high returns string', function(){
-    var f={tier:'lean',favName:'Jones',dogName:'Smith',favProb:0.65,disagree:{level:'high',delta:0.10},upset:40,commenceTime:null,polyP1:0.70,oddsP1:0.60,consensusP1:0.65,consensusP2:0.35};
-    var t=bettorTake(f); return typeof t==='string'&&t.length>0;
+  assert('bettorTake lean verdict', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.65,underdogProb:0.35,tier:TIER.LEAN,disagree:{level:'low',delta:0.01},ci:{lo:0.62,hi:0.68},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='lean'&&t.verdict==='Lean';
   });
-  assert('bettorTake tossup mentions coin', function(){
-    var f={tier:'tossup',favName:'Jones',dogName:'Smith',favProb:0.52,disagree:{level:'low',delta:0.01},upset:35,commenceTime:null,polyP1:0.52,oddsP1:null,consensusP1:0.52,consensusP2:0.48};
-    var t=bettorTake(f); return t.toLowerCase().indexOf('coin')>=0||t.toLowerCase().indexOf('even')>=0||t.toLowerCase().indexOf('edge')>=0;
+  assert('bettorTake lean with high disagree', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.65,underdogProb:0.35,tier:TIER.LEAN,disagree:{level:'high',delta:0.12},ci:{lo:0.58,hi:0.72},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='lean'&&t.verdict==='Lean \u2014 Sharp Split';
   });
-  assert('bettorTake upset mentions high-variance', function(){
-    var f={tier:'upset',favName:'Jones',dogName:'Smith',favProb:0.42,disagree:{level:'high',delta:0.12},upset:78,commenceTime:null,polyP1:0.50,oddsP1:0.35,consensusP1:0.42,consensusP2:0.58};
-    var t=bettorTake(f); return t.length>0;
+  assert('bettorTake tossup coin flip', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.52,underdogProb:0.48,tier:TIER.TOSSUP,disagree:{level:'low',delta:0.02},ci:{lo:0.49,hi:0.55},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='tossup'&&t.verdict==='Coin Flip';
   });
-  assert('bettorTake never empty string', function(){
-    var f={tier:'lock',favName:'A',dogName:'B',favProb:0.8,disagree:{level:'na',delta:null},upset:10,commenceTime:null,polyP1:null,oddsP1:null,consensusP1:0.8,consensusP2:0.2};
-    return bettorTake(f).length>0;
+  assert('bettorTake sharp divergence', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.52,underdogProb:0.48,tier:TIER.TOSSUP,disagree:{level:'high',delta:0.11},ci:{lo:0.47,hi:0.57},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='tossup'&&t.verdict==='Sharp Divergence';
   });
-  assert('bettorTake tonight prefix when tonight', function(){
-    var future = new Date(Date.now() + 2*3600000).toISOString();
-    var f={tier:'lock',favName:'Jones',dogName:'Smith',favProb:0.82,disagree:{level:'low',delta:0.01},upset:10,commenceTime:future,polyP1:0.82,oddsP1:null,consensusP1:0.82,consensusP2:0.18};
-    var t=bettorTake(f); return t.indexOf('Tonight')===0||t.indexOf('tonight')===0;
+  assert('bettorTake danger zone when CI crosses 50', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.55,underdogProb:0.45,tier:TIER.UPSET,disagree:{level:'med',delta:0.05},ci:{lo:0.44,hi:0.66},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='upset'&&t.verdict==='Danger Zone';
   });
-  assert('bettorTake no prefix for past', function(){
-    var past = new Date(Date.now() - 48*3600000).toISOString();
-    var f={tier:'lock',favName:'Jones',dogName:'Smith',favProb:0.82,disagree:{level:'low',delta:0.01},upset:10,commenceTime:past,polyP1:0.82,oddsP1:null,consensusP1:0.82,consensusP2:0.18};
-    var t=bettorTake(f); return t.indexOf('Tonight')!==0;
+  assert('bettorTake upset alert (CI does not cross 50)', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.40,underdogProb:0.60,tier:TIER.UPSET,disagree:{level:'low',delta:0.01},ci:{lo:0.36,hi:0.44},sources:{poly:true,odds:true}};
+    var t=bettorTake(c); return t.css==='upset'&&t.verdict==='Upset Alert';
   });
-  assert('bettorTake sanitizes fighter names', function(){
-    var f={tier:'lean',favName:'A\x00B',dogName:'C',favProb:0.65,disagree:{level:'low',delta:0.01},upset:30,commenceTime:null,polyP1:null,oddsP1:null,consensusP1:0.65,consensusP2:0.35};
-    var t=bettorTake(f); return t.indexOf('\x00')<0;
-  });
-
-  // --- edgeDirection (4) ---
-  assert('edgeDirection null when single source', function(){
-    var f={polyP1:0.75,oddsP1:null,consensusP1:0.75,consensusP2:0.25,favName:'A'};
-    return edgeDirection(f)===null;
-  });
-  assert('edgeDirection poly side when poly higher by >3pp', function(){
-    var f={polyP1:0.75,oddsP1:0.60,consensusP1:0.675,consensusP2:0.325,favName:'A'};
-    var e=edgeDirection(f); return e!==null&&e.side==='poly';
-  });
-  assert('edgeDirection books side when books higher by >3pp', function(){
-    var f={polyP1:0.60,oddsP1:0.75,consensusP1:0.675,consensusP2:0.325,favName:'A'};
-    var e=edgeDirection(f); return e!==null&&e.side==='books';
-  });
-  assert('edgeDirection null when diff < 3pp', function(){
-    var f={polyP1:0.70,oddsP1:0.71,consensusP1:0.705,consensusP2:0.295,favName:'A'};
-    return edgeDirection(f)===null;
+  assert('bettorTake single source warning', function(){
+    var c={favName:'Jones',dogName:'Smith',favProb:0.65,underdogProb:0.35,tier:TIER.LEAN,disagree:{level:'na',delta:null},ci:{lo:0.65,hi:0.65},sources:{poly:true,odds:false}};
+    var t=bettorTake(c); return t.body.indexOf('Single Source')>=0||t.verdict==='Single Source';
   });
 
   // --- isTonight (4) ---
-  assert('isTonight true for 2h from now', function(){
-    var future=new Date(Date.now()+2*3600000).toISOString();
-    return isTonight(future)===true;
+  assert('isTonight null returns false', function(){return isTonight(null)===false;});
+  assert('isTonight empty string returns false', function(){return isTonight('')===false;});
+  assert('isTonight today returns true', function(){
+    var today=new Date().toISOString().slice(0,10);
+    return isTonight(today+'T22:00:00Z')===true;
   });
-  assert('isTonight false for 48h from now', function(){
-    var future=new Date(Date.now()+48*3600000).toISOString();
-    return isTonight(future)===false;
-  });
-  assert('isTonight false for past 2d', function(){
-    var past=new Date(Date.now()-2*86400000).toISOString();
-    return isTonight(past)===false;
-  });
-  assert('isTonight false on bad input', function(){
-    return isTonight('not-a-date')===false&&isTonight(null)===false&&isTonight(undefined)===false;
+  assert('isTonight yesterday returns false', function(){
+    var yd=new Date(Date.now()-86400000).toISOString().slice(0,10);
+    return isTonight(yd+'T22:00:00Z')===false;
   });
 
-  // --- bestBet (3) ---
-  assert('bestBet null on empty array', function(){ return bestBet([])===null; });
-  assert('bestBet null on null', function(){ return bestBet(null)===null; });
-  assert('bestBet prefers lock over lean', function(){
-    var lock={tier:'lock',favProb:0.8,disagree:{level:'low',delta:0.01},commenceTime:null};
-    var lean={tier:'lean',favProb:0.7,disagree:{level:'low',delta:0.01},commenceTime:null};
-    return bestBet([lean,lock])===lock;
+  // --- applyFilter (4) ---
+  assert('applyFilter all returns all', function(){
+    var arr=[{tier:'lock'},{tier:'lean'},{tier:'upset'}];
+    return applyFilter(arr,'all').length===3;
   });
+  assert('applyFilter lock returns only locks', function(){
+    var arr=[{tier:'lock'},{tier:'lean'},{tier:'lock'}];
+    var r=applyFilter(arr,'lock'); return r.length===2&&r[0].tier==='lock';
+  });
+  assert('applyFilter upset isolates', function(){
+    var arr=[{tier:'lock'},{tier:'upset'}];
+    return applyFilter(arr,'upset').length===1;
+  });
+  assert('applyFilter empty filter treated as all', function(){
+    var arr=[{tier:'lock'},{tier:'lean'}];
+    return applyFilter(arr,'').length===2;
+  });
+
+  // --- INJECTED_API_KEY format (1) ---
+  assert('INJECTED_API_KEY passes format check', function(){return validateApiKeyFormat(INJECTED_API_KEY)===true;});
 
   // Render results
   var bar=$('selftestBar');
   var passed=results.filter(function(r){return r.pass;}).length;
   var failed=results.filter(function(r){return !r.pass;});
   bar.classList.remove('hidden');
-
   if (!failed.length) {
-    var span=document.createElement('span');
-    span.className='selftest-pass';
-    span.textContent='Self-test: '+passed+'/'+results.length+' passed';
-    bar.appendChild(span);
+    var span=document.createElement('span'); span.className='selftest-pass';
+    span.textContent='Self-test: '+passed+'/'+results.length+' passed'; bar.appendChild(span);
   } else {
-    var fspan=document.createElement('span');
-    fspan.className='selftest-fail';
-    fspan.textContent='Self-test: '+failed.length+' FAILED of '+results.length;
-    bar.appendChild(fspan);
-    var det=document.createElement('span');
-    det.style.cssText='margin-left:8px;font-size:0.65rem;';
-    det.textContent=failed.map(function(f){return f.name+': '+f.error;}).join(' | ');
-    bar.appendChild(det);
+    var fspan=document.createElement('span'); fspan.className='selftest-fail';
+    fspan.textContent='Self-test: '+failed.length+' FAILED of '+results.length; bar.appendChild(fspan);
+    var det=document.createElement('span'); det.style.cssText='margin-left:8px;font-size:0.65rem;';
+    det.textContent=failed.map(function(f){return f.name+': '+f.error;}).join(' | '); bar.appendChild(det);
   }
-
   return { passed:passed, total:results.length, failures:failed };
 }
 
@@ -2335,18 +1803,26 @@ clearKeyBtn.addEventListener('click',function(){
 });
 refreshBtn.addEventListener('click',function(){run(true);});
 apiKeyInput.addEventListener('keydown',function(e){ if(e.key==='Enter')applyKeyBtn.click(); });
-
-// Global Escape to dismiss any open popover
 document.addEventListener('keydown', function(e){ if (e.key==='Escape') dismissActivePopover(); });
-
-// Auto-refresh when coming back online
 window.addEventListener('online', function(){ addBanner('success','Back online','Refreshing data...'); run(true); });
 
-// INJECTED_API_KEY: pipeline auto-injects key at build time
-var INJECTED_API_KEY = '49ad12f5390df660b6bec9ec01eadaf0';
+// Filter bar
+document.getElementById('filterBar').addEventListener('click', function(e) {
+  var btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  var tier = btn.getAttribute('data-tier');
+  if (!tier || tier === activeFilter) return;
+  activeFilter = tier;
+  // Update active state
+  var btns = document.getElementById('filterBar').querySelectorAll('.filter-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  // Re-render from cached data (no fetch)
+  if (lastComputed.length) renderFights(lastComputed);
+});
 
 document.addEventListener('DOMContentLoaded',function(){
-  // If injected key exists and no key is stored yet, save it silently
+  // Auto-inject API key if not already saved
   if (INJECTED_API_KEY && validateApiKeyFormat(INJECTED_API_KEY) && !loadKey()) {
     saveKey(INJECTED_API_KEY);
   }
