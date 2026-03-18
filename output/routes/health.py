@@ -1,10 +1,13 @@
 """Health and index routes — no auth required."""
 
+import logging
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import db
 
+log = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -16,17 +19,21 @@ def _db_path():
 
 @router.get("/health", response_class=JSONResponse)
 async def health():
-    """Health endpoint — no auth required."""
+    """Health endpoint — no auth required. Always returns JSON, never crashes."""
     conn = None
     try:
         conn = await db.get_connection(_db_path())
         data = await db.get_health(conn)
         return data
-    except Exception:
-        return JSONResponse({"status": "error"}, status_code=503)
+    except Exception as e:
+        log.error("Health check failed: %s", e)
+        return JSONResponse({"status": "error", "detail": str(e)[:100]}, status_code=503)
     finally:
         if conn:
-            await conn.close()
+            try:
+                await conn.close()
+            except Exception:
+                pass  # Connection close should never crash the health endpoint
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -1,5 +1,6 @@
 """Dashboard routes — approval queue, approve, skip. Auth required."""
 
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 import db
 
+log = logging.getLogger(__name__)
 router = APIRouter()
 
 VALID_SEND_WINDOWS = {"morning", "lunch", "evening"}
