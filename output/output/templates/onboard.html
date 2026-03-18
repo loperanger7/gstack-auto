@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}gstack - Setup{% endblock %}
+{% block page_title %}Setup{% endblock %}
+
+{% block extra_css %}
+.wizard{max-width:560px;margin:0 auto}
+.step-indicator{display:flex;justify-content:center;gap:1rem;margin-bottom:2rem;align-items:center;position:relative}
+.step-dot{width:12px;height:12px;border-radius:50%;background:#30363d;transition:background .3s,transform .3s cubic-bezier(.34,1.56,.64,1);z-index:1}
+.step-dot.active{background:#58a6ff;transform:scale(1.3);box-shadow:0 0 12px rgba(88,166,255,.3)}
+.step-dot.done{background:#3fb950;transform:scale(1.1)}
+.step-connector{flex:1;height:2px;background:#30363d;max-width:60px;position:relative;overflow:hidden}
+.step-connector::after{content:'';position:absolute;left:0;top:0;height:100%;background:#58a6ff;transition:width .5s ease}
+.step-connector.filled::after{width:100%}
+@keyframes step-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.step-card{animation:step-enter .4s cubic-bezier(.16,1,.3,1)}
+@media(prefers-reduced-motion:reduce){.step-dot{transition:background .2s}.step-connector::after{transition:none}.step-card{animation:none}}
+.step-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem}
+.step-card h2{font-size:1.1rem;color:#f0f6fc;margin-bottom:.5rem}
+.step-card p{color:#8b949e;font-size:.88rem;margin-bottom:1rem}
+textarea{width:100%;font-family:'SF Mono',Menlo,monospace;font-size:.875rem;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.625rem;resize:vertical;min-height:100px}
+textarea:focus{border-color:#58a6ff;outline:none}
+.tone-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:1rem}
+.tone-option{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:.6rem;text-align:center;cursor:pointer;transition:border-color .15s}
+.tone-option:hover{border-color:#58a6ff}
+.tone-option input{display:none}
+.tone-option input:checked + .tone-label{color:#58a6ff;font-weight:600}
+.tone-option:has(input:checked){border-color:#58a6ff;background:#1c2d4a}
+.tone-label{font-size:.85rem;color:#c9d1d9}
+.tone-desc{font-size:.72rem;color:#8b949e;margin-top:.2rem}
+input[type="url"],input[type="text"]{width:100%;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem .75rem;font-size:.875rem}
+input:focus{border-color:#58a6ff;outline:none}
+label{display:block;font-size:.85rem;color:#8b949e;margin-bottom:.3rem}
+.btn{padding:.5rem 1.2rem;border-radius:6px;border:none;font-size:.875rem;cursor:pointer;font-weight:500;min-height:44px}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-connect{background:#1d9bf0;color:#fff}
+.btn-connect:hover{background:#1a8cd8}
+.actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
+.hint{font-size:.78rem;color:#484f58;margin-top:.3rem}
+{% endblock %}
+
+{% block content %}
+<div class="wizard">
+  <div class="step-indicator">
+    <div class="step-dot {% if step >= 1 %}{% if step > 1 %}done{% else %}active{% endif %}{% endif %}"></div>
+    <div class="step-connector{% if step > 1 %} filled{% endif %}"></div>
+    <div class="step-dot {% if step >= 2 %}{% if step > 2 %}done{% else %}active{% endif %}{% endif %}"></div>
+    <div class="step-connector{% if step > 2 %} filled{% endif %}"></div>
+    <div class="step-dot {% if step >= 3 %}active{% endif %}"></div>
+  </div>
+
+  {% if step == 1 %}
+  <div class="step-card">
+    <h2>Step 1: Search Queries</h2>
+    <p>What should we monitor on Twitter? Enter one query per line.</p>
+    <form method="post" action="/onboard/step1">
+      <textarea name="queries" rows="6" placeholder="gstack&#10;&quot;g-stack&quot;&#10;&quot;garry tan&quot; gstack&#10;@garrytan gstack&#10;gstack-auto">{% for q in queries %}{{ q.query_text }}
+{% endfor %}</textarea>
+      <p class="hint">Use quotes for exact phrases. Max 20 queries.</p>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Continue</button>
+      </div>
+    </form>
+  </div>
+
+  {% elif step == 2 %}
+  <div class="step-card">
+    <h2>Step 2: Reply Tone</h2>
+    <p>Choose how your auto-drafted replies should sound.</p>
+    <form method="post" action="/onboard/step2">
+      <div class="tone-grid">
+        {% for t in tones %}
+        <label class="tone-option">
+          <input type="radio" name="tone" value="{{ t }}" {% if user.tone == t %}checked{% endif %}>
+          <div class="tone-label">{{ t|capitalize }}</div>
+          <div class="tone-desc">
+            {% if t == "professional" %}Clear and direct
+            {% elif t == "casual" %}Friendly and approachable
+            {% elif t == "witty" %}Clever with humor
+            {% elif t == "technical" %}Developer-focused
+            {% elif t == "custom" %}Your own style{% endif %}
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+
+      <label for="custom_link">Custom link (included in every reply)</label>
+      <input type="url" id="custom_link" name="custom_link" value="{{ user.custom_link }}" placeholder="https://github.com/your-project">
+      <p class="hint">Leave blank to use the default gstack-auto link.</p>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Continue</button>
+      </div>
+    </form>
+  </div>
+
+  {% elif step == 3 %}
+  <div class="step-card">
+    <h2>Step 3: Connect Twitter</h2>
+    <p>Enter your Twitter API credentials so we can post replies on your behalf. Tokens are encrypted at rest.</p>
+    <form method="post" action="/auth/twitter/save">
+      <label for="twitter_username">Twitter Username</label>
+      <input type="text" id="twitter_username" name="twitter_username" placeholder="@yourusername" value="{{ user.twitter_username }}">
+
+      <label for="twitter_access_token" style="margin-top:.8rem">Access Token</label>
+      <input type="text" id="twitter_access_token" name="twitter_access_token" placeholder="Your Twitter access token">
+
+      <label for="twitter_access_secret" style="margin-top:.8rem">Access Token Secret</label>
+      <input type="text" id="twitter_access_secret" name="twitter_access_secret" placeholder="Your Twitter access token secret">
+
+      <p class="hint">Get these from the Twitter Developer Portal. They are encrypted before storage.</p>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-connect">Connect Twitter</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
