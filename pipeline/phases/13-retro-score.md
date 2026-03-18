@@ -1,8 +1,8 @@
-# Phase 14: Retrospective & Scoring
+# Phase 13: Retrospective & Scoring
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack retro/SKILL.md @ v0.3.9
-# Gstack source hash: bb46ca6b
-# Last synced: 2026-03-15
+# Gstack source hash: 9d47619e
+# Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
@@ -29,8 +29,8 @@ Read ALL prior phase artifacts:
 - `{PHASE_ARTIFACTS}/phase-05-ship.md` — ship log
 - `{PHASE_ARTIFACTS}/phase-06-qa.md` — QA report
 - Any bug-fix phase artifacts (07-11) if they exist
-- `{PHASE_ARTIFACTS}/phase-12-design-review.md` — design audit (if exists)
-- `{PHASE_ARTIFACTS}/phase-13-design-fix.md` — design fix log (if exists)
+- `{PHASE_ARTIFACTS}/phase-11-design-review.md` — design audit (if exists)
+- `{PHASE_ARTIFACTS}/phase-12-design-fix.md` — design fix log (if exists)
 - `{PHASE_ARTIFACTS}/design-scores.json` — design scores (if exists)
 
 Read the actual code in `output/`.
@@ -123,7 +123,9 @@ When design_quality IS present:
   "bugs_remaining": [count from QA],
   "fix_cycles_used": [0-3],
   "narrative": "[Why I Built It This Way — 2-3 paragraphs]",
-  "highlight": "[code snippet + explanation]"
+  "highlight": "[code snippet + explanation]",
+  "test_count": 0,
+  "regression_tests_added": 0
 }
 ```
 
@@ -139,7 +141,9 @@ When design_quality is NOT present (no HTML output, design phases skipped):
   "bugs_remaining": [count from QA],
   "fix_cycles_used": [0-3],
   "narrative": "[Why I Built It This Way — 2-3 paragraphs]",
-  "highlight": "[code snippet + explanation]"
+  "highlight": "[code snippet + explanation]",
+  "test_count": 0,
+  "regression_tests_added": 0
 }
 ```
 
@@ -170,6 +174,11 @@ When design_quality is NOT present (no HTML output, design phases skipped):
 
 ## If I Had More Time
 - [1-2 bullets]
+
+## Test Health
+- Total tests in output/: [count files matching *.test.* or *.spec.* in output/]
+- Regression tests added this run: [count files in output/tests/regression/]
+- Test framework detected: [yes/no — name if yes]
 ```
 
 ### {PHASE_ARTIFACTS}/highlight.md

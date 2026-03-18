@@ -1,12 +1,12 @@
-# Phase 12: Design Review
+# Phase 11: Design Review
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack plan-design-review/SKILL.md @ v1.0.0
-# Gstack source hash: (initial)
+# Gstack source hash: 9d47619e
 # Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
-# - Write all output to {PHASE_ARTIFACTS}/phase-12-design-review.md
+# - Write all output to {PHASE_ARTIFACTS}/phase-11-design-review.md
 # - Write scores to {PHASE_ARTIFACTS}/design-scores.json
 # - Screenshots go to {PHASE_ARTIFACTS}/screenshots/
 # - Read prior phase artifacts from disk, not conversation history
@@ -246,7 +246,7 @@ Compute weighted average for `designScore`. Compute AI Slop grade separately as 
 }
 ```
 
-### {PHASE_ARTIFACTS}/phase-12-design-review.md
+### {PHASE_ARTIFACTS}/phase-11-design-review.md
 
 ```markdown
 # Design Review — Run {RUN_ID}

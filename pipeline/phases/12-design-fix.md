@@ -1,12 +1,12 @@
-# Phase 13: Design Fix
+# Phase 12: Design Fix
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack qa-design-review/SKILL.md @ v1.0.0
-# Gstack source hash: (initial)
+# Gstack source hash: 9d47619e
 # Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
-# - Write all output to {PHASE_ARTIFACTS}/phase-13-design-fix.md
+# - Write all output to {PHASE_ARTIFACTS}/phase-12-design-fix.md
 # - Screenshots go to {PHASE_ARTIFACTS}/screenshots/
 # - Read prior phase artifacts from disk, not conversation history
 # - Work in output/ directory for generated code
@@ -14,7 +14,7 @@
 
 ## Your Task
 
-Fix the design issues found in Phase 12. You are a designer who codes.
+Fix the design issues found in Phase 11. You are a designer who codes.
 Read the findings, fix the highest-impact ones first, verify each fix
 visually. One pass — no loops. Do your best work and move on.
 
@@ -32,7 +32,7 @@ Find the browse binary:
 B=$(~/.claude/skills/gstack/browse/dist/browse 2>/dev/null || .claude/skills/gstack/browse/dist/browse 2>/dev/null)
 ```
 
-Start the app (same pattern as Phase 12):
+Start the app (same pattern as Phase 11):
 ```bash
 cd output
 if [ -f "package.json" ] && grep -q '"start"' package.json; then
@@ -49,12 +49,12 @@ fi
 
 ### 1. Read the Design Review
 
-Read `{PHASE_ARTIFACTS}/phase-12-design-review.md` and
+Read `{PHASE_ARTIFACTS}/phase-11-design-review.md` and
 `{PHASE_ARTIFACTS}/design-scores.json`.
 
 Sort findings by impact (HIGH → MEDIUM → POLISH).
 
-If Phase 12 found no issues (design score A or A-), skip to the output
+If Phase 11 found no issues (design score A or A-), skip to the output
 section and write "No design fixes needed — design score already high."
 
 ### 2. Font Upgrade (if applicable)
@@ -138,7 +138,7 @@ $B viewport 1280 720
 
 ## Output Format
 
-Write your fix log to `{PHASE_ARTIFACTS}/phase-13-design-fix.md`:
+Write your fix log to `{PHASE_ARTIFACTS}/phase-12-design-fix.md`:
 
 ```markdown
 # Design Fix Log — Run {RUN_ID}
@@ -162,5 +162,5 @@ Write your fix log to `{PHASE_ARTIFACTS}/phase-13-design-fix.md`:
 
 ## Summary
 FIXES_APPLIED: [count]
-DESIGN_SCORE_BEFORE: [letter from Phase 12]
+DESIGN_SCORE_BEFORE: [letter from Phase 11]
 ```
