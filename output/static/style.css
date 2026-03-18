@@ -1,0 +1,21 @@
+/* Additional styles — base styles are inline in dashboard.html */
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #238636;
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.toast.hidden {
+    opacity: 0;
+    pointer-events: none;
+}

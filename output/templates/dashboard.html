@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstack Reply Queue</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:1rem;max-width:800px;margin:0 auto}
+h1{font-size:1.4rem;margin-bottom:1.5rem;color:#58a6ff}
+.empty{text-align:center;padding:3rem 1rem;color:#8b949e;font-size:1.1rem}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.2rem}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem}
+.author{font-weight:600;color:#f0f6fc}
+.followers{font-size:.85rem;color:#8b949e}
+.sentiment{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:600;text-transform:uppercase}
+.sentiment-praise{background:#1f3d2a;color:#3fb950}
+.sentiment-question{background:#1c2d4a;color:#58a6ff}
+.sentiment-criticism{background:#3d1f1f;color:#f85149}
+.sentiment-neutral{background:#282830;color:#8b949e}
+.tweet-text{font-family:'SF Mono',Menlo,monospace;font-size:.9rem;background:#0d1117;padding:.75rem;border-radius:4px;margin-bottom:.8rem;white-space:pre-wrap;word-break:break-word;border:1px solid #21262d}
+.thread-summary{font-size:.8rem;color:#8b949e;margin-bottom:.8rem;padding:.5rem;background:#0d1117;border-radius:4px;border-left:3px solid #30363d}
+.variants{margin-bottom:.8rem}
+.variant{display:flex;align-items:flex-start;gap:.5rem;padding:.5rem;border-radius:4px;cursor:pointer;margin-bottom:.3rem}
+.variant:hover{background:#1c2128}
+.variant input[type=radio]{margin-top:.3rem;accent-color:#58a6ff}
+.variant-text{font-family:'SF Mono',Menlo,monospace;font-size:.85rem;flex:1}
+.char-count{font-size:.75rem;font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:4px}
+.char-green{color:#3fb950;background:#1f3d2a}
+.char-yellow{color:#d29922;background:#3d2e1f}
+.char-red{color:#f85149;background:#3d1f1f}
+.edit-area{width:100%;font-family:'SF Mono',Menlo,monospace;font-size:.85rem;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:.5rem;resize:vertical;min-height:60px;display:none;margin-bottom:.5rem}
+.edit-area:focus{border-color:#58a6ff;outline:none}
+.actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.btn{padding:.4rem .8rem;border-radius:6px;border:1px solid #30363d;font-size:.85rem;cursor:pointer;font-weight:500}
+.btn-approve{background:#238636;color:#fff;border-color:#238636}
+.btn-approve:hover{background:#2ea043}
+.btn-approve:disabled{opacity:.5;cursor:not-allowed}
+.btn-skip{background:transparent;color:#8b949e;border-color:#30363d}
+.btn-skip:hover{color:#f85149;border-color:#f85149}
+.btn-edit{background:transparent;color:#58a6ff;border-color:#30363d}
+.btn-edit:hover{border-color:#58a6ff}
+select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.4rem .6rem;font-size:.85rem}
+.edit-counter{font-size:.75rem;margin-bottom:.3rem}
+</style>
+</head>
+<body>
+<h1>gstack Reply Queue</h1>
+
+{% if not tweets %}
+<div class="empty">No tweets to review. Check back in 15 minutes.</div>
+{% endif %}
+
+{% for tweet in tweets %}
+<div class="card" id="card-{{ tweet.id }}">
+  <div class="card-header">
+    <div>
+      <span class="author">{{ tweet.author_name }}</span>
+      <span class="followers">{{ "{:,}".format(tweet.follower_count) }} followers</span>
+    </div>
+    <span class="sentiment sentiment-{{ tweet.sentiment }}">{{ tweet.sentiment }}</span>
+  </div>
+
+  <div class="tweet-text">{{ tweet.text }}</div>
+
+  {% if tweet.thread and tweet.thread|length > 0 %}
+  <div class="thread-summary">
+    <strong>Thread context:</strong><br>
+    {% for t in tweet.thread[:5] %}
+    {{ t.text }}<br>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="tweet-form" data-tweet-id="{{ tweet.id }}">
+    <div class="variants">
+      {% for v in tweet.variants %}
+      <label class="variant">
+        <input type="radio" name="variant_id" value="{{ v.id }}"
+               data-text="{{ v.draft_text|e }}" {% if loop.first %}checked{% endif %}>
+        <span class="variant-text">{{ v.draft_text }}</span>
+        {% set clen = v.draft_text|length %}
+        <span class="char-count {% if clen <= 260 %}char-green{% elif clen <= 270 %}char-yellow{% else %}char-red{% endif %}">{{ clen }}</span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="edit-area-wrap" style="display:none">
+      <textarea class="edit-area" name="reply_text_edit" maxlength="280"></textarea>
+      <div class="edit-counter"></div>
+    </div>
+
+    <input type="hidden" name="tweet_id" value="{{ tweet.id }}">
+    <input type="hidden" name="reply_text" class="reply-text-hidden">
+    <input type="hidden" name="variant_id_hidden" class="variant-id-hidden">
+
+    <div class="actions">
+      <select name="send_window">
+        <option value="morning">Morning (9-11am ET)</option>
+        <option value="lunch">Lunch (12-2pm ET)</option>
+        <option value="evening">Evening (5-7pm ET)</option>
+      </select>
+      <button type="submit" class="btn btn-approve" formaction="/approve">Approve</button>
+      <button type="button" class="btn btn-edit">Edit</button>
+      <button type="submit" class="btn btn-skip" formaction="/skip">Skip</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+<script>
+document.querySelectorAll('.tweet-form').forEach(function(form) {
+  var editWrap = form.querySelector('.edit-area-wrap');
+  var editArea = form.querySelector('.edit-area');
+  var editCounter = form.querySelector('.edit-counter');
+  var editBtn = form.querySelector('.btn-edit');
+  var approveBtn = form.querySelector('.btn-approve');
+  var replyHidden = form.querySelector('.reply-text-hidden');
+  var variantHidden = form.querySelector('.variant-id-hidden');
+  var radios = form.querySelectorAll('input[name="variant_id"]');
+  var editing = false;
+
+  function getSelected() {
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) return radios[i];
+    }
+    return radios[0];
+  }
+
+  function updateCounter() {
+    var len = editArea.value.length;
+    var cls = len <= 260 ? 'char-green' : len <= 270 ? 'char-yellow' : 'char-red';
+    editCounter.innerHTML = '<span class="char-count ' + cls + '">' + len + '/280</span>';
+    approveBtn.disabled = len > 280 || len === 0;
+  }
+
+  editBtn.addEventListener('click', function() {
+    editing = !editing;
+    editWrap.style.display = editing ? 'block' : 'none';
+    editBtn.textContent = editing ? 'Cancel Edit' : 'Edit';
+    if (editing) {
+      editArea.value = getSelected().getAttribute('data-text');
+      updateCounter();
+      editArea.focus();
+    }
+  });
+
+  editArea.addEventListener('input', updateCounter);
+
+  for (var i = 0; i < radios.length; i++) {
+    radios[i].addEventListener('change', function() {
+      if (editing) {
+        editArea.value = this.getAttribute('data-text');
+        updateCounter();
+      }
+    });
+  }
+
+  form.addEventListener('submit', function(e) {
+    if (form.getAttribute('data-submitting') === 'skip') return;
+    var sel = getSelected();
+    variantHidden.value = sel.value;
+    if (editing && editArea.value.trim()) {
+      replyHidden.value = editArea.value.trim();
+    } else {
+      replyHidden.value = sel.getAttribute('data-text');
+    }
+    if (e.submitter && e.submitter.formAction && e.submitter.formAction.indexOf('/approve') !== -1) {
+      if (replyHidden.value.length > 280) {
+        e.preventDefault();
+        alert('Reply exceeds 280 characters.');
+        return;
+      }
+    }
+  });
+
+  form.querySelector('.btn-skip').addEventListener('click', function() {
+    form.setAttribute('data-submitting', 'skip');
+  });
+  form.querySelector('.btn-approve').addEventListener('click', function() {
+    form.removeAttribute('data-submitting');
+    var sel = getSelected();
+    variantHidden.value = sel.value;
+  });
+});
+</script>
+</body>
+</html>
