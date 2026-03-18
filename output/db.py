@@ -127,7 +127,7 @@ async def upsert_tweet(
                 str(author_name)[:200],
                 max(0, int(follower_count)),
                 str(text)[:10000],
-                thread_json[:50000],
+                (thread_json or "[]")[:50000],
                 sentiment,
                 datetime.now(timezone.utc).isoformat(),
             ),

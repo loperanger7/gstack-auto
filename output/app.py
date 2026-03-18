@@ -475,8 +475,9 @@ async def dashboard(request: Request):
         await conn.close()
 
     response = templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {"request": request, "tweets": tweets, "send_windows": VALID_SEND_WINDOWS},
+        {"tweets": tweets, "send_windows": VALID_SEND_WINDOWS},
     )
     return _set_auth_cookie(response)
 
@@ -494,8 +495,9 @@ async def stats_page(request: Request):
         await conn.close()
 
     response = templates.TemplateResponse(
+        request,
         "stats.html",
-        {"request": request, "stats": stats, "cycles": cycles},
+        {"stats": stats, "cycles": cycles},
     )
     return _set_auth_cookie(response)
 
@@ -505,7 +507,7 @@ async def approve(
     request: Request,
     tweet_id: str = Form(...),
     variant_id: int = Form(...),
-    reply_text: str = Form(...),
+    reply_text: str = Form(""),
     send_window: str = Form(...),
 ):
     if not check_auth(request):
@@ -551,4 +553,4 @@ async def skip(request: Request, tweet_id: str = Form(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), reload=False)

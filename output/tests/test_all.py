@@ -288,6 +288,38 @@ async def test_mark_stale(conn):
 
 
 # ============================================================
+# REGRESSION TESTS (bugs found in QA)
+# ============================================================
+
+@pytest.mark.asyncio
+async def test_upsert_tweet_none_thread_json(conn):
+    """Regression: upsert_tweet must not crash when thread_json is None."""
+    result = await db.upsert_tweet(conn, "r1", "a1", "user", 100, "text", None, "neutral")
+    assert result is True
+    cursor = await conn.execute("SELECT thread_json FROM tweets WHERE id='r1'")
+    row = await cursor.fetchone()
+    assert row[0] is not None  # Should default, not crash
+
+
+@pytest.mark.asyncio
+async def test_approve_empty_reply_text_returns_400():
+    """Regression: empty reply_text should return 400, not 422."""
+    from starlette.testclient import TestClient
+    import app as app_module
+    client = TestClient(app_module.app)
+    creds = base64.b64encode(
+        f"{os.environ['DASHBOARD_USERNAME']}:{os.environ['DASHBOARD_PASSWORD']}".encode()
+    ).decode()
+    resp = client.post(
+        "/approve",
+        data={"tweet_id": "t1", "variant_id": "1", "reply_text": "", "send_window": "morning"},
+        headers={"Authorization": f"Basic {creds}"},
+    )
+    assert resp.status_code == 400
+    assert "empty" in resp.json()["error"].lower()
+
+
+# ============================================================
 # TWITTER TESTS
 # ============================================================
 
