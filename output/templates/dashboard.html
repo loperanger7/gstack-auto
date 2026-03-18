@@ -1,28 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d1117">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
-<title>gstack Reply Queue</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:0 1rem 1rem;max-width:800px;margin:0 auto;line-height:1.5}
-.nav-bar{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #21262d}
-.nav-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
-.nav-right{display:flex;gap:1rem;align-items:center;font-size:.85rem}
-.nav-link{color:#8b949e;text-decoration:none;padding:.5rem .25rem;min-height:44px;display:inline-flex;align-items:center;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
-.nav-link:hover{color:#c9d1d9}
-.nav-link.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.nav-link:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.3rem;vertical-align:middle}
-.health-ok{background:#3fb950}
-.health-warn{background:#d29922}
-.health-error{background:#f85149}
-@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
-.health-ok{animation:pulse-dot 3s ease-in-out infinite}
-.queue-badge{color:#9ca3af;font-size:.8rem}
+{% extends "base.html" %}
+
+{% block title %}gstack Reply Queue{% endblock %}
+{% block page_title %}gstack Reply Queue{% endblock %}
+
+{% block extra_css %}
 .empty{text-align:center;padding:3rem 1rem;color:#9ca3af;font-size:1.1rem;line-height:1.8}
 .empty-sub{font-size:.85rem;color:#6e7681;margin-top:.5rem}
 .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.2rem;transition:transform .3s ease,opacity .3s ease,border-color .15s}
@@ -56,7 +37,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9
 .edit-area{width:100%;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.875rem;line-height:1.4;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.625rem;resize:vertical;min-height:72px;margin-bottom:.25rem}
 .edit-area:focus{border-color:#58a6ff;outline:none;box-shadow:0 0 0 2px rgba(88,166,255,.25)}
 .actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-@media(max-width:480px){.actions{flex-direction:column;align-items:stretch}.actions select{width:100%}.actions .btn{justify-content:center}.health-dot{width:10px;height:10px}.queue-badge{font-size:.9rem}}
+@media(max-width:480px){.actions{flex-direction:column;align-items:stretch}.actions select{width:100%}.actions .btn{justify-content:center}}
 .btn{padding:.5rem 1rem;border-radius:6px;border:1px solid #30363d;font-family:inherit;font-size:.875rem;cursor:pointer;font-weight:500;min-height:44px;display:inline-flex;align-items:center;transition:border-color .15s,background .15s,color .15s}
 .btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .btn-approve{background:#238636;color:#fff;border-color:#238636}
@@ -71,11 +52,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9
 select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem .75rem;font-family:inherit;font-size:.875rem;min-height:44px}
 select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .edit-counter{font-size:.75rem;margin-bottom:.3rem}
-.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(10px);background:#161b22;color:#c9d1d9;padding:.7rem 1.2rem;border-radius:8px;font-size:.88rem;font-weight:500;border:1px solid #30363d;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:1000;opacity:0;transition:opacity .3s ease,transform .3s ease;pointer-events:none}
-.toast.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;cursor:pointer}
-.toast--success{border-color:#238636;color:#3fb950}
-.toast--skip{border-color:#484f58;color:#8b949e}
-.toast--error{border-color:#f85149;color:#f85149}
 .kbd-hint{text-align:center;color:#484f58;font-size:.75rem;padding:1rem 0 .5rem}
 kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size:.7rem;font-family:'SF Mono',Menlo,monospace;border:1px solid #30363d}
 .kbd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:flex;justify-content:center;align-items:center}
@@ -85,20 +61,15 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 .kbd-grid div:nth-child(odd){text-align:right;color:#c9d1d9}
 .kbd-grid div:nth-child(even){color:#8b949e}
 .kbd-overlay-close{text-align:center;color:#484f58;font-size:.78rem;margin-top:1rem}
-@media(prefers-reduced-motion:reduce){.health-ok{animation:none}.card.exiting{transition:none}.toast{transition:none}.char-pulse{transform:none}.variant,.btn,.nav-link{transition:none}}
-</style>
-</head>
-<body>
-<nav class="nav-bar">
-  <h1>gstack Reply Queue</h1>
-  <div class="nav-right">
-    <span class="health-dot {% if error_count_24h is defined and error_count_24h > 0 %}health-error{% elif last_cycle %}health-ok{% else %}health-warn{% endif %}" title="{% if error_count_24h is defined and error_count_24h > 0 %}{{ error_count_24h }} errors in 24h{% elif last_cycle %}Last scan: {{ last_cycle[:19] }}{% else %}No scans yet{% endif %}"></span>
-    <span class="queue-badge" id="pending-count">{{ tweets|length }} pending</span>
-    <a href="/dashboard" class="nav-link active">Dashboard</a>
-    <a href="/stats" class="nav-link">Stats</a>
-  </div>
-</nav>
+@media(prefers-reduced-motion:reduce){.card.exiting{transition:none}.char-pulse{transform:none}.variant,.btn{transition:none}}
+{% endblock %}
 
+{% block nav_status %}
+<span class="health-dot {% if error_count_24h is defined and error_count_24h > 0 %}health-error{% elif last_cycle %}health-ok{% else %}health-warn{% endif %}" title="{% if error_count_24h is defined and error_count_24h > 0 %}{{ error_count_24h }} errors in 24h{% elif last_cycle %}Last scan: {{ last_cycle[:19] }}{% else %}No scans yet{% endif %}"></span>
+<span class="queue-badge" id="pending-count">{{ tweets|length }} pending</span>
+{% endblock %}
+
+{% block content %}
 {% if not tweets %}
 <div class="empty">
   No tweets to review right now.
@@ -183,8 +154,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 </div>
 {% endif %}
 
-<div class="toast" id="toast"></div>
-
 <div class="kbd-overlay" id="kbd-overlay" style="display:none">
   <div class="kbd-overlay-inner">
     <h2>Keyboard Shortcuts</h2>
@@ -199,10 +168,11 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     <p class="kbd-overlay-close">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</p>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 (function() {
-  /* --- Toast helper --- */
   var toastEl = document.getElementById('toast');
   var toastTimer = null;
   function showToast(msg, cls) {
@@ -214,7 +184,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 
   toastEl.addEventListener('click', function() { clearTimeout(toastTimer); toastEl.classList.remove('visible'); });
 
-  /* --- Pending count helper --- */
   var pendingEl = document.getElementById('pending-count');
   function updatePendingCount(delta) {
     var cards = document.querySelectorAll('.card:not(.exiting)');
@@ -223,7 +192,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     pendingEl.textContent = n + ' pending';
   }
 
-  /* --- Card exit animation --- */
   function animateCardOut(card, callback) {
     card.classList.add('exiting');
     var done = false;
@@ -233,7 +201,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       card.remove();
       updatePendingCount(0);
       if (callback) callback();
-      /* Show empty state if no cards left */
       if (!document.querySelector('.card')) {
         var body = document.querySelector('body');
         var hint = document.querySelector('.kbd-hint');
@@ -245,10 +212,9 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       }
     }
     card.addEventListener('transitionend', finish, {once: true});
-    setTimeout(finish, 500); /* fallback */
+    setTimeout(finish, 500);
   }
 
-  /* --- Per-form logic --- */
   document.querySelectorAll('.tweet-form').forEach(function(form) {
     var card = form.closest('.card');
     var editWrap = form.querySelector('.edit-area-wrap');
@@ -275,7 +241,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       if (approveBtn) approveBtn.disabled = len > 280 || len === 0;
     }
 
-    /* Variant radio selection */
     for (var i = 0; i < radios.length; i++) {
       radios[i].addEventListener('change', function() {
         form.querySelectorAll('.variant').forEach(function(v) { v.classList.remove('selected'); });
@@ -287,7 +252,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       });
     }
 
-    /* Edit toggle */
     editBtn.addEventListener('click', function() {
       editing = !editing;
       editWrap.style.display = editing ? 'block' : 'none';
@@ -305,7 +269,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 
     editArea.addEventListener('input', updateCounter);
 
-    /* Collect hidden fields before submit */
     function prepareFormData() {
       var sel = getSelected();
       if (sel) variantHidden.value = sel.value;
@@ -316,7 +279,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       }
     }
 
-    /* AJAX approve */
     function doApprove() {
       prepareFormData();
       var text = replyHidden.value;
@@ -350,7 +312,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       });
     }
 
-    /* AJAX skip */
     function doSkip() {
       var author = card.querySelector('.author').textContent;
       if (!confirm('Skip tweet from ' + author + '? This cannot be undone.')) return;
@@ -378,11 +339,8 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       });
     }
 
-    /* Intercept form submit for progressive enhancement.
-       Only preventDefault if fetch is available — otherwise let the
-       native form POST work as fallback. */
     form.addEventListener('submit', function(e) {
-      if (typeof fetch !== 'function') return; /* let native form submit */
+      if (typeof fetch !== 'function') return;
       e.preventDefault();
       var submitter = e.submitter;
       if (submitter && submitter.formAction && submitter.formAction.indexOf('/skip') !== -1) {
@@ -392,9 +350,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       }
     });
 
-    /* Edit button click — no changes, handled above */
-
-    /* Expose helpers for keyboard shortcuts */
     card._doApprove = doApprove;
     card._doSkip = doSkip;
     card._toggleEdit = function() { editBtn.click(); };
@@ -408,7 +363,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     card._editArea = editArea;
   });
 
-  /* --- Keyboard navigation --- */
   var focusedIdx = -1;
   function getCards() { return Array.from(document.querySelectorAll('.card:not(.exiting)')); }
 
@@ -423,47 +377,34 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     cards[idx].scrollIntoView({behavior: 'smooth', block: 'nearest'});
   }
 
-  /* --- Keyboard shortcut overlay --- */
   var kbdOverlay = document.getElementById('kbd-overlay');
   function toggleKbdOverlay() {
     kbdOverlay.style.display = kbdOverlay.style.display === 'none' ? 'flex' : 'none';
   }
 
   document.addEventListener('keydown', function(e) {
-    /* ? and Escape toggle overlay regardless of focus */
     if (e.key === '?' || (e.key === 'Escape' && kbdOverlay.style.display !== 'none')) {
       toggleKbdOverlay();
       e.preventDefault();
       return;
     }
-
-    /* Ignore when typing in inputs */
     var tag = document.activeElement.tagName;
     if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
-
     var cards = getCards();
     if (!cards.length) return;
     var focused = focusedIdx >= 0 && focusedIdx < cards.length ? cards[focusedIdx] : null;
-
     switch (e.key) {
       case 'j': setFocus(focusedIdx + 1); e.preventDefault(); break;
       case 'k': setFocus(focusedIdx - 1); e.preventDefault(); break;
-      case 'a':
-        if (focused && focused._doApprove) { focused._doApprove(); e.preventDefault(); }
-        break;
-      case 's':
-        if (focused && focused._doSkip) { focused._doSkip(); e.preventDefault(); }
-        break;
-      case 'e':
-        if (focused && focused._toggleEdit) { focused._toggleEdit(); e.preventDefault(); }
-        break;
+      case 'a': if (focused && focused._doApprove) { focused._doApprove(); e.preventDefault(); } break;
+      case 's': if (focused && focused._doSkip) { focused._doSkip(); e.preventDefault(); } break;
+      case 'e': if (focused && focused._toggleEdit) { focused._toggleEdit(); e.preventDefault(); } break;
       case '1': if (focused) { focused._selectVariant(0); e.preventDefault(); } break;
       case '2': if (focused) { focused._selectVariant(1); e.preventDefault(); } break;
       case '3': if (focused) { focused._selectVariant(2); e.preventDefault(); } break;
     }
   });
 
-  /* --- Show toast from URL params (fallback for non-JS redirect) --- */
   var params = new URLSearchParams(window.location.search);
   var action = params.get('action');
   if (action === 'approved') {
@@ -475,5 +416,4 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
   }
 })();
 </script>
-</body>
-</html>
+{% endblock %}

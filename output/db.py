@@ -105,6 +105,8 @@ async def upsert_tweet(
     sentiment: str = "neutral",
 ) -> bool:
     """Insert a tweet if not already seen. Returns True if newly inserted."""
+    tweet_id = str(tweet_id).strip() if tweet_id else ""
+    author_id = str(author_id).strip() if author_id else ""
     if not tweet_id or not author_id:
         log.warning("Refusing to insert tweet with empty id or author_id")
         return False
@@ -113,7 +115,7 @@ async def upsert_tweet(
         sentiment = "neutral"
     try:
         # Check if already exists to detect true insert
-        cursor = await conn.execute("SELECT 1 FROM tweets WHERE id = ?", (str(tweet_id).strip(),))
+        cursor = await conn.execute("SELECT 1 FROM tweets WHERE id = ?", (tweet_id,))
         if await cursor.fetchone():
             return False
         await conn.execute(
@@ -122,8 +124,8 @@ async def upsert_tweet(
                 thread_json, sentiment, found_at, status)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
             (
-                str(tweet_id).strip(),
-                str(author_id).strip(),
+                tweet_id,
+                author_id,
                 str(author_name)[:200],
                 max(0, int(follower_count)),
                 str(text)[:10000],
@@ -247,6 +249,8 @@ async def check_cooldown(
     row = await cursor.fetchone()
     if row is None:
         return False
+    if cooldown_days <= 0:
+        return True  # 0 or negative = permanent cooldown (fail closed)
     last = datetime.fromisoformat(row["last_replied_at"])
     now = datetime.now(timezone.utc)
     return (now - last).days < cooldown_days

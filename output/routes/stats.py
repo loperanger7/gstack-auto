@@ -38,6 +38,6 @@ async def stats_page(request: Request):
     response = templates.TemplateResponse(
         request,
         "stats.html",
-        {"stats": stats, "cycles": cycles, "max_window_replies": max_window_replies},
+        {"stats": stats, "cycles": cycles, "max_window_replies": max_window_replies, "active_page": "stats"},
     )
     return a._set_auth_cookie(response)

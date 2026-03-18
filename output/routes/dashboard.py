@@ -64,8 +64,10 @@ async def dashboard(request: Request):
             "tweets": tweets,
             "send_windows": VALID_SEND_WINDOWS,
             "last_cycle": health_data.get("last_cycle"),
+            "error_count_24h": health_data.get("error_count_24h", 0),
             "current_et_hour": et_hour,
             "default_window": default_window,
+            "active_page": "dashboard",
         },
     )
     return a._set_auth_cookie(response)

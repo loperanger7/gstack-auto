@@ -1,28 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d1117">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
-<title>gstack Stats</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:0 1rem 1.5rem;max-width:800px;margin:0 auto;line-height:1.5;font-size:1rem}
-.nav-bar{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #21262d}
-.nav-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
-.nav-right{display:flex;gap:1rem;align-items:center;font-size:.85rem}
-.nav-link{color:#8b949e;text-decoration:none;padding:.5rem .25rem;min-height:44px;display:inline-flex;align-items:center;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
-.nav-link:hover{color:#c9d1d9}
-.nav-link.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.nav-link:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-h2{font-size:1.2rem;margin:1.5rem 0 .8rem;color:#f0f6fc;font-weight:600}
-.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-bottom:1.5rem}
-@media(max-width:480px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
-.section-divider{border:none;border-top:1px solid #21262d;margin:1.5rem 0}
-.stat-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:.8rem;text-align:center}
-.stat-value{font-size:1.6rem;font-weight:700;color:#f0f6fc}
-.stat-label{font-size:.8rem;color:#9ca3af;margin-top:.2rem}
+{% extends "base.html" %}
+
+{% block title %}gstack Stats{% endblock %}
+{% block page_title %}gstack Stats{% endblock %}
+
+{% block extra_css %}
 .stat-value-pending{color:#58a6ff}
 .stat-value-likes{color:#f778ba}
 .stat-value-retweets{color:#3fb950}
@@ -41,19 +22,10 @@ tr.row-error td:last-child{font-weight:600}
 .bar-track{flex:1;background:#21262d;border-radius:4px;height:20px;overflow:hidden}
 .bar-fill{height:100%;background:#58a6ff;border-radius:4px;transition:width .3s ease;min-width:2px}
 .bar-value{width:36px;font-size:.8rem;color:#c9d1d9;font-weight:600}
-a:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-@media(prefers-reduced-motion:reduce){.bar-fill,.nav-link{transition:none}}
-</style>
-</head>
-<body>
-<nav class="nav-bar">
-  <h1>gstack Stats</h1>
-  <div class="nav-right">
-    <a href="/dashboard" class="nav-link">Dashboard</a>
-    <a href="/stats" class="nav-link active">Stats</a>
-  </div>
-</nav>
+@media(prefers-reduced-motion:reduce){.bar-fill{transition:none}}
+{% endblock %}
 
+{% block content %}
 <div class="stat-grid">
   <div class="stat-card"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Tweets</div></div>
   <div class="stat-card"><div class="stat-value stat-value-pending">{{ stats.pending }}</div><div class="stat-label">Pending</div></div>
@@ -111,5 +83,4 @@ a:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   </tbody>
 </table>
 {% endif %}
-</body>
-</html>
+{% endblock %}
