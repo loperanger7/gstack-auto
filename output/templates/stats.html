@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}gstack Stats{% endblock %}
+{% block page_title %}gstack Stats{% endblock %}
+
+{% block extra_css %}
+.stat-value-pending{color:#58a6ff}
+.stat-value-likes{color:#f778ba}
+.stat-value-retweets{color:#3fb950}
+.stat-value-approved{color:#d29922}
+.stat-value-replied{color:#3fb950}
+.stat-value-skipped{color:#9ca3af}
+.stat-value-stale{color:#f85149}
+table{width:100%;border-collapse:collapse;background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden;margin-bottom:1.5rem}
+th,td{padding:.5rem .8rem;text-align:left;border-bottom:1px solid #21262d;font-size:.85rem}
+th{background:#0d1117;color:#9ca3af;font-weight:600}
+tr.row-error td{color:#f85149}
+tr.row-error td:last-child{font-weight:600}
+.bar-chart{margin-bottom:1.5rem}
+.bar-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+.bar-label{width:70px;font-size:.8rem;color:#9ca3af;text-align:right;flex-shrink:0}
+.bar-track{flex:1;background:#21262d;border-radius:4px;height:20px;overflow:hidden}
+.bar-fill{height:100%;background:#58a6ff;border-radius:4px;transition:width .3s ease;min-width:2px}
+.bar-value{width:36px;font-size:.8rem;color:#c9d1d9;font-weight:600}
+@media(prefers-reduced-motion:reduce){.bar-fill{transition:none}}
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Tweets</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-pending">{{ stats.pending }}</div><div class="stat-label">Pending</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-approved">{{ stats.approved }}</div><div class="stat-label">Approved</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-replied">{{ stats.replied }}</div><div class="stat-label">Replied</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-skipped">{{ stats.skipped }}</div><div class="stat-label">Skipped</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-stale">{{ stats.stale }}</div><div class="stat-label">Stale</div></div>
+</div>
+
+<hr class="section-divider">
+<h2>Engagement</h2>
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-value stat-value-likes">{{ stats.total_likes }}</div><div class="stat-label">Total Likes</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-retweets">{{ stats.total_retweets }}</div><div class="stat-label">Total Retweets</div></div>
+</div>
+
+{% if stats.window_stats %}
+<h2>Send Window Performance</h2>
+<table>
+  <thead><tr><th>Window</th><th>Replies</th><th>Likes</th><th>Retweets</th></tr></thead>
+  <tbody>
+  {% for w in stats.window_stats %}
+    <tr><td>{{ w.send_window }}</td><td>{{ w.count }}</td><td>{{ w.likes }}</td><td>{{ w.retweets }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="bar-chart">
+  {% for w in stats.window_stats %}
+  <div class="bar-row">
+    <span class="bar-label">{{ w.send_window }}</span>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:{{ (w.count / max_window_replies * 100)|round|int }}%"></div>
+    </div>
+    <span class="bar-value">{{ w.count }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if cycles %}
+<h2>Recent Cycles</h2>
+<table>
+  <thead><tr><th>Started</th><th>Completed</th><th>Found</th><th>Drafted</th><th>Errors</th></tr></thead>
+  <tbody>
+  {% for c in cycles %}
+    <tr{% if c.errors and c.errors != '' %} class="row-error"{% endif %}>
+      <td>{{ c.started_at[:19] }}</td>
+      <td>{{ c.completed_at[:19] if c.completed_at else 'running' }}</td>
+      <td>{{ c.tweets_found }}</td>
+      <td>{{ c.drafts_created }}</td>
+      <td>{{ c.errors[:50] if c.errors else '-' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
