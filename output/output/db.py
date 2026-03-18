@@ -8,6 +8,8 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
+from contextlib import asynccontextmanager
+
 import aiosqlite
 
 log = logging.getLogger(__name__)
@@ -123,6 +125,18 @@ async def get_connection(db_path: str = DB_PATH) -> aiosqlite.Connection:
     await conn.execute("PRAGMA journal_mode=WAL")
     await conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+
+@asynccontextmanager
+async def managed_connection(db_path: str = DB_PATH):
+    """Context manager that opens and always closes a DB connection.
+    Usage: async with managed_connection() as conn: ...
+    Fail closed: connection is always released, even on exception."""
+    conn = await get_connection(db_path)
+    try:
+        yield conn
+    finally:
+        await conn.close()
 
 
 async def init_db(conn: aiosqlite.Connection) -> None:

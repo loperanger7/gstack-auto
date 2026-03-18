@@ -33,7 +33,9 @@ label{display:block;font-size:.82rem;color:#8b949e;margin-bottom:.3rem}
 @keyframes alert-enter{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 .alert-success{background:#1f3d2a;color:#3fb950;border:1px solid #238636;animation:alert-enter .3s ease}
 .alert-error{background:#3d1f1f;color:#f85149;border:1px solid #f85149;animation:alert-enter .3s ease}
-@media(prefers-reduced-motion:reduce){.alert-success,.alert-error{animation:none}.settings-card{transition:none}}
+.save-flash{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:600;background:#1f3d2a;color:#3fb950;margin-left:.5rem;animation:flash-in .3s ease}
+@keyframes flash-in{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.alert-success,.alert-error{animation:none}.settings-card{transition:none}.save-flash{animation:none}}
 {% endblock %}
 
 {% block content %}
@@ -103,7 +105,35 @@ label{display:block;font-size:.82rem;color:#8b949e;margin-bottom:.3rem}
   <div class="settings-card">
     <h3>Account</h3>
     <p>Signed in as {{ user.email }}</p>
-    <div class="actions"><a href="/auth/logout" class="btn" style="background:#21262d;color:#f85149">Sign Out</a></div>
+    <div class="actions"><a href="/auth/logout" class="btn" style="background:#21262d;color:#f85149" aria-label="Sign out of your account">Sign Out</a></div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var saved = params.get('saved');
+  if (saved) {
+    var labels = {'queries': 'Search Queries', 'tone': 'Reply Tone'};
+    var title = labels[saved];
+    if (title) {
+      var cards = document.querySelectorAll('.settings-card h3');
+      for (var i = 0; i < cards.length; i++) {
+        if (cards[i].textContent.trim().indexOf(title) === 0) {
+          var badge = document.createElement('span');
+          badge.className = 'save-flash';
+          badge.textContent = 'Saved';
+          badge.setAttribute('role', 'status');
+          cards[i].appendChild(badge);
+          setTimeout(function() { badge.style.opacity = '0'; badge.style.transition = 'opacity .5s'; }, 3000);
+          break;
+        }
+      }
+    }
+    window.history.replaceState({}, '', '/settings');
+  }
+})();
+</script>
 {% endblock %}

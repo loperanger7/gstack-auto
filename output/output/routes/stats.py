@@ -27,15 +27,12 @@ async def stats_page(request: Request):
     if not user_id:
         return a._deny()
 
-    conn = await db.get_connection(a.DB_PATH)
-    try:
+    async with db.managed_connection(a.DB_PATH) as conn:
         user = await db.get_user_by_id(conn, user_id)
         if not user:
             return a._deny()
         stats = await db.get_stats(conn, user_id=user_id)
         cycles = await db.get_cycle_history(conn, limit=20, user_id=user_id)
-    finally:
-        await conn.close()
 
     max_window_replies = max((w["count"] for w in stats.get("window_stats", [])), default=1) or 1
 

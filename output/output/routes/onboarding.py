@@ -2,6 +2,7 @@
 
 import logging
 import re
+import urllib.parse
 from pathlib import Path
 
 from fastapi import APIRouter, Form, Request
@@ -18,6 +19,25 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 VALID_TONES = {"professional", "casual", "witty", "technical", "custom"}
 _QUERY_RE = re.compile(r'^[\w\s@#"\'-]{1,200}$')
+_DANGEROUS_SCHEMES = {"javascript", "data", "vbscript", "file"}
+
+
+def _validate_url(url: str) -> str:
+    """Validate URL — reject dangerous schemes. Returns cleaned URL or empty string."""
+    if not url:
+        return ""
+    url = url.strip()
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return ""
+    if parsed.scheme.lower() in _DANGEROUS_SCHEMES:
+        return ""
+    if parsed.scheme not in ("http", "https", ""):
+        return ""
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return url[:500]
 
 
 def _get_app():
@@ -107,9 +127,8 @@ async def step2_tone(request: Request):
     if tone not in VALID_TONES:
         tone = "professional"
 
-    # Validate custom link if provided
-    if custom_link and not custom_link.startswith(("http://", "https://")):
-        custom_link = ""
+    # Validate custom link — reject dangerous schemes
+    custom_link = _validate_url(custom_link)
 
     conn = await db.get_connection(a.DB_PATH)
     try:

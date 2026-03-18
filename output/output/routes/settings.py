@@ -1,6 +1,7 @@
 """Settings routes — card-based settings page."""
 
 import logging
+import urllib.parse
 from pathlib import Path
 
 from fastapi import APIRouter, Form, Request
@@ -16,6 +17,28 @@ BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 VALID_TONES = {"professional", "casual", "witty", "technical", "custom"}
+_DANGEROUS_SCHEMES = {"javascript", "data", "vbscript", "file"}
+
+
+def _validate_url(url: str) -> str:
+    """Validate URL — reject dangerous schemes. Returns cleaned URL or empty string."""
+    if not url:
+        return ""
+    url = url.strip()
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return ""
+    if parsed.scheme.lower() in _DANGEROUS_SCHEMES:
+        log.warning("Rejected dangerous URL scheme: %s", parsed.scheme)
+        return ""
+    if parsed.scheme not in ("http", "https", ""):
+        return ""
+    if not parsed.scheme:
+        return ""
+    if not parsed.netloc:
+        return ""
+    return url[:500]
 
 
 def _get_app():
@@ -91,8 +114,7 @@ async def update_tone(request: Request):
 
     if tone not in VALID_TONES:
         tone = "professional"
-    if custom_link and not custom_link.startswith(("http://", "https://")):
-        custom_link = ""
+    custom_link = _validate_url(custom_link)
 
     conn = await db.get_connection(a.DB_PATH)
     try:

@@ -148,12 +148,12 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
         <option value="evening"{% if default_window == "evening" %} selected{% endif %}>Evening (5-7pm ET)</option>
       </select>
       {% if tweet.variants %}
-      <button type="submit" class="btn btn-approve" formaction="/approve">Approve</button>
+      <button type="submit" class="btn btn-approve" formaction="/approve" aria-label="Approve reply to {{ tweet.author_name }}">Approve</button>
       {% else %}
-      <button type="submit" class="btn btn-approve" formaction="/approve" disabled>Approve</button>
+      <button type="submit" class="btn btn-approve" formaction="/approve" disabled aria-label="Approve reply (no variants yet)">Approve</button>
       {% endif %}
-      <button type="button" class="btn btn-edit">Edit</button>
-      <button type="submit" class="btn btn-skip" formaction="/skip">Skip</button>
+      <button type="button" class="btn btn-edit" aria-label="Edit reply to {{ tweet.author_name }}">Edit</button>
+      <button type="submit" class="btn btn-skip" formaction="/skip" aria-label="Skip tweet from {{ tweet.author_name }}">Skip</button>
     </div>
   </form>
 </div>
@@ -170,7 +170,7 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 </div>
 {% endif %}
 
-<div class="kbd-overlay" id="kbd-overlay" style="display:none">
+<div class="kbd-overlay" id="kbd-overlay" style="display:none" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true">
   <div class="kbd-overlay-inner">
     <h2>Keyboard Shortcuts</h2>
     <div class="kbd-grid">
@@ -190,12 +190,22 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 <script>
 (function() {
   var toastEl = document.getElementById('toast');
+  var toastText = toastEl.querySelector('.toast-text');
+  var toastProgress = toastEl.querySelector('.toast-progress');
   var toastTimer = null;
+  var TOAST_DURATION = 4000;
   function showToast(msg, cls) {
     clearTimeout(toastTimer);
-    toastEl.textContent = msg;
+    toastText.textContent = msg;
     toastEl.className = 'toast ' + cls + ' visible';
-    toastTimer = setTimeout(function() { toastEl.classList.remove('visible'); }, 4000);
+    if (toastProgress) {
+      toastProgress.style.transition = 'none';
+      toastProgress.style.width = '100%';
+      toastProgress.offsetHeight; /* force reflow */
+      toastProgress.style.transition = 'width ' + TOAST_DURATION + 'ms linear';
+      toastProgress.style.width = '0%';
+    }
+    toastTimer = setTimeout(function() { toastEl.classList.remove('visible'); }, TOAST_DURATION);
   }
 
   toastEl.addEventListener('click', function() { clearTimeout(toastTimer); toastEl.classList.remove('visible'); });

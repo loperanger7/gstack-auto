@@ -21,6 +21,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, URLSafeTimedSerializer
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 try:
@@ -222,6 +223,34 @@ from routes.settings import router as settings_router
 from routes.admin import router as admin_router
 
 app = FastAPI(lifespan=lifespan)
+
+
+# --- Security: Content-Security-Policy middleware ---
+
+class CSPMiddleware(BaseHTTPMiddleware):
+    """Add Content-Security-Policy header to all responses.
+    Blocks XSS from external scripts while allowing inline styles/scripts
+    needed by our templates."""
+
+    CSP_POLICY = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self' https://accounts.google.com"
+    )
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = self.CSP_POLICY
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        return response
+
+
+app.add_middleware(CSPMiddleware)
 
 # Session middleware for OAuth
 app.add_middleware(
