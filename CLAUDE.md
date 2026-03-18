@@ -29,7 +29,7 @@ QA → fix → score cycles.
   │  │    {MODE} = greenfield (round 1) | iteration (2+)│  │
   │  │                                                  │  │
   │  │  All runs execute in lock-step:                  │  │
-  │  │    Phase 1-6 → bug-fix → design 12-13 → Score 14│  │
+  │  │    Phase 1-6 → bug-fix → design 11-12 → Score 13│  │
   │  └──────────────────────────────────────────────────┘  │
   │       │                                                │
   │       ▼                                                │
@@ -189,6 +189,7 @@ Agent(
           and {ENV_VARS} replaced by the env vars block (see Step 1)
           and {STYLE_NAME} replaced by style display name
           and {STYLE_PRINCIPLES} replaced by style file contents
+          and {ROUND_RETROSPECTIVE} replaced by prior round retrospective (see Step 2e.5; empty string if round 1)
 )
 ```
 
@@ -219,6 +220,7 @@ and pass its contents as the resume prompt. Replace template variables:
 - `{STYLE_NAME}` — display name from style profile heading (or "Default")
 - `{STYLE_PRINCIPLES}` — full contents of the style profile (or generic fallback)
 - `{ENV_VARS}` — user-supplied API keys for implementation and testing (see Step 1)
+- `{ROUND_RETROSPECTIVE}` — prior round learnings (empty string if round 1; see Step 2e.5)
 - `{DESIGN_STYLE_NAME}` — display name from design style profile (or "Default")
 - `{DESIGN_STYLE_PRINCIPLES}` — full contents of the design style profile (or generic fallback)
 
@@ -228,13 +230,13 @@ After phase 06 (QA), read each run's QA report from
 `.context/runs/run-{id}/phase-06-qa.md`.
 
 For each run:
-- If QA found bugs: resume with phases 07 → 08 → 09 → 10 → 11
-- If QA found no bugs: skip to design review (phase 12)
+- If QA found bugs: resume with phases 07 → 08 → 09 → 10
+- If QA found no bugs: skip to design review (phase 11)
 
 Apply the same template variable substitutions as Step 2b when resuming
 these phases.
 
-Bug-fix loop: after phase 11 (QA confirm), check again. If bugs remain,
+Bug-fix loop: after phase 10 (QA confirm), check again. If bugs remain,
 loop back to phase 07. **Maximum 3 bug-fix cycles.** After 3 cycles,
 proceed to design review with a score penalty note.
 
@@ -248,22 +250,22 @@ find {WORKTREE}/output -name '*.html' -type f | head -1 | grep -q . && echo "HAS
 ```
 
 Also check `design_review` in config.yml. If `design_review: false` OR
-`NO_HTML`, skip phases 12-13 entirely for this run.
+`NO_HTML`, skip phases 11-12 entirely for this run.
 
 **If design review runs:**
-Resume each run with phase 12 (design review), then phase 13 (design fix).
+Resume each run with phase 11 (design review), then phase 12 (design fix).
 Replace template variables:
 - `{DESIGN_STYLE_NAME}` — from design style resolution (or "Default")
 - `{DESIGN_STYLE_PRINCIPLES}` — from design style file (or generic fallback)
 
 Each run writes:
-- `.context/runs/run-{id}/phase-12-design-review.md`
+- `.context/runs/run-{id}/phase-11-design-review.md`
 - `.context/runs/run-{id}/design-scores.json`
-- `.context/runs/run-{id}/phase-13-design-fix.md`
+- `.context/runs/run-{id}/phase-12-design-fix.md`
 
 ### Step 2d: Retro & Scoring
 
-Resume all N agents with phase 14 (retro + scoring). Each agent writes:
+Resume all N agents with phase 13 (retro + scoring). Each agent writes:
 - `.context/runs/run-{id}/score.json` — structured scores
 - `.context/runs/run-{id}/retro.md` — full retrospective
 - `.context/runs/run-{id}/highlight.md` — best code snippet
@@ -283,7 +285,9 @@ Read all `score.json` files. Expected format:
   "bugs_remaining": 0,
   "fix_cycles_used": 1,
   "narrative": "Why I built it this way...",
-  "highlight": "The most elegant piece of code..."
+  "highlight": "The most elegant piece of code...",
+  "test_count": 12,
+  "regression_tests_added": 3
 }
 ```
 
@@ -292,7 +296,8 @@ When ranking, use `average` regardless — it already accounts for the
 correct weight table.
 
 Rank runs by `average` score (descending). Break ties by `bugs_remaining`
-(fewer is better), then `fix_cycles_used` (fewer is better).
+(fewer is better), then `fix_cycles_used` (fewer is better), then
+`test_count` (more is better).
 
 **Error check:** If no run has a valid score.json, STOP and tell the user:
 "Round {N} failed — no runs produced valid scores. Check agent logs."
@@ -306,6 +311,44 @@ Store this round's results in `round_results`:
   "all_scores": { "run-a": 6.2, "run-b": 7.6, "run-c": 7.1 }
 }
 ```
+
+### Step 2e.5: Write Round Retrospective
+
+After selecting the winner, write a brief retrospective so the next round's
+agents can learn from this round's mistakes and successes.
+
+```bash
+mkdir -p .context/retrospective
+```
+
+Write to `.context/retrospective/round-{N}.md`:
+
+```markdown
+# Round {N} Retrospective
+
+## Winner: run-{id} ({score}/10)
+
+## Phase Performance
+- Phase 03 (implement): [observations from retro.md — what went well/poorly]
+- Phase 06 (QA): [bugs found, types of bugs, regression tests written]
+- Fix cycles used: {N} of 3 maximum
+
+## Patterns to Address in Next Round
+- [specific weakness from this round that agents should be aware of]
+
+## Test Suite Status
+- Tests inherited from prior round: [count]
+- Regression tests added this round: [count]
+- Total tests entering next round: [count]
+```
+
+**For round 2+**, format `{ROUND_RETROSPECTIVE}` as:
+```
+## Prior Round Retrospective
+[contents of .context/retrospective/round-{N-1}.md]
+```
+
+For round 1, `{ROUND_RETROSPECTIVE}` is empty string.
 
 ### Step 2f: Winner Carry-Forward
 
