@@ -6,7 +6,7 @@ parallel_runs: 3
 # Number of sequential rounds. Each round runs N parallel attempts,
 # auto-selects the winner, commits it, and feeds it into the next round.
 # Override from invocation prompt: "run 5 rounds"
-rounds: 7
+rounds: 3
 
 # When true, the highest-scoring run is automatically selected as the
 # winner after each round. When false (and rounds=1), the user picks
