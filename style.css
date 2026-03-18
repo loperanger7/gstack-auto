@@ -569,6 +569,12 @@ button.primary:hover:not(:disabled) {
   color: var(--accent-dim);
 }
 
+.run-again-sub {
+  font-size: 11px;
+  color: var(--accent-dim);
+  margin: -8px 0 16px;
+}
+
 .btn-secondary {
   font-family: var(--mono);
   font-size: 12px;

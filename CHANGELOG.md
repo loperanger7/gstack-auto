@@ -2,6 +2,12 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.10.1] - 2026-03-17
+
+### Changed
+- Run Again bar button text updated to "Run again with winning output" to communicate iteration mode
+- Added sub-line below the Run Again bar showing winner score: "Agents will iterate on the X.X/10 winner — not start fresh."
+
 ## [0.1.10.0] - 2026-03-17
 
 ### Added

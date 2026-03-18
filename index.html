@@ -168,10 +168,11 @@
   </div>
 
   <div id="run-again-bar" class="run-again-bar" style="display:none">
-    <button type="button" class="btn-run-again" id="btn-run-again">Run the pipeline again</button>
+    <button type="button" class="btn-run-again" id="btn-run-again">Run again with winning output</button>
     <span class="run-again-hint" id="run-again-hint"></span>
     <button type="button" class="btn-secondary" id="btn-new-project">New Project</button>
   </div>
+  <p class="run-again-sub" id="run-again-sub" style="display:none"></p>
 
   <div id="runs"></div>
 
@@ -983,6 +984,14 @@ function renderResults(data) {
   var allScored = data.runs.every(function(r) { return r.status === 'scored'; });
   if (allScored) {
     $('run-again-bar').style.display = '';
+    var winnerRun = data.runs.slice().sort(function(a, b) {
+      return (b.scores && b.scores.average || 0) - (a.scores && a.scores.average || 0);
+    })[0];
+    var sub = $('run-again-sub');
+    if (winnerRun && winnerRun.scores && winnerRun.scores.average != null) {
+      sub.textContent = 'Agents will iterate on the ' + winnerRun.scores.average + '/10 winner \u2014 not start fresh.';
+      sub.style.display = '';
+    }
   }
 }
 
