@@ -191,6 +191,98 @@
     }
     /* Removed: spotlightPulse — decorative animation with no functional purpose */
 
+    /* Risk Signal Pill — synthesized single-phrase assessment */
+    .risk-signal {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin: 6px 0 2px;
+    }
+    .risk-signal-safe    { background: rgba(16,185,129,0.12); color: var(--lock); border: 1px solid rgba(16,185,129,0.3); }
+    .risk-signal-lean    { background: rgba(59,130,246,0.12);  color: var(--lean); border: 1px solid rgba(59,130,246,0.3); }
+    .risk-signal-flip    { background: rgba(245,158,11,0.12);  color: var(--tossup); border: 1px solid rgba(245,158,11,0.3); }
+    .risk-signal-danger  { background: rgba(239,68,68,0.12);   color: var(--upset); border: 1px solid rgba(239,68,68,0.3); }
+
+    /* Bettor's Take — plain-English overlay on hover/focus */
+    .bettor-take {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(13,17,23,0.93);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 18px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 5;
+    }
+    .bettor-take-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .bettor-take-text {
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--text);
+      font-style: italic;
+    }
+    .fight-card:hover .bettor-take,
+    .fight-card:focus-within .bettor-take { opacity: 1; pointer-events: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      .bettor-take { transition: none; }
+    }
+    .bettor-take-dismiss {
+      margin-top: 10px;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* Best Bet Strip — sticky top-right callout */
+    .best-bet-strip {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 200;
+      background: var(--surface);
+      border: 1px solid var(--lock);
+      border-radius: var(--radius);
+      padding: 8px 12px 8px 14px;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      animation: bestBetIn 0.3s ease-out;
+      max-width: 280px;
+    }
+    @keyframes bestBetIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .best-bet-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lock); font-weight: 700; display: block; margin-bottom: 1px; }
+    .best-bet-name  { font-weight: 700; color: var(--text); }
+    .best-bet-prob  { color: var(--lock); font-weight: 700; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+    .best-bet-close {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 1rem; line-height: 1; padding: 2px 4px; flex-shrink: 0;
+      transition: color .15s;
+    }
+    .best-bet-close:hover { color: var(--text); }
+    @media (max-width: 600px) { .best-bet-strip { display: none !important; } }
+
     /* Summary strip */
     .summary-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
     .summary-card {
@@ -469,6 +561,13 @@
 </head>
 <body>
 <a href="#fightGrid" class="skip-to-content" tabindex="1">Skip to fights</a>
+<div id="bestBetStrip" class="best-bet-strip hidden" role="status" aria-label="Best bet of the night">
+  <div>
+    <span class="best-bet-label">Best Bet Tonight</span>
+    <span><span class="best-bet-name" id="bestBetName"></span> <span class="best-bet-prob" id="bestBetProb"></span></span>
+  </div>
+  <button class="best-bet-close" id="bestBetClose" type="button" aria-label="Dismiss best bet">&times;</button>
+</div>
 <div class="page">
   <header>
     <div>
@@ -538,6 +637,9 @@
 // ===================================================
 // CONSTANTS
 // ===================================================
+// Injected API key — set at build time, empty string means not injected
+var INJECTED_API_KEY   = '49ad12f5390df660b6bec9ec01eadaf0';
+
 var CACHE_VERSION      = 'v2';
 var CACHE_TTL_MS       = 15 * 60 * 1000;
 var FETCH_TIMEOUT_MS   = 8000;
@@ -846,6 +948,72 @@ function identifySpotlight(computed) {
   }
   // Fallback: first fight
   return { fight: computed[0], reason: 'Featured fight' };
+}
+
+// ===================================================
+// RISK SIGNAL — synthesize fight data into a single phrase
+// ===================================================
+function strHash(s) {
+  // Simple deterministic hash for template variation
+  var h = 0;
+  for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff; }
+  return h;
+}
+
+function computeRiskSignal(fight) {
+  var tier = fight.tier, upset = fight.upset, disagLevel = fight.disagree ? fight.disagree.level : 'na';
+  var idHash = strHash(fight.id || fight.f1 || '');
+
+  if (tier === TIER.LOCK && disagLevel === 'low') {
+    var templates = [
+      'Books agree. Lean on the favorite — this is as safe as it gets in MMA.',
+      'Strong consensus across all sources. The odds favor a clean win here.'
+    ];
+    return { label: 'Safe Bet', cssClass: 'risk-signal-safe', explanation: templates[idHash % 2] };
+  }
+  if (tier === TIER.LOCK) {
+    // Lock but sources disagree somewhat
+    return {
+      label: 'Lean Favorite',
+      cssClass: 'risk-signal-lean',
+      explanation: 'Favorite is clear, but sources split on the margin. Proceed with confidence, not certainty.'
+    };
+  }
+  if (tier === TIER.LEAN) {
+    if (upset < 35) {
+      var leanTemplates = [
+        'The favorite has an edge, but this isn\'t a lock. Bet small or pass.',
+        'Reasonable favorite — but upsets happen. Don\'t bet the rent.'
+      ];
+      return { label: 'Calculated Risk', cssClass: 'risk-signal-lean', explanation: leanTemplates[idHash % 2] };
+    } else {
+      return {
+        label: 'Calculated Risk',
+        cssClass: 'risk-signal-lean',
+        explanation: 'Technically a lean, but the upset score is elevated. Both fighters have a shot.'
+      };
+    }
+  }
+  if (tier === TIER.TOSSUP) {
+    var flipTemplates = [
+      'No clear favorite. This is a coin flip — only bet if you have a strong conviction.',
+      'Sharp money is split. High variance, no edge for the casual bettor.'
+    ];
+    return { label: 'Coin Flip', cssClass: 'risk-signal-flip', explanation: flipTemplates[idHash % 2] };
+  }
+  // UPSET
+  if (disagLevel === 'high') {
+    return {
+      label: 'Danger Zone',
+      cssClass: 'risk-signal-danger',
+      explanation: 'Books are split AND the underdog can win. Pure speculation — treat any bet as entertainment only.'
+    };
+  }
+  return {
+    label: 'Danger Zone',
+    cssClass: 'risk-signal-danger',
+    explanation: 'Upset potential is real. High-risk territory — the underdog has a legitimate shot.'
+  };
 }
 
 // ===================================================
@@ -1282,9 +1450,36 @@ function renderCard(c, index) {
   var tl={lock:'Lock',lean:'Lean',tossup:'Toss-Up',upset:'Upset Alert'};
   tb.className='tier-badge tier-'+c.tier; tb.textContent=tl[c.tier]||c.tier; hdr.appendChild(tb);
   card.appendChild(hdr);
+
+  // Risk Signal Pill — synthesized single-phrase assessment
+  var sig = computeRiskSignal(c);
+  var sigEl = document.createElement('div');
+  sigEl.className = 'risk-signal ' + sig.cssClass;
+  sigEl.textContent = sig.label;
+  sigEl.setAttribute('aria-label', 'Risk assessment: ' + sig.label);
+  card.appendChild(sigEl);
+
   card.appendChild(makeCIBar(c.ci,c.favProb));
   card.appendChild(makeMeter(c.upset, c.dogName));
   card.appendChild(makeDisagreeRow(c.disagree,c.sources,c));
+
+  // Bettor's Take — plain-English hover overlay
+  var bt = document.createElement('div');
+  bt.className = 'bettor-take';
+  bt.setAttribute('aria-hidden', 'true'); // decorative, not screen reader primary
+  var btLabel = document.createElement('div');
+  btLabel.className = 'bettor-take-label';
+  btLabel.textContent = 'Bettor\'s Take';
+  var btText = document.createElement('div');
+  btText.className = 'bettor-take-text';
+  btText.textContent = sig.explanation;
+  var btDismiss = document.createElement('div');
+  btDismiss.className = 'bettor-take-dismiss';
+  btDismiss.textContent = IS_TOUCH ? 'Tap elsewhere to dismiss' : 'Move cursor away to dismiss';
+  bt.appendChild(btLabel);
+  bt.appendChild(btText);
+  bt.appendChild(btDismiss);
+  card.appendChild(bt);
 
   // Keyboard: Enter on card scrolls to popover area
   card.addEventListener('keydown', function(e) {
@@ -1458,6 +1653,9 @@ function renderFights(computed) {
       fightGridEl.appendChild(renderCard(groups[g].fights[i], cardIndex++));
     }
   }
+
+  // Update best-bet strip after rendering
+  updateBestBetStrip(computed);
 }
 
 function updateQuotaBadge(quota) {
@@ -1468,6 +1666,21 @@ function updateQuotaBadge(quota) {
   if (quota<=QUOTA_CRITICAL) quotaBadgeEl.classList.add('quota-critical');
   else if (quota<=QUOTA_WARN) quotaBadgeEl.classList.add('quota-low');
   else quotaBadgeEl.classList.add('quota-ok');
+}
+
+var _bestBetDismissed = false;
+
+function updateBestBetStrip(computed) {
+  var strip = $('bestBetStrip');
+  if (!strip || _bestBetDismissed) return;
+  var locks = computed.filter(function(f){ return f.tier === TIER.LOCK; });
+  locks.sort(function(a,b){ return b.favProb - a.favProb; });
+  if (!locks.length) { strip.classList.add('hidden'); return; }
+  var best = locks[0];
+  var nameEl = $('bestBetName'), probEl = $('bestBetProb');
+  if (nameEl) nameEl.textContent = sanitize(best.favName);
+  if (probEl) probEl.textContent = pct(best.favProb);
+  strip.classList.remove('hidden');
 }
 
 function showAllFailed() {
@@ -1859,18 +2072,57 @@ function runSelfTests() {
     return r.length===2;
   });
 
-  // Render results
+  // === NEW TESTS (Run B — UX polish additions) ===
+
+  // --- computeRiskSignal (6) ---
+  assert('riskSignal lock+low->Safe Bet', function(){
+    var f={id:'x',tier:'lock',upset:10,disagree:{level:'low',delta:0.01},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return s.label==='Safe Bet' && s.cssClass==='risk-signal-safe';
+  });
+  assert('riskSignal lock+med->Lean Favorite', function(){
+    var f={id:'x',tier:'lock',upset:20,disagree:{level:'med',delta:0.05},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return s.label==='Lean Favorite' && s.cssClass==='risk-signal-lean';
+  });
+  assert('riskSignal lean->Calculated Risk', function(){
+    var f={id:'x',tier:'lean',upset:25,disagree:{level:'low',delta:0.02},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return s.label==='Calculated Risk' && s.cssClass==='risk-signal-lean';
+  });
+  assert('riskSignal tossup->Coin Flip', function(){
+    var f={id:'x',tier:'tossup',upset:55,disagree:{level:'med',delta:0.06},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return s.label==='Coin Flip' && s.cssClass==='risk-signal-flip';
+  });
+  assert('riskSignal upset->Danger Zone', function(){
+    var f={id:'x',tier:'upset',upset:80,disagree:{level:'high',delta:0.12},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return s.label==='Danger Zone' && s.cssClass==='risk-signal-danger';
+  });
+  assert('riskSignal has explanation string', function(){
+    var f={id:'x',tier:'lock',upset:5,disagree:{level:'low',delta:0.01},f1:'A',f2:'B'};
+    var s=computeRiskSignal(f);
+    return typeof s.explanation==='string' && s.explanation.length>10;
+  });
+
+  // --- strHash (2) ---
+  assert('strHash deterministic', function(){return strHash('test')===strHash('test');});
+  assert('strHash different inputs differ', function(){return strHash('abc')!==strHash('xyz');});
+
+  // Render results — only show bar on failure (pass is silent)
   var bar=$('selftestBar');
   var passed=results.filter(function(r){return r.pass;}).length;
   var failed=results.filter(function(r){return !r.pass;});
-  bar.classList.remove('hidden');
 
-  if (!failed.length) {
-    var span=document.createElement('span');
-    span.className='selftest-pass';
-    span.textContent='Self-test: '+passed+'/'+results.length+' passed';
-    bar.appendChild(span);
-  } else {
+  // Store last results on logo for developer double-click access
+  var logoEl = document.querySelector('.logo');
+  if (logoEl) {
+    logoEl._selftestResults = { passed: passed, total: results.length, failures: failed };
+  }
+
+  if (failed.length) {
+    bar.classList.remove('hidden');
     var fspan=document.createElement('span');
     fspan.className='selftest-fail';
     fspan.textContent='Self-test: '+failed.length+' FAILED of '+results.length;
@@ -1880,6 +2132,7 @@ function runSelfTests() {
     det.textContent=failed.map(function(f){return f.name+': '+f.error;}).join(' | ');
     bar.appendChild(det);
   }
+  // On pass: bar stays hidden — no visual noise for end users
 
   return { passed:passed, total:results.length, failures:failed };
 }
@@ -1907,9 +2160,44 @@ document.addEventListener('keydown', function(e){ if (e.key==='Escape') dismissA
 // Auto-refresh when coming back online
 window.addEventListener('online', function(){ addBanner('success','Back online','Refreshing data...'); run(true); });
 
+// Best Bet Strip dismiss
+var bestBetCloseBtn = $('bestBetClose');
+if (bestBetCloseBtn) {
+  bestBetCloseBtn.addEventListener('click', function() {
+    _bestBetDismissed = true;
+    var strip = $('bestBetStrip');
+    if (strip) strip.classList.add('hidden');
+  });
+}
+
+// Developer double-click logo to see self-test results
+document.addEventListener('dblclick', function(e) {
+  var logo = document.querySelector('.logo');
+  if (!logo || !logo.contains(e.target)) return;
+  var res = logo._selftestResults;
+  if (!res) { console.info('[pattaya] no self-test results yet'); return; }
+  if (res.failures && res.failures.length) {
+    console.warn('[pattaya] Self-test: ' + res.failures.length + ' failures:', res.failures);
+  } else {
+    console.info('[pattaya] Self-test: ' + res.passed + '/' + res.total + ' passed — all green');
+  }
+});
+
 document.addEventListener('DOMContentLoaded',function(){
-  runSelfTests();
+  // Auto-inject API key if INJECTED_API_KEY is set
+  if (INJECTED_API_KEY && typeof INJECTED_API_KEY === 'string' && INJECTED_API_KEY.trim().length >= 8) {
+    var injected = INJECTED_API_KEY.trim();
+    if (validateApiKeyFormat(injected) && !loadKey()) {
+      saveKey(injected);
+      // Collapse key panel — key is already configured
+      var kp = document.querySelector('.key-panel');
+      if (kp) {
+        kp.style.display = 'none';
+      }
+    }
+  }
   updateKeyUI();
+  runSelfTests();
   run(false);
 });
 </script>
