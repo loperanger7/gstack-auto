@@ -75,6 +75,13 @@ select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .toast--error{border-color:#f85149;color:#f85149}
 .kbd-hint{text-align:center;color:#484f58;font-size:.75rem;padding:1rem 0 .5rem}
 kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size:.7rem;font-family:'SF Mono',Menlo,monospace;border:1px solid #30363d}
+.kbd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:flex;justify-content:center;align-items:center}
+.kbd-overlay-inner{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:1.5rem 2rem;max-width:360px;width:90%}
+.kbd-overlay-inner h2{font-size:1.1rem;color:#f0f6fc;margin-bottom:1rem;text-align:center}
+.kbd-grid{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;font-size:.88rem}
+.kbd-grid div:nth-child(odd){text-align:right;color:#c9d1d9}
+.kbd-grid div:nth-child(even){color:#8b949e}
+.kbd-overlay-close{text-align:center;color:#484f58;font-size:.78rem;margin-top:1rem}
 </style>
 </head>
 <body>
@@ -145,9 +152,9 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 
     <div class="actions">
       <select name="send_window">
-        <option value="morning">Morning (9-11am ET)</option>
-        <option value="lunch">Lunch (12-2pm ET)</option>
-        <option value="evening">Evening (5-7pm ET)</option>
+        <option value="morning"{% if default_window == "morning" %} selected{% endif %}>Morning (9-11am ET)</option>
+        <option value="lunch"{% if default_window == "lunch" %} selected{% endif %}>Lunch (12-2pm ET)</option>
+        <option value="evening"{% if default_window == "evening" %} selected{% endif %}>Evening (5-7pm ET)</option>
       </select>
       {% if tweet.variants %}
       <button type="submit" class="btn btn-approve" formaction="/approve">Approve</button>
@@ -167,11 +174,27 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
   <kbd>a</kbd> approve &middot;
   <kbd>s</kbd> skip &middot;
   <kbd>e</kbd> edit &middot;
-  <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick variant
+  <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick variant &middot;
+  <kbd>?</kbd> shortcuts
 </div>
 {% endif %}
 
 <div class="toast" id="toast"></div>
+
+<div class="kbd-overlay" id="kbd-overlay" style="display:none">
+  <div class="kbd-overlay-inner">
+    <h2>Keyboard Shortcuts</h2>
+    <div class="kbd-grid">
+      <div><kbd>j</kbd> / <kbd>k</kbd></div><div>Navigate tweets</div>
+      <div><kbd>a</kbd></div><div>Approve focused tweet</div>
+      <div><kbd>s</kbd></div><div>Skip focused tweet</div>
+      <div><kbd>e</kbd></div><div>Toggle edit mode</div>
+      <div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div><div>Select variant</div>
+      <div><kbd>?</kbd></div><div>Toggle this overlay</div>
+    </div>
+    <p class="kbd-overlay-close">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
 
 <script>
 (function() {
@@ -184,13 +207,6 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     toastEl.className = 'toast ' + cls + ' visible';
     toastTimer = setTimeout(function() { toastEl.classList.remove('visible'); }, 2500);
   }
-
-  /* --- Auto-select nearest send window --- */
-  var etHour = {{ current_et_hour|default(12) }};
-  var bestWindow = etHour < 11 ? 'morning' : etHour < 14 ? 'lunch' : etHour < 19 ? 'evening' : 'morning';
-  document.querySelectorAll('select[name="send_window"]').forEach(function(sel) {
-    sel.value = bestWindow;
-  });
 
   /* --- Pending count helper --- */
   var pendingEl = document.getElementById('pending-count');
@@ -401,7 +417,20 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     cards[idx].scrollIntoView({behavior: 'smooth', block: 'nearest'});
   }
 
+  /* --- Keyboard shortcut overlay --- */
+  var kbdOverlay = document.getElementById('kbd-overlay');
+  function toggleKbdOverlay() {
+    kbdOverlay.style.display = kbdOverlay.style.display === 'none' ? 'flex' : 'none';
+  }
+
   document.addEventListener('keydown', function(e) {
+    /* ? and Escape toggle overlay regardless of focus */
+    if (e.key === '?' || (e.key === 'Escape' && kbdOverlay.style.display !== 'none')) {
+      toggleKbdOverlay();
+      e.preventDefault();
+      return;
+    }
+
     /* Ignore when typing in inputs */
     var tag = document.activeElement.tagName;
     if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;

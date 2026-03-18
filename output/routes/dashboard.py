@@ -46,6 +46,15 @@ async def dashboard(request: Request):
     finally:
         await conn.close()
 
+    # Auto-select nearest upcoming send window
+    et_hour = datetime.now(ET).hour
+    if et_hour < 11:
+        default_window = "morning"
+    elif et_hour < 14:
+        default_window = "lunch"
+    else:
+        default_window = "evening"
+
     response = templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -53,7 +62,8 @@ async def dashboard(request: Request):
             "tweets": tweets,
             "send_windows": VALID_SEND_WINDOWS,
             "last_cycle": health_data.get("last_cycle"),
-            "current_et_hour": datetime.now(ET).hour,
+            "current_et_hour": et_hour,
+            "default_window": default_window,
         },
     )
     return a._set_auth_cookie(response)
