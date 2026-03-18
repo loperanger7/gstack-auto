@@ -21,7 +21,7 @@ echo ""
 
 # --- Phase files exist ---
 echo "Phase files:"
-for n in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
+for n in 01 02 03 04 05 06 07 08 09 10 11 12 13; do
   found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
   if [ -n "$found" ]; then
     pass "Phase $n exists: $(basename "$found")"
@@ -71,7 +71,7 @@ echo ""
 
 # --- Derived phase headers ---
 echo "Derived phase tracking:"
-for f in "$PHASES_DIR"/07-*.md "$PHASES_DIR"/08-*.md "$PHASES_DIR"/09-*.md "$PHASES_DIR"/10-*.md "$PHASES_DIR"/11-*.md; do
+for f in "$PHASES_DIR"/07-*.md "$PHASES_DIR"/08-*.md "$PHASES_DIR"/09-*.md "$PHASES_DIR"/10-*.md; do
   name=$(basename "$f")
   if grep -q "^# DERIVED FROM:" "$f"; then
     pass "$name has DERIVED FROM header"
@@ -85,8 +85,8 @@ for f in "$PHASES_DIR"/07-*.md "$PHASES_DIR"/08-*.md "$PHASES_DIR"/09-*.md "$PHA
   fi
 done
 
-# Design phases (12, 13) derived from gstack skills
-for f in "$PHASES_DIR"/12-*.md "$PHASES_DIR"/13-*.md; do
+# Design phases (11, 12) derived from gstack skills
+for f in "$PHASES_DIR"/11-*.md "$PHASES_DIR"/12-*.md; do
   name=$(basename "$f")
   if grep -q "Derived from:" "$f"; then
     pass "$name has Derived from header"
@@ -514,10 +514,10 @@ for sf in "$STYLES_DIR"/*.md; do
   fi
 done
 
-# {STYLE_PRINCIPLES} and {STYLE_NAME} in phases 01, 03, 04, 14
+# {STYLE_PRINCIPLES} and {STYLE_NAME} in phases 01, 03, 04, 13
 echo ""
 echo "Style template variables:"
-for n in 01 03 04 14; do
+for n in 01 03 04 13; do
   found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
   if [ -n "$found" ] && grep -q '{STYLE_PRINCIPLES}' "$found"; then
     pass "$(basename "$found") has {STYLE_PRINCIPLES}"
@@ -567,10 +567,10 @@ for dsf in "$DESIGN_STYLES_DIR"/*.md; do
   fi
 done
 
-# {DESIGN_STYLE_PRINCIPLES} and {DESIGN_STYLE_NAME} in phases 12, 13
+# {DESIGN_STYLE_PRINCIPLES} and {DESIGN_STYLE_NAME} in phases 11, 12
 echo ""
 echo "Design style template variables:"
-for n in 12 13; do
+for n in 11 12; do
   found=$(ls "$PHASES_DIR"/${n}-*.md 2>/dev/null | head -1)
   if [ -n "$found" ] && grep -q '{DESIGN_STYLE_PRINCIPLES}' "$found"; then
     pass "$(basename "$found") has {DESIGN_STYLE_PRINCIPLES}"
@@ -599,6 +599,59 @@ if grep -q 'design_quality' pipeline/config.yml; then
   pass "config.yml has design_quality in scoring_dimensions"
 else
   fail "config.yml missing design_quality in scoring_dimensions"
+fi
+echo ""
+
+# --- Pipeline v2 infrastructure ---
+echo "Pipeline v2 infrastructure:"
+if [ -f "pipeline/gen-phases.mjs" ] && [ -s "pipeline/gen-phases.mjs" ]; then
+  pass "gen-phases.mjs exists and is non-empty"
+else
+  fail "gen-phases.mjs missing or empty"
+fi
+if [ -f "pipeline/phase-config.json" ] && node -e "JSON.parse(require('fs').readFileSync('pipeline/phase-config.json'))" 2>/dev/null; then
+  pass "phase-config.json exists and is valid JSON"
+else
+  fail "phase-config.json missing or invalid JSON"
+fi
+echo ""
+
+# --- Phase content checks (v2) ---
+echo "Phase content checks (v2):"
+found03=$(ls "$PHASES_DIR"/03-*.md 2>/dev/null | head -1)
+if [ -n "$found03" ] && grep -qi 'failing test' "$found03"; then
+  pass "Phase 03 contains 'failing test' language (test-first)"
+else
+  fail "Phase 03 missing 'failing test' language"
+fi
+found04=$(ls "$PHASES_DIR"/04-*.md 2>/dev/null | head -1)
+if [ -n "$found04" ] && grep -q 'AUTO-FIXED' "$found04"; then
+  pass "Phase 04 contains 'AUTO-FIXED' language (Fix-First)"
+else
+  fail "Phase 04 missing 'AUTO-FIXED' language"
+fi
+found05=$(ls "$PHASES_DIR"/05-*.md 2>/dev/null | head -1)
+if [ -n "$found05" ] && grep -qi 'Greptile' "$found05"; then
+  fail "Phase 05 still contains 'Greptile' (should be removed)"
+else
+  pass "Phase 05 does not contain 'Greptile' (simplified ship)"
+fi
+found06=$(ls "$PHASES_DIR"/06-*.md 2>/dev/null | head -1)
+if [ -n "$found06" ] && grep -qi 'regression test' "$found06"; then
+  pass "Phase 06 contains 'regression test' language"
+else
+  fail "Phase 06 missing 'regression test' language"
+fi
+found13=$(ls "$PHASES_DIR"/13-*.md 2>/dev/null | head -1)
+if [ -n "$found13" ] && grep -q 'test_count' "$found13"; then
+  pass "Phase 13 contains 'test_count' language (test metrics in retro)"
+else
+  fail "Phase 13 missing 'test_count' language"
+fi
+if grep -q 'ROUND_RETROSPECTIVE' CLAUDE.md 2>/dev/null; then
+  pass "CLAUDE.md contains 'ROUND_RETROSPECTIVE' (self-improving pipeline)"
+else
+  fail "CLAUDE.md missing 'ROUND_RETROSPECTIVE'"
 fi
 echo ""
 
