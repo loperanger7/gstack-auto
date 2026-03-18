@@ -28,15 +28,6 @@ async def client(tmp_path, monkeypatch):
     import app as app_mod
     app_mod.DB_PATH = db_path
 
-    # Route modules capture DB_PATH at import time — patch them too
-    for mod_name in ("routes.health", "routes.dashboard", "routes.stats"):
-        try:
-            mod = sys.modules.get(mod_name) or __import__(mod_name, fromlist=["DB_PATH"])
-            if hasattr(mod, "DB_PATH"):
-                mod.DB_PATH = db_path
-        except ImportError:
-            pass
-
     import db
     conn = await db.get_connection(db_path)
     await db.init_db(conn)
