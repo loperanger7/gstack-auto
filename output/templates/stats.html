@@ -3,22 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1117">
 <title>gstack Stats</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:1rem;max-width:800px;margin:0 auto}
+body{font-family:-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;background:#0d1117;color:#c9d1d9;padding:1.5rem 1rem;max-width:800px;margin:0 auto;line-height:1.5;font-size:1rem}
 h1{font-size:1.4rem;margin-bottom:1.5rem;color:#58a6ff}
-h2{font-size:1.1rem;margin:1.2rem 0 .6rem;color:#f0f6fc}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin-bottom:1.5rem}
+h2{font-size:1.1rem;margin:1.5rem 0 .8rem;color:#f0f6fc}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-bottom:1.5rem}
 .stat-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:.8rem;text-align:center}
 .stat-value{font-size:1.6rem;font-weight:700;color:#58a6ff}
-.stat-label{font-size:.8rem;color:#8b949e;margin-top:.2rem}
+.stat-label{font-size:.8rem;color:#9ca3af;margin-top:.2rem}
+.stat-value-pending{color:#58a6ff}
+.stat-value-approved{color:#d29922}
+.stat-value-replied{color:#3fb950}
+.stat-value-skipped{color:#9ca3af}
+.stat-value-stale{color:#f85149}
 table{width:100%;border-collapse:collapse;background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden;margin-bottom:1.5rem}
 th,td{padding:.5rem .8rem;text-align:left;border-bottom:1px solid #21262d;font-size:.85rem}
-th{background:#0d1117;color:#8b949e;font-weight:600}
+th{background:#0d1117;color:#9ca3af;font-weight:600}
+tr.row-error td{color:#f85149}
+tr.row-error td:last-child{font-weight:600}
 .nav{margin-bottom:1.5rem}
 .nav a{color:#58a6ff;text-decoration:none;font-size:.9rem}
 .nav a:hover{text-decoration:underline}
+a:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -27,11 +36,11 @@ th{background:#0d1117;color:#8b949e;font-weight:600}
 
 <div class="stat-grid">
   <div class="stat-card"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Tweets</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.pending }}</div><div class="stat-label">Pending</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.approved }}</div><div class="stat-label">Approved</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.replied }}</div><div class="stat-label">Replied</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.skipped }}</div><div class="stat-label">Skipped</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.stale }}</div><div class="stat-label">Stale</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-pending">{{ stats.pending }}</div><div class="stat-label">Pending</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-approved">{{ stats.approved }}</div><div class="stat-label">Approved</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-replied">{{ stats.replied }}</div><div class="stat-label">Replied</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-skipped">{{ stats.skipped }}</div><div class="stat-label">Skipped</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-stale">{{ stats.stale }}</div><div class="stat-label">Stale</div></div>
 </div>
 
 <h2>Engagement</h2>
@@ -58,7 +67,7 @@ th{background:#0d1117;color:#8b949e;font-weight:600}
   <thead><tr><th>Started</th><th>Completed</th><th>Found</th><th>Drafted</th><th>Errors</th></tr></thead>
   <tbody>
   {% for c in cycles %}
-    <tr>
+    <tr{% if c.errors and c.errors != '' %} class="row-error"{% endif %}>
       <td>{{ c.started_at[:19] }}</td>
       <td>{{ c.completed_at[:19] if c.completed_at else 'running' }}</td>
       <td>{{ c.tweets_found }}</td>

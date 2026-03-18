@@ -3,49 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1117">
 <title>gstack Reply Queue</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:1rem;max-width:800px;margin:0 auto}
-h1{font-size:1.4rem;margin-bottom:1.5rem;color:#58a6ff}
-.empty{text-align:center;padding:3rem 1rem;color:#8b949e;font-size:1.1rem}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:1rem;max-width:800px;margin:0 auto;line-height:1.5}
+.top-bar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
+.top-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
+.top-bar .meta{display:flex;gap:1rem;align-items:baseline;font-size:.85rem}
+.top-bar .meta a{color:#58a6ff;text-decoration:none}
+.top-bar .meta a:hover{text-decoration:underline}
+.queue-badge{color:#9ca3af;font-size:.8rem}
+.empty{text-align:center;padding:3rem 1rem;color:#9ca3af;font-size:1.1rem}
 .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.2rem}
 .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem}
-.author{font-weight:600;color:#f0f6fc}
-.followers{font-size:.85rem;color:#8b949e}
-.sentiment{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:600;text-transform:uppercase}
+.author{font-size:1.05rem;font-weight:600;color:#f0f6fc}
+.followers{font-size:.8rem;color:#9ca3af}.followers::before{content:'\00b7';margin:0 .4rem;color:#30363d;font-weight:700}
+.sentiment{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .sentiment-praise{background:#1f3d2a;color:#3fb950}
 .sentiment-question{background:#1c2d4a;color:#58a6ff}
 .sentiment-criticism{background:#3d1f1f;color:#f85149}
 .sentiment-neutral{background:#282830;color:#8b949e}
-.tweet-text{font-family:'SF Mono',Menlo,monospace;font-size:.9rem;background:#0d1117;padding:.75rem;border-radius:4px;margin-bottom:.8rem;white-space:pre-wrap;word-break:break-word;border:1px solid #21262d}
-.thread-summary{font-size:.8rem;color:#8b949e;margin-bottom:.8rem;padding:.5rem;background:#0d1117;border-radius:4px;border-left:3px solid #30363d}
+.tweet-text{font-size:.9375rem;line-height:1.5;background:#0d1117;padding:.75rem;border-radius:6px;margin-bottom:.75rem;white-space:pre-wrap;word-break:break-word;border:1px solid #21262d}
+.thread-summary{font-size:.8rem;color:#9ca3af;margin-bottom:.8rem;padding:.5rem;background:#0d1117;border-radius:4px;border-left:3px solid #30363d;line-height:1.4}
 .variants{margin-bottom:.8rem}
-.variant{display:flex;align-items:flex-start;gap:.5rem;padding:.5rem;border-radius:4px;cursor:pointer;margin-bottom:.3rem}
+.variant{display:flex;align-items:flex-start;gap:.5rem;padding:.625rem .5rem;border-radius:6px;cursor:pointer;margin-bottom:.25rem;border:1px solid transparent;transition:background .12s,border-color .12s}
 .variant:hover{background:#1c2128}
-.variant input[type=radio]{margin-top:.3rem;accent-color:#58a6ff}
-.variant-text{font-family:'SF Mono',Menlo,monospace;font-size:.85rem;flex:1}
+.variant.selected{background:#1c2128;border-color:#30363d}
+.variant input[type=radio]{margin-top:.25rem;accent-color:#58a6ff;width:18px;height:18px;flex-shrink:0}
+.variant input[type=radio]:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.variant-text{font-size:.875rem;line-height:1.5;flex:1}
 .char-count{font-size:.75rem;font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:4px}
 .char-green{color:#3fb950;background:#1f3d2a}
 .char-yellow{color:#d29922;background:#3d2e1f}
 .char-red{color:#f85149;background:#3d1f1f}
-.edit-area{width:100%;font-family:'SF Mono',Menlo,monospace;font-size:.85rem;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:.5rem;resize:vertical;min-height:60px;display:none;margin-bottom:.5rem}
-.edit-area:focus{border-color:#58a6ff;outline:none}
-.actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.btn{padding:.4rem .8rem;border-radius:6px;border:1px solid #30363d;font-size:.85rem;cursor:pointer;font-weight:500}
+.no-variants{font-size:.85rem;color:#9ca3af;padding:.5rem 0;margin-bottom:.5rem;font-style:italic}
+.edit-area{width:100%;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.875rem;line-height:1.4;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.625rem;resize:vertical;min-height:72px;margin-bottom:.25rem}
+.edit-area:focus{border-color:#58a6ff;outline:none;box-shadow:0 0 0 2px rgba(88,166,255,.25)}
+.actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.btn{padding:.5rem 1rem;border-radius:6px;border:1px solid #30363d;font-size:.875rem;cursor:pointer;font-weight:500;min-height:44px;display:inline-flex;align-items:center;transition:border-color .15s,background .15s,color .15s}
+.btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .btn-approve{background:#238636;color:#fff;border-color:#238636}
 .btn-approve:hover{background:#2ea043}
 .btn-approve:disabled{opacity:.5;cursor:not-allowed}
-.btn-skip{background:transparent;color:#8b949e;border-color:#30363d}
+.btn.sending{opacity:.6;pointer-events:none}
+.btn.sending::after{content:' ...';}
+.btn-skip{background:transparent;color:#9ca3af;border-color:#30363d}
 .btn-skip:hover{color:#f85149;border-color:#f85149}
 .btn-edit{background:transparent;color:#58a6ff;border-color:#30363d}
 .btn-edit:hover{border-color:#58a6ff}
-select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.4rem .6rem;font-size:.85rem}
+select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem .75rem;font-size:.875rem;min-height:44px}
+select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .edit-counter{font-size:.75rem;margin-bottom:.3rem}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(0);background:#161b22;color:#c9d1d9;padding:.7rem 1.2rem;border-radius:8px;font-size:.88rem;font-weight:500;border:1px solid #30363d;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:1000;opacity:1;transition:opacity .3s ease,transform .3s ease}
+.toast--success{border-color:#238636;color:#3fb950}
+.toast--skip{border-color:#484f58;color:#8b949e}
+.toast.hidden{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none}
 </style>
 </head>
 <body>
-<h1>gstack Reply Queue</h1>
+<div class="top-bar">
+  <h1>gstack Reply Queue</h1>
+  <div class="meta">
+    <span class="queue-badge">{{ tweets|length }} pending</span>
+    <a href="/stats">Stats</a>
+  </div>
+</div>
 
 {% if not tweets %}
 <div class="empty">No tweets to review. Check back in 15 minutes.</div>
@@ -73,9 +96,10 @@ select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6
   {% endif %}
 
   <form method="post" class="tweet-form" data-tweet-id="{{ tweet.id }}">
+    {% if tweet.variants %}
     <div class="variants">
       {% for v in tweet.variants %}
-      <label class="variant">
+      <label class="variant{% if loop.first %} selected{% endif %}">
         <input type="radio" name="variant_id" value="{{ v.id }}"
                data-text="{{ v.draft_text|e }}" {% if loop.first %}checked{% endif %}>
         <span class="variant-text">{{ v.draft_text }}</span>
@@ -84,6 +108,9 @@ select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6
       </label>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="no-variants">No AI drafts yet. Use Edit to write a reply manually.</div>
+    {% endif %}
 
     <div class="edit-area-wrap" style="display:none">
       <textarea class="edit-area" name="reply_text_edit" maxlength="280"></textarea>
@@ -100,13 +127,19 @@ select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6
         <option value="lunch">Lunch (12-2pm ET)</option>
         <option value="evening">Evening (5-7pm ET)</option>
       </select>
+      {% if tweet.variants %}
       <button type="submit" class="btn btn-approve" formaction="/approve">Approve</button>
+      {% else %}
+      <button type="submit" class="btn btn-approve" formaction="/approve" disabled>Approve</button>
+      {% endif %}
       <button type="button" class="btn btn-edit">Edit</button>
       <button type="submit" class="btn btn-skip" formaction="/skip">Skip</button>
     </div>
   </form>
 </div>
 {% endfor %}
+
+<div class="toast hidden" id="toast"></div>
 
 <script>
 document.querySelectorAll('.tweet-form').forEach(function(form) {
@@ -124,31 +157,20 @@ document.querySelectorAll('.tweet-form').forEach(function(form) {
     for (var i = 0; i < radios.length; i++) {
       if (radios[i].checked) return radios[i];
     }
-    return radios[0];
+    return radios.length ? radios[0] : null;
   }
 
   function updateCounter() {
     var len = editArea.value.length;
     var cls = len <= 260 ? 'char-green' : len <= 270 ? 'char-yellow' : 'char-red';
     editCounter.innerHTML = '<span class="char-count ' + cls + '">' + len + '/280</span>';
-    approveBtn.disabled = len > 280 || len === 0;
+    if (approveBtn) approveBtn.disabled = len > 280 || len === 0;
   }
-
-  editBtn.addEventListener('click', function() {
-    editing = !editing;
-    editWrap.style.display = editing ? 'block' : 'none';
-    editBtn.textContent = editing ? 'Cancel Edit' : 'Edit';
-    if (editing) {
-      editArea.value = getSelected().getAttribute('data-text');
-      updateCounter();
-      editArea.focus();
-    }
-  });
-
-  editArea.addEventListener('input', updateCounter);
 
   for (var i = 0; i < radios.length; i++) {
     radios[i].addEventListener('change', function() {
+      form.querySelectorAll('.variant').forEach(function(v) { v.classList.remove('selected'); });
+      this.closest('.variant').classList.add('selected');
       if (editing) {
         editArea.value = this.getAttribute('data-text');
         updateCounter();
@@ -156,33 +178,78 @@ document.querySelectorAll('.tweet-form').forEach(function(form) {
     });
   }
 
+  editBtn.addEventListener('click', function() {
+    editing = !editing;
+    editWrap.style.display = editing ? 'block' : 'none';
+    editBtn.textContent = editing ? 'Cancel Edit' : 'Edit';
+    if (editing) {
+      var sel = getSelected();
+      editArea.value = sel ? sel.getAttribute('data-text') : '';
+      if (approveBtn) approveBtn.disabled = false;
+      updateCounter();
+      editArea.focus();
+    } else {
+      if (!radios.length && approveBtn) approveBtn.disabled = true;
+    }
+  });
+
+  editArea.addEventListener('input', updateCounter);
+
   form.addEventListener('submit', function(e) {
     if (form.getAttribute('data-submitting') === 'skip') return;
     var sel = getSelected();
-    variantHidden.value = sel.value;
+    if (sel) variantHidden.value = sel.value;
     if (editing && editArea.value.trim()) {
       replyHidden.value = editArea.value.trim();
-    } else {
+    } else if (sel) {
       replyHidden.value = sel.getAttribute('data-text');
     }
     if (e.submitter && e.submitter.formAction && e.submitter.formAction.indexOf('/approve') !== -1) {
-      if (replyHidden.value.length > 280) {
+      if (!replyHidden.value || replyHidden.value.length > 280) {
         e.preventDefault();
-        alert('Reply exceeds 280 characters.');
+        alert('Reply must be 1-280 characters.');
         return;
       }
     }
   });
 
-  form.querySelector('.btn-skip').addEventListener('click', function() {
+  form.querySelector('.btn-skip').addEventListener('click', function(e) {
+    var author = form.closest('.card').querySelector('.author').textContent;
+    if (!confirm('Skip tweet from ' + author + '? This cannot be undone.')) {
+      e.preventDefault();
+      return;
+    }
     form.setAttribute('data-submitting', 'skip');
+    this.classList.add('sending');
+    this.textContent = 'Skipping';
   });
-  form.querySelector('.btn-approve').addEventListener('click', function() {
-    form.removeAttribute('data-submitting');
-    var sel = getSelected();
-    variantHidden.value = sel.value;
-  });
+  if (approveBtn) {
+    approveBtn.addEventListener('click', function() {
+      form.removeAttribute('data-submitting');
+      var sel = getSelected();
+      if (sel) variantHidden.value = sel.value;
+      this.classList.add('sending');
+      this.textContent = 'Sending';
+    });
+  }
 });
+
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var action = params.get('action');
+  if (action) {
+    var toast = document.getElementById('toast');
+    if (action === 'approved') {
+      toast.textContent = 'Reply approved and scheduled.';
+      toast.className = 'toast toast--success';
+    } else if (action === 'skipped') {
+      toast.textContent = 'Tweet skipped.';
+      toast.className = 'toast toast--skip';
+    }
+    setTimeout(function() { toast.classList.add('hidden'); }, 2500);
+    window.history.replaceState({}, '', '/dashboard');
+  }
+})();
 </script>
 </body>
 </html>

@@ -120,10 +120,25 @@ def _set_auth_cookie(response: Response) -> Response:
 
 
 def _deny() -> Response:
-    return Response(
+    body = (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>gstack - Unauthorized</title>'
+        '<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;'
+        'color:#c9d1d9;display:flex;justify-content:center;align-items:center;'
+        'min-height:100vh;margin:0;text-align:center}'
+        '.box{padding:2rem}'
+        'h1{font-size:1.3rem;color:#f85149;margin-bottom:.5rem}'
+        'p{color:#8b949e;font-size:.95rem}'
+        '</style></head><body><div class="box">'
+        '<h1>Unauthorized</h1>'
+        '<p>Valid credentials required to access the dashboard.</p>'
+        '</div></body></html>'
+    )
+    return HTMLResponse(
         status_code=401,
         headers={"WWW-Authenticate": 'Basic realm="gstack"'},
-        content="Unauthorized",
+        content=body,
     )
 
 
@@ -531,7 +546,7 @@ async def approve(
     if not ok:
         return JSONResponse({"error": "Tweet not pending or variant not found"}, status_code=409)
 
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse("/dashboard?action=approved", status_code=303)
 
 
 @app.post("/skip")
@@ -548,7 +563,7 @@ async def skip(request: Request, tweet_id: str = Form(...)):
     if not ok:
         return JSONResponse({"error": "Tweet not found or already handled"}, status_code=409)
 
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse("/dashboard?action=skipped", status_code=303)
 
 
 if __name__ == "__main__":
