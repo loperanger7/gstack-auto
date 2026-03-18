@@ -1,8 +1,8 @@
 # Phase 01: CEO-Level Plan Review
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack plan-ceo-review/SKILL.md @ v0.3.9
-# Gstack source hash: bb46ca6b
-# Last synced: 2026-03-15
+# Gstack source hash: 9d47619e
+# Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
@@ -56,6 +56,10 @@ alongside your run's bias — they compound, not conflict.
 ## Environment Variables
 
 {ENV_VARS}
+
+## Prior Round Retrospective
+
+{ROUND_RETROSPECTIVE}
 
 ## Product Spec
 

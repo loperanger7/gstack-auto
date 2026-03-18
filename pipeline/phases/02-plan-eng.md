@@ -1,8 +1,8 @@
 # Phase 02: Engineering Plan Review
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack plan-eng-review/SKILL.md @ v0.3.9
-# Gstack source hash: bb46ca6b
-# Last synced: 2026-03-15
+# Gstack source hash: 9d47619e
+# Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
@@ -29,6 +29,10 @@ Read the existing code first. Your plan must preserve what works.
 ## Environment Variables
 
 {ENV_VARS}
+
+## Prior Round Retrospective
+
+{ROUND_RETROSPECTIVE}
 
 ## Review Process
 

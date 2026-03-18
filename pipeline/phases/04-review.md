@@ -1,8 +1,8 @@
 # Phase 04: Code Review
 # PATTAYA AUTONOMOUS PHASE — NOT A GSTACK SKILL
 # Derived from: gstack review/SKILL.md @ v0.3.9
-# Gstack source hash: bb46ca6b
-# Last synced: 2026-03-15
+# Gstack source hash: 9d47619e
+# Last synced: 2026-03-17
 #
 # DIRECTIVES:
 # - Do NOT invoke /skills or use AskUserQuestion
@@ -60,6 +60,10 @@ For each critical issue found: fix it immediately in the code.
 5. **Missing tests** — write them
 6. **Console.log/print debugging** — remove it
 7. **Overly complex functions** — simplify if possible in <5 minutes
+
+**Log each fix:** For every issue fixed in Pass 1 or Pass 2, append to your
+review output: `[AUTO-FIXED] file:line — what was done`. This creates a
+traceable record of every automated fix.
 
 ### Pass 3: Architecture Check
 

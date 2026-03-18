@@ -59,9 +59,9 @@ Write code as if the best engineer you know will read it tomorrow:
 1. Read the file plan from Phase 02.
 2. Create files in the implementation order specified.
 3. For each file:
-   a. Write the implementation.
-   b. Write its tests (in a tests/ or __tests__/ directory).
-   c. Verify it works by running the tests.
+   a. Write a failing test that defines the expected behavior.
+   b. Write the implementation until the test passes.
+   c. Verify both work together by running the tests.
 4. After all files are written:
    a. Run the full test suite.
    b. If any test fails, fix the code (not the test) unless the test
