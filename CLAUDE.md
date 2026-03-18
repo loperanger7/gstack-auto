@@ -186,6 +186,9 @@ Agent(
           and {RUN_ID} replaced by the run identifier (a, b, c, ...)
           and {MODE} replaced by current mode
           and {EXISTING_CODE_SUMMARY} replaced by summary of output/
+          and {ENV_VARS} replaced by the env vars block (see Step 1)
+          and {STYLE_NAME} replaced by style display name
+          and {STYLE_PRINCIPLES} replaced by style file contents
 )
 ```
 
@@ -215,7 +218,7 @@ and pass its contents as the resume prompt. Replace template variables:
 - `{EXISTING_CODE_SUMMARY}` — file listing of output/ (empty if greenfield)
 - `{STYLE_NAME}` — display name from style profile heading (or "Default")
 - `{STYLE_PRINCIPLES}` — full contents of the style profile (or generic fallback)
-- `{ENV_VARS}` — user-supplied environment variables for QA testing (see below)
+- `{ENV_VARS}` — user-supplied API keys for implementation and testing (see Step 1)
 - `{DESIGN_STYLE_NAME}` — display name from design style profile (or "Default")
 - `{DESIGN_STYLE_PRINCIPLES}` — full contents of the design style profile (or generic fallback)
 
@@ -227,6 +230,9 @@ After phase 06 (QA), read each run's QA report from
 For each run:
 - If QA found bugs: resume with phases 07 → 08 → 09 → 10 → 11
 - If QA found no bugs: skip to design review (phase 12)
+
+Apply the same template variable substitutions as Step 2b when resuming
+these phases.
 
 Bug-fix loop: after phase 11 (QA confirm), check again. If bugs remain,
 loop back to phase 07. **Maximum 3 bug-fix cycles.** After 3 cycles,

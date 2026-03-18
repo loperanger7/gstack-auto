@@ -20,6 +20,10 @@
 
 ## Mode: {MODE}
 
+## Environment Variables
+
+{ENV_VARS}
+
 ## Your Task
 
 Read the QA report at `{PHASE_ARTIFACTS}/phase-06-qa.md` (or the most

@@ -53,6 +53,10 @@ alongside your run's bias — they compound, not conflict.
 
 {STYLE_PRINCIPLES}
 
+## Environment Variables
+
+{ENV_VARS}
+
 ## Product Spec
 
 {PRODUCT_SPEC}

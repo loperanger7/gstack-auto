@@ -18,6 +18,15 @@
 # - Work in output/ directory for generated code
 # - Make ALL decisions autonomously
 
+## Environment Variables
+
+{ENV_VARS}
+
+If keys are listed above, export them before running the app:
+```bash
+export KEY=VALUE  # repeat for each key
+```
+
 ## Your Task
 
 Verify that all bugs from Phase 06 (or the previous Phase 11) are fixed.

@@ -26,6 +26,10 @@ point. Your file plan should describe CHANGES to existing files, not a
 greenfield file tree. Use "MODIFY output/foo.js" vs "CREATE output/foo.js".
 Read the existing code first. Your plan must preserve what works.
 
+## Environment Variables
+
+{ENV_VARS}
+
 ## Review Process
 
 ### 1. Architecture Validation

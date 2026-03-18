@@ -19,6 +19,14 @@
 
 ## Mode: {MODE}
 
+## Environment Variables
+
+{ENV_VARS}
+
+**IMPORTANT:** If keys are listed above, reference them as environment variables
+at runtime (e.g., `process.env.ODDS_API_KEY`, `os.environ["KEY"]`). Never
+hardcode these values in output files.
+
 ## Your Task
 
 Read the bug fix plan at `{PHASE_ARTIFACTS}/phase-07-plan-bugfix.md`.

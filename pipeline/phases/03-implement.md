@@ -29,6 +29,15 @@ changes — break nothing that was passing.
 
 {STYLE_PRINCIPLES}
 
+## Environment Variables
+
+{ENV_VARS}
+
+**IMPORTANT:** If keys are listed above, reference them as environment variables
+at runtime (e.g., `process.env.ODDS_API_KEY`, `os.environ["KEY"]`). Never
+hardcode these values in output files. The user will set them in their
+deployment environment.
+
 ## Implementation Style
 
 Write code as if the best engineer you know will read it tomorrow:
