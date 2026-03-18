@@ -8,21 +8,24 @@
 <title>gstack Stats</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;background:#0d1117;color:#c9d1d9;padding:0 1rem 1.5rem;max-width:800px;margin:0 auto;line-height:1.5;font-size:1rem}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:0 1rem 1.5rem;max-width:800px;margin:0 auto;line-height:1.5;font-size:1rem}
 .nav-bar{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #21262d}
 .nav-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
 .nav-right{display:flex;gap:1rem;align-items:center;font-size:.85rem}
-.nav-link{color:#8b949e;text-decoration:none;padding:.25rem 0;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.nav-link{color:#8b949e;text-decoration:none;padding:.5rem .25rem;min-height:44px;display:inline-flex;align-items:center;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
 .nav-link:hover{color:#c9d1d9}
 .nav-link.active{color:#58a6ff;border-bottom-color:#58a6ff}
 .nav-link:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-h2{font-size:1.1rem;margin:1.5rem 0 .8rem;color:#f0f6fc}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin-bottom:1.5rem}
+h2{font-size:1.2rem;margin:1.5rem 0 .8rem;color:#f0f6fc;font-weight:600}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-bottom:1.5rem}
 @media(max-width:480px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.section-divider{border:none;border-top:1px solid #21262d;margin:1.5rem 0}
 .stat-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:.8rem;text-align:center}
-.stat-value{font-size:1.6rem;font-weight:700;color:#58a6ff}
+.stat-value{font-size:1.6rem;font-weight:700;color:#f0f6fc}
 .stat-label{font-size:.8rem;color:#9ca3af;margin-top:.2rem}
 .stat-value-pending{color:#58a6ff}
+.stat-value-likes{color:#f778ba}
+.stat-value-retweets{color:#3fb950}
 .stat-value-approved{color:#d29922}
 .stat-value-replied{color:#3fb950}
 .stat-value-skipped{color:#9ca3af}
@@ -39,6 +42,7 @@ tr.row-error td:last-child{font-weight:600}
 .bar-fill{height:100%;background:#58a6ff;border-radius:4px;transition:width .3s ease;min-width:2px}
 .bar-value{width:36px;font-size:.8rem;color:#c9d1d9;font-weight:600}
 a:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.bar-fill,.nav-link{transition:none}}
 </style>
 </head>
 <body>
@@ -59,10 +63,11 @@ a:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
   <div class="stat-card"><div class="stat-value stat-value-stale">{{ stats.stale }}</div><div class="stat-label">Stale</div></div>
 </div>
 
+<hr class="section-divider">
 <h2>Engagement</h2>
 <div class="stat-grid">
-  <div class="stat-card"><div class="stat-value">{{ stats.total_likes }}</div><div class="stat-label">Total Likes</div></div>
-  <div class="stat-card"><div class="stat-value">{{ stats.total_retweets }}</div><div class="stat-label">Total Retweets</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-likes">{{ stats.total_likes }}</div><div class="stat-label">Total Likes</div></div>
+  <div class="stat-card"><div class="stat-value stat-value-retweets">{{ stats.total_retweets }}</div><div class="stat-label">Total Retweets</div></div>
 </div>
 
 {% if stats.window_stats %}
