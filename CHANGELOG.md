@@ -2,6 +2,11 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.12.1] - 2026-03-18
+
+### Changed
+- **Gitignore output/ and product-spec.md:** Pipeline-generated code (`output/`), user product specs (`product-spec.md`), and scoring history (`results-history.json`) are now gitignored. These are per-user artifacts that shouldn't be tracked in the repo.
+
 ## [0.1.12.0] - 2026-03-17
 
 ### Added
