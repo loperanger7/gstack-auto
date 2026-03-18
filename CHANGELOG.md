@@ -2,6 +2,23 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.12.0] - 2026-03-17
+
+### Added
+- **gen-phases build system:** `pipeline/gen-phases.mjs` generates 4 derived phases (07-10) from base phases, eliminating manual copy-paste. Zero dependencies — just Node.js builtins. Fail-closed: validates all section overrides match real headings before writing anything.
+- **Test-first methodology:** Phase 03 (implement) now instructs agents to write a failing test before implementation, not after.
+- **Fix-First code review:** Phase 04 (review) agents now auto-fix mechanical issues (dead code, stale comments) and log each fix as `[AUTO-FIXED]`, instead of just listing findings.
+- **Regression test generation:** Phase 06 (QA) and Phase 10 (QA confirm) agents now write regression tests in `output/tests/regression/` for each bug they fix, so bugs don't recur across rounds.
+- **Self-improving pipeline:** New `{ROUND_RETROSPECTIVE}` template variable and CLAUDE.md Step 2e.5 — after each round, the orchestrator writes a retrospective to `.context/retrospective/round-N.md`. Round 2+ agents see what went wrong in the prior round before planning.
+- **Test health metrics:** Phase 13 (retro/scoring) now includes `test_count` and `regression_tests_added` in score.json. Used as tiebreaker in winner selection.
+
+### Changed
+- **Pipeline reduced from 14 phases to 13:** Merged phases 09 (review-fix) and 10 (ship-fix) into a single `09-review-and-commit-fix.md` — the boundary between reviewing and committing a bug fix was artificial.
+- **Phase 05 (ship) radically simplified:** Stripped from 86 lines to ~55 lines. Removed Greptile comments, TODOS.md management, update checks — all wrong for autonomous agents in worktrees. Now just: run tests, clean up, commit.
+- **Renumbered phases:** 11→10 (qa-confirm), 12→11 (design-review), 13→12 (design-fix), 14→13 (retro-score). All CLAUDE.md orchestration references updated.
+- **All gstack hashes synced to v0.6.1** (hash: 9d47619e). Zero stale phases.
+- Winner selection tiebreaker now includes `test_count` (more tests = better).
+
 ## [0.1.11.0] - 2026-03-17
 
 ### Fixed

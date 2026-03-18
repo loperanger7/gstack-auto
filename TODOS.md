@@ -2,13 +2,11 @@
 
 ## P1 — High Priority
 
-### Build step for prompt composition (DRY)
-Create a `gen-prompts.ts` script (like gstack's `gen-skill-docs`) that
-composes the 5 derived phase prompts from shared fragments + diff sections.
-Currently the derived prompts are manual copies with `DERIVED FROM` headers.
-A build step would make updates atomic. Blocked by: Phase 1 prompts being
-stable enough to templatize.
-**Effort: M**
+### ~~Build step for prompt composition (DRY)~~ ✓ DONE
+Implemented as `pipeline/gen-phases.mjs` + `pipeline/phase-config.json`.
+Generates 4 derived phases (07-10) from base phases (01, 03, 04, 06)
+with section overrides and header generation. Zero dependencies.
+**Completed:** v0.1.12.0 (2026-03-17)
 
 ### ~~Differentiation strategy for parallel runs~~ ✓ DONE
 Run A/B/C now have distinct approach biases: A→code quality,
@@ -72,6 +70,14 @@ multi-line YAML values and handling the precedence when both `style:` and
 
 ## P3 — Low Priority
 
+### Auto-sync gen-phases after gstack upgrade
+After running `/gstack-upgrade`, detect if pipeline phases need regenerating
+and offer to run `node pipeline/gen-phases.mjs`. Currently the user must
+remember to regenerate after upgrading gstack. Closing this loop would make
+gstack upgrades fully automatic for Pattaya users.
+**Effort: S**
+**Depends on:** gen-phases.mjs (v0.1.12.0)
+
 ### Score history sparklines
 Add inline SVG sparkline charts to the dashboard results cards showing
 how each scoring dimension changed across rounds. Requires storing
@@ -114,9 +120,9 @@ Zero friction between "I like this one" and "I'm working on it."
 
 ## Completed
 
-### Design review pipeline (phases 12-14)
-Added design audit (phase 12) and design fix (phase 13) phases to the
-pipeline. Retro/scoring moved to phase 14 with dual weight tables.
+### Design review pipeline (phases 11-13, originally 12-14)
+Added design audit (phase 11) and design fix (phase 12) phases to the
+pipeline. Retro/scoring is phase 13 with dual weight tables.
 Includes AI slop detection, DESIGN.md generation, design style profiles,
 before/after screenshots, and dashboard integration with AI Slop badge
 and design system preview.
