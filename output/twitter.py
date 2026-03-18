@@ -165,11 +165,22 @@ async def _request(
             raise TwitterError(f"Twitter connection failed: {e}")
 
         if resp.status_code in (200, 201):
+            # Sync local budget with Twitter's server-side rate limit view
+            remaining = resp.headers.get("x-rate-limit-remaining")
+            if remaining is not None:
+                try:
+                    server_remaining = int(remaining)
+                    local_remaining = RATE_LIMIT - _rate_budget["count"]
+                    if server_remaining < local_remaining:
+                        _rate_budget["count"] = RATE_LIMIT - server_remaining
+                except (ValueError, TypeError):
+                    pass
             return resp.json()
         if resp.status_code == 401:
             raise TwitterAuthError("Twitter 401 — check API credentials")
         if resp.status_code == 429:
-            raise RateLimitError("Twitter 429 rate limit")
+            reset = resp.headers.get("x-rate-limit-reset", "unknown")
+            raise RateLimitError(f"Twitter 429 rate limit (resets at {reset})")
         if resp.status_code == 404:
             raise TweetDeletedError(f"Tweet not found (404): {resp.text[:100]}")
         if resp.status_code == 403:
@@ -177,7 +188,6 @@ async def _request(
 
         if resp.status_code >= 500 and attempt < retries:
             log.warning("Twitter %d, retrying...", resp.status_code)
-            import asyncio
             await asyncio.sleep((attempt + 1) * 1.5)
             continue
 

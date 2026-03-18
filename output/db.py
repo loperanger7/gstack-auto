@@ -411,7 +411,7 @@ async def get_stats(conn: aiosqlite.Connection) -> dict:
 
 
 async def get_health(conn: aiosqlite.Connection) -> dict:
-    """Health check data."""
+    """Health check data with operational metrics."""
     cursor = await conn.execute(
         "SELECT completed_at FROM cycles ORDER BY id DESC LIMIT 1"
     )
@@ -427,11 +427,31 @@ async def get_health(conn: aiosqlite.Connection) -> dict:
     )
     last_error = await cursor.fetchone()
 
+    # Error count in last 24 hours
+    cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as c FROM cycles WHERE errors != '' AND started_at >= ?",
+        (cutoff_24h,),
+    )
+    error_count_24h = (await cursor.fetchone())["c"]
+
+    # Total tweets and replies sent
+    cursor = await conn.execute("SELECT COUNT(*) as c FROM tweets")
+    total_tweets = (await cursor.fetchone())["c"]
+
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as c FROM replies WHERE sent_at IS NOT NULL"
+    )
+    total_replies_sent = (await cursor.fetchone())["c"]
+
     return {
         "status": "ok",
         "last_cycle": last_cycle["completed_at"] if last_cycle else None,
         "pending_queue_depth": pending,
         "last_error": last_error["errors"] if last_error else None,
+        "error_count_24h": error_count_24h,
+        "total_tweets": total_tweets,
+        "total_replies_sent": total_replies_sent,
     }
 
 

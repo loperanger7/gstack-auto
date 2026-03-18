@@ -1,5 +1,5 @@
-"""FastAPI application — routes, auth, scheduler, email alerts.
-Single entry point. Every external dependency is fail-safe."""
+"""FastAPI application — auth, scheduler, email alerts, router wiring.
+Routes live in routes/. Every external dependency is fail-safe."""
 
 import asyncio
 import base64
@@ -23,8 +23,8 @@ except ImportError:
 import anthropic
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, Form, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
@@ -39,10 +39,25 @@ import drafter
 import twitter
 
 log = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+_log_format = os.environ.get("LOG_FORMAT", "text")
+if _log_format == "json":
+    class _JsonFormatter(logging.Formatter):
+        def format(self, record):
+            return json.dumps({
+                "ts": self.formatTime(record),
+                "level": record.levelname,
+                "logger": record.name,
+                "msg": record.getMessage(),
+            })
+
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(_JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[_handler])
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 # --- Configuration ---
 
@@ -94,7 +109,7 @@ def check_auth(request: Request) -> bool:
             data = _get_signer().loads(cookie, max_age=COOKIE_MAX_AGE)
             if data == os.environ["DASHBOARD_USERNAME"]:
                 return True
-        except (BadSignature, Exception):
+        except (BadSignature, KeyError, ValueError):
             pass
 
     auth = request.headers.get("authorization", "")
@@ -105,7 +120,7 @@ def check_auth(request: Request) -> bool:
             if (_hmac.compare_digest(username, os.environ["DASHBOARD_USERNAME"])
                     and _hmac.compare_digest(password, os.environ["DASHBOARD_PASSWORD"])):
                 return True
-        except Exception:
+        except (ValueError, UnicodeDecodeError, KeyError):
             pass
     return False
 
@@ -453,117 +468,16 @@ async def lifespan(app: FastAPI):
     log.info("Shutdown complete")
 
 
-# --- FastAPI app ---
+# --- FastAPI app with route modules ---
+
+from routes.health import router as health_router
+from routes.dashboard import router as dashboard_router
+from routes.stats import router as stats_router
 
 app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health", response_class=JSONResponse)
-async def health():
-    """Health endpoint — no auth required."""
-    conn = None
-    try:
-        conn = await db.get_connection(DB_PATH)
-        data = await db.get_health(conn)
-        return data
-    except Exception as e:
-        return JSONResponse({"status": "error", "detail": str(e)[:200]}, status_code=500)
-    finally:
-        if conn:
-            await conn.close()
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return RedirectResponse("/dashboard")
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    if not check_auth(request):
-        return _deny()
-
-    conn = await db.get_connection(DB_PATH)
-    try:
-        tweets = await db.get_pending_tweets(conn)
-    finally:
-        await conn.close()
-
-    response = templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {"tweets": tweets, "send_windows": VALID_SEND_WINDOWS},
-    )
-    return _set_auth_cookie(response)
-
-
-@app.get("/stats", response_class=HTMLResponse)
-async def stats_page(request: Request):
-    if not check_auth(request):
-        return _deny()
-
-    conn = await db.get_connection(DB_PATH)
-    try:
-        stats = await db.get_stats(conn)
-        cycles = await db.get_cycle_history(conn, limit=20)
-    finally:
-        await conn.close()
-
-    response = templates.TemplateResponse(
-        request,
-        "stats.html",
-        {"stats": stats, "cycles": cycles},
-    )
-    return _set_auth_cookie(response)
-
-
-@app.post("/approve")
-async def approve(
-    request: Request,
-    tweet_id: str = Form(...),
-    variant_id: int = Form(...),
-    reply_text: str = Form(""),
-    send_window: str = Form(...),
-):
-    if not check_auth(request):
-        return _deny()
-
-    text = reply_text.strip()
-    if not text:
-        return JSONResponse({"error": "Reply text cannot be empty"}, status_code=400)
-    if len(text) > 280:
-        return JSONResponse({"error": f"Reply exceeds 280 chars ({len(text)})"}, status_code=400)
-    if send_window not in VALID_SEND_WINDOWS:
-        return JSONResponse({"error": "Invalid send window"}, status_code=400)
-
-    conn = await db.get_connection(DB_PATH)
-    try:
-        scheduled = _next_send_time(send_window)
-        ok = await db.approve_variant(conn, tweet_id, variant_id, text, scheduled, send_window)
-    finally:
-        await conn.close()
-
-    if not ok:
-        return JSONResponse({"error": "Tweet not pending or variant not found"}, status_code=409)
-
-    return RedirectResponse("/dashboard?action=approved", status_code=303)
-
-
-@app.post("/skip")
-async def skip(request: Request, tweet_id: str = Form(...)):
-    if not check_auth(request):
-        return _deny()
-
-    conn = await db.get_connection(DB_PATH)
-    try:
-        ok = await db.skip_tweet(conn, tweet_id)
-    finally:
-        await conn.close()
-
-    if not ok:
-        return JSONResponse({"error": "Tweet not found or already handled"}, status_code=409)
-
-    return RedirectResponse("/dashboard?action=skipped", status_code=303)
+app.include_router(health_router)
+app.include_router(dashboard_router)
+app.include_router(stats_router)
 
 
 if __name__ == "__main__":

@@ -4,18 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1117">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
 <title>gstack Reply Queue</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:1rem;max-width:800px;margin:0 auto;line-height:1.5}
-.top-bar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
-.top-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
-.top-bar .meta{display:flex;gap:1rem;align-items:baseline;font-size:.85rem}
-.top-bar .meta a{color:#58a6ff;text-decoration:none}
-.top-bar .meta a:hover{text-decoration:underline}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:0 1rem 1rem;max-width:800px;margin:0 auto;line-height:1.5}
+.nav-bar{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #21262d}
+.nav-bar h1{font-size:1.4rem;color:#58a6ff;margin:0}
+.nav-right{display:flex;gap:1rem;align-items:center;font-size:.85rem}
+.nav-link{color:#8b949e;text-decoration:none;padding:.25rem 0;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.nav-link:hover{color:#c9d1d9}
+.nav-link.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.nav-link:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+.health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.3rem;vertical-align:middle}
+.health-ok{background:#3fb950}
+.health-warn{background:#d29922}
+.health-error{background:#f85149}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+.health-ok{animation:pulse-dot 3s ease-in-out infinite}
 .queue-badge{color:#9ca3af;font-size:.8rem}
-.empty{text-align:center;padding:3rem 1rem;color:#9ca3af;font-size:1.1rem}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.2rem}
+.empty{text-align:center;padding:3rem 1rem;color:#9ca3af;font-size:1.1rem;line-height:1.8}
+.empty-sub{font-size:.85rem;color:#484f58;margin-top:.5rem}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.2rem;transition:transform .3s ease,opacity .3s ease,border-color .15s}
+.card.focused{border-left:3px solid #58a6ff}
+.card.exiting{transform:translateY(-20px);opacity:0;pointer-events:none}
 .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem}
 .author{font-size:1.05rem;font-weight:600;color:#f0f6fc}
 .followers{font-size:.8rem;color:#9ca3af}.followers::before{content:'\00b7';margin:0 .4rem;color:#30363d;font-weight:700}
@@ -24,7 +36,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9
 .sentiment-question{background:#1c2d4a;color:#58a6ff}
 .sentiment-criticism{background:#3d1f1f;color:#f85149}
 .sentiment-neutral{background:#282830;color:#8b949e}
-.tweet-text{font-size:.9375rem;line-height:1.5;background:#0d1117;padding:.75rem;border-radius:6px;margin-bottom:.75rem;white-space:pre-wrap;word-break:break-word;border:1px solid #21262d}
+.tweet-text{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.9rem;line-height:1.5;background:#0d1117;padding:.75rem;border-radius:6px;margin-bottom:.75rem;white-space:pre-wrap;word-break:break-word;border:1px solid #21262d}
 .thread-summary{font-size:.8rem;color:#9ca3af;margin-bottom:.8rem;padding:.5rem;background:#0d1117;border-radius:4px;border-left:3px solid #30363d;line-height:1.4}
 .variants{margin-bottom:.8rem}
 .variant{display:flex;align-items:flex-start;gap:.5rem;padding:.625rem .5rem;border-radius:6px;cursor:pointer;margin-bottom:.25rem;border:1px solid transparent;transition:background .12s,border-color .12s}
@@ -32,11 +44,12 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9
 .variant.selected{background:#1c2128;border-color:#30363d}
 .variant input[type=radio]{margin-top:.25rem;accent-color:#58a6ff;width:18px;height:18px;flex-shrink:0}
 .variant input[type=radio]:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.variant-text{font-size:.875rem;line-height:1.5;flex:1}
-.char-count{font-size:.75rem;font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:4px}
+.variant-text{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.875rem;line-height:1.5;flex:1}
+.char-count{font-size:.75rem;font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:4px;transition:background-color .2s,color .2s,transform .15s}
 .char-green{color:#3fb950;background:#1f3d2a}
 .char-yellow{color:#d29922;background:#3d2e1f}
 .char-red{color:#f85149;background:#3d1f1f}
+.char-pulse{transform:scale(1.15)}
 .no-variants{font-size:.85rem;color:#9ca3af;padding:.5rem 0;margin-bottom:.5rem;font-style:italic}
 .edit-area{width:100%;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.875rem;line-height:1.4;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.625rem;resize:vertical;min-height:72px;margin-bottom:.25rem}
 .edit-area:focus{border-color:#58a6ff;outline:none;box-shadow:0 0 0 2px rgba(88,166,255,.25)}
@@ -55,27 +68,36 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9
 select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem .75rem;font-size:.875rem;min-height:44px}
 select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .edit-counter{font-size:.75rem;margin-bottom:.3rem}
-.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(0);background:#161b22;color:#c9d1d9;padding:.7rem 1.2rem;border-radius:8px;font-size:.88rem;font-weight:500;border:1px solid #30363d;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:1000;opacity:1;transition:opacity .3s ease,transform .3s ease}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(10px);background:#161b22;color:#c9d1d9;padding:.7rem 1.2rem;border-radius:8px;font-size:.88rem;font-weight:500;border:1px solid #30363d;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:1000;opacity:0;transition:opacity .3s ease,transform .3s ease;pointer-events:none}
+.toast.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
 .toast--success{border-color:#238636;color:#3fb950}
 .toast--skip{border-color:#484f58;color:#8b949e}
-.toast.hidden{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none}
+.toast--error{border-color:#f85149;color:#f85149}
+.kbd-hint{text-align:center;color:#484f58;font-size:.75rem;padding:1rem 0 .5rem}
+kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size:.7rem;font-family:'SF Mono',Menlo,monospace;border:1px solid #30363d}
 </style>
 </head>
 <body>
-<div class="top-bar">
+<nav class="nav-bar">
   <h1>gstack Reply Queue</h1>
-  <div class="meta">
-    <span class="queue-badge">{{ tweets|length }} pending</span>
-    <a href="/stats">Stats</a>
+  <div class="nav-right">
+    <span class="health-dot {% if last_cycle %}health-ok{% else %}health-warn{% endif %}" title="{% if last_cycle %}Last scan: {{ last_cycle[:19] }}{% else %}No scans yet{% endif %}"></span>
+    <span class="queue-badge" id="pending-count">{{ tweets|length }} pending</span>
+    <a href="/dashboard" class="nav-link active">Dashboard</a>
+    <a href="/stats" class="nav-link">Stats</a>
   </div>
-</div>
+</nav>
 
 {% if not tweets %}
-<div class="empty">No tweets to review. Check back in 15 minutes.</div>
+<div class="empty">
+  No tweets to review right now.
+  {% if last_cycle %}<div class="empty-sub">Last scan: {{ last_cycle[:19] }} UTC</div>{% endif %}
+  <div class="empty-sub">The monitor checks every 15 minutes.</div>
+</div>
 {% endif %}
 
 {% for tweet in tweets %}
-<div class="card" id="card-{{ tweet.id }}">
+<div class="card" id="card-{{ tweet.id }}" data-card-index="{{ loop.index0 }}">
   <div class="card-header">
     <div>
       <span class="author">{{ tweet.author_name }}</span>
@@ -113,7 +135,7 @@ select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
     {% endif %}
 
     <div class="edit-area-wrap" style="display:none">
-      <textarea class="edit-area" name="reply_text_edit" maxlength="280"></textarea>
+      <textarea class="edit-area" name="reply_text_edit" maxlength="280" rows="3"></textarea>
       <div class="edit-counter"></div>
     </div>
 
@@ -139,114 +161,281 @@ select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 </div>
 {% endfor %}
 
-<div class="toast hidden" id="toast"></div>
+{% if tweets %}
+<div class="kbd-hint">
+  <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;
+  <kbd>a</kbd> approve &middot;
+  <kbd>s</kbd> skip &middot;
+  <kbd>e</kbd> edit &middot;
+  <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick variant
+</div>
+{% endif %}
+
+<div class="toast" id="toast"></div>
 
 <script>
-document.querySelectorAll('.tweet-form').forEach(function(form) {
-  var editWrap = form.querySelector('.edit-area-wrap');
-  var editArea = form.querySelector('.edit-area');
-  var editCounter = form.querySelector('.edit-counter');
-  var editBtn = form.querySelector('.btn-edit');
-  var approveBtn = form.querySelector('.btn-approve');
-  var replyHidden = form.querySelector('.reply-text-hidden');
-  var variantHidden = form.querySelector('.variant-id-hidden');
-  var radios = form.querySelectorAll('input[name="variant_id"]');
-  var editing = false;
+(function() {
+  /* --- Toast helper --- */
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg, cls) {
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.className = 'toast ' + cls + ' visible';
+    toastTimer = setTimeout(function() { toastEl.classList.remove('visible'); }, 2500);
+  }
 
-  function getSelected() {
-    for (var i = 0; i < radios.length; i++) {
-      if (radios[i].checked) return radios[i];
+  /* --- Auto-select nearest send window --- */
+  var etHour = {{ current_et_hour|default(12) }};
+  var bestWindow = etHour < 11 ? 'morning' : etHour < 14 ? 'lunch' : etHour < 19 ? 'evening' : 'morning';
+  document.querySelectorAll('select[name="send_window"]').forEach(function(sel) {
+    sel.value = bestWindow;
+  });
+
+  /* --- Pending count helper --- */
+  var pendingEl = document.getElementById('pending-count');
+  function updatePendingCount(delta) {
+    var cards = document.querySelectorAll('.card:not(.exiting)');
+    var n = cards.length + delta;
+    if (n < 0) n = 0;
+    pendingEl.textContent = n + ' pending';
+  }
+
+  /* --- Card exit animation --- */
+  function animateCardOut(card, callback) {
+    card.classList.add('exiting');
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      card.remove();
+      updatePendingCount(0);
+      if (callback) callback();
+      /* Show empty state if no cards left */
+      if (!document.querySelector('.card')) {
+        var body = document.querySelector('body');
+        var hint = document.querySelector('.kbd-hint');
+        if (hint) hint.remove();
+        var empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No tweets to review right now.';
+        body.insertBefore(empty, toastEl);
+      }
     }
-    return radios.length ? radios[0] : null;
+    card.addEventListener('transitionend', finish, {once: true});
+    setTimeout(finish, 500); /* fallback */
   }
 
-  function updateCounter() {
-    var len = editArea.value.length;
-    var cls = len <= 260 ? 'char-green' : len <= 270 ? 'char-yellow' : 'char-red';
-    editCounter.innerHTML = '<span class="char-count ' + cls + '">' + len + '/280</span>';
-    if (approveBtn) approveBtn.disabled = len > 280 || len === 0;
-  }
+  /* --- Per-form logic --- */
+  document.querySelectorAll('.tweet-form').forEach(function(form) {
+    var card = form.closest('.card');
+    var editWrap = form.querySelector('.edit-area-wrap');
+    var editArea = form.querySelector('.edit-area');
+    var editCounter = form.querySelector('.edit-counter');
+    var editBtn = form.querySelector('.btn-edit');
+    var approveBtn = form.querySelector('.btn-approve');
+    var replyHidden = form.querySelector('.reply-text-hidden');
+    var variantHidden = form.querySelector('.variant-id-hidden');
+    var radios = form.querySelectorAll('input[name="variant_id"]');
+    var editing = false;
 
-  for (var i = 0; i < radios.length; i++) {
-    radios[i].addEventListener('change', function() {
-      form.querySelectorAll('.variant').forEach(function(v) { v.classList.remove('selected'); });
-      this.closest('.variant').classList.add('selected');
+    function getSelected() {
+      for (var i = 0; i < radios.length; i++) {
+        if (radios[i].checked) return radios[i];
+      }
+      return radios.length ? radios[0] : null;
+    }
+
+    function updateCounter() {
+      var len = editArea.value.length;
+      var cls = len <= 260 ? 'char-green' : len <= 270 ? 'char-yellow' : 'char-red';
+      editCounter.innerHTML = '<span class="char-count ' + cls + (len >= 270 ? ' char-pulse' : '') + '">' + len + '/280</span>';
+      if (approveBtn) approveBtn.disabled = len > 280 || len === 0;
+    }
+
+    /* Variant radio selection */
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].addEventListener('change', function() {
+        form.querySelectorAll('.variant').forEach(function(v) { v.classList.remove('selected'); });
+        this.closest('.variant').classList.add('selected');
+        if (editing) {
+          editArea.value = this.getAttribute('data-text');
+          updateCounter();
+        }
+      });
+    }
+
+    /* Edit toggle */
+    editBtn.addEventListener('click', function() {
+      editing = !editing;
+      editWrap.style.display = editing ? 'block' : 'none';
+      editBtn.textContent = editing ? 'Cancel Edit' : 'Edit';
       if (editing) {
-        editArea.value = this.getAttribute('data-text');
+        var sel = getSelected();
+        editArea.value = sel ? sel.getAttribute('data-text') : '';
+        if (approveBtn) approveBtn.disabled = false;
         updateCounter();
+        editArea.focus();
+      } else {
+        if (!radios.length && approveBtn) approveBtn.disabled = true;
       }
     });
-  }
 
-  editBtn.addEventListener('click', function() {
-    editing = !editing;
-    editWrap.style.display = editing ? 'block' : 'none';
-    editBtn.textContent = editing ? 'Cancel Edit' : 'Edit';
-    if (editing) {
-      var sel = getSelected();
-      editArea.value = sel ? sel.getAttribute('data-text') : '';
-      if (approveBtn) approveBtn.disabled = false;
-      updateCounter();
-      editArea.focus();
-    } else {
-      if (!radios.length && approveBtn) approveBtn.disabled = true;
-    }
-  });
+    editArea.addEventListener('input', updateCounter);
 
-  editArea.addEventListener('input', updateCounter);
-
-  form.addEventListener('submit', function(e) {
-    if (form.getAttribute('data-submitting') === 'skip') return;
-    var sel = getSelected();
-    if (sel) variantHidden.value = sel.value;
-    if (editing && editArea.value.trim()) {
-      replyHidden.value = editArea.value.trim();
-    } else if (sel) {
-      replyHidden.value = sel.getAttribute('data-text');
-    }
-    if (e.submitter && e.submitter.formAction && e.submitter.formAction.indexOf('/approve') !== -1) {
-      if (!replyHidden.value || replyHidden.value.length > 280) {
-        e.preventDefault();
-        alert('Reply must be 1-280 characters.');
-        return;
-      }
-    }
-  });
-
-  form.querySelector('.btn-skip').addEventListener('click', function(e) {
-    var author = form.closest('.card').querySelector('.author').textContent;
-    if (!confirm('Skip tweet from ' + author + '? This cannot be undone.')) {
-      e.preventDefault();
-      return;
-    }
-    form.setAttribute('data-submitting', 'skip');
-    this.classList.add('sending');
-    this.textContent = 'Skipping';
-  });
-  if (approveBtn) {
-    approveBtn.addEventListener('click', function() {
-      form.removeAttribute('data-submitting');
+    /* Collect hidden fields before submit */
+    function prepareFormData() {
       var sel = getSelected();
       if (sel) variantHidden.value = sel.value;
-      this.classList.add('sending');
-      this.textContent = 'Sending';
-    });
-  }
-});
+      if (editing && editArea.value.trim()) {
+        replyHidden.value = editArea.value.trim();
+      } else if (sel) {
+        replyHidden.value = sel.getAttribute('data-text');
+      }
+    }
 
-(function() {
+    /* AJAX approve */
+    function doApprove() {
+      prepareFormData();
+      var text = replyHidden.value;
+      if (!text || text.length > 280) {
+        showToast('Reply must be 1-280 characters.', 'toast--error');
+        return;
+      }
+      if (approveBtn) {
+        approveBtn.classList.add('sending');
+        approveBtn.textContent = 'Sending';
+      }
+      var fd = new FormData(form);
+      fd.set('reply_text', text);
+      fd.set('variant_id', variantHidden.value || (getSelected() ? getSelected().value : ''));
+      fetch('/approve', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd,
+      }).then(function(resp) { return resp.json(); }).then(function(data) {
+        if (data.ok) {
+          animateCardOut(card, function() {
+            showToast('Reply approved and scheduled.', 'toast--success');
+          });
+        } else {
+          showToast(data.error || 'Approve failed.', 'toast--error');
+          if (approveBtn) { approveBtn.classList.remove('sending'); approveBtn.textContent = 'Approve'; }
+        }
+      }).catch(function() {
+        showToast('Network error. Try again.', 'toast--error');
+        if (approveBtn) { approveBtn.classList.remove('sending'); approveBtn.textContent = 'Approve'; }
+      });
+    }
+
+    /* AJAX skip */
+    function doSkip() {
+      var author = card.querySelector('.author').textContent;
+      if (!confirm('Skip tweet from ' + author + '? This cannot be undone.')) return;
+      var skipBtn = form.querySelector('.btn-skip');
+      skipBtn.classList.add('sending');
+      skipBtn.textContent = 'Skipping';
+      var fd = new FormData();
+      fd.set('tweet_id', form.querySelector('[name="tweet_id"]').value);
+      fetch('/skip', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd,
+      }).then(function(resp) { return resp.json(); }).then(function(data) {
+        if (data.ok) {
+          animateCardOut(card, function() {
+            showToast('Tweet skipped.', 'toast--skip');
+          });
+        } else {
+          showToast(data.error || 'Skip failed.', 'toast--error');
+          skipBtn.classList.remove('sending'); skipBtn.textContent = 'Skip';
+        }
+      }).catch(function() {
+        showToast('Network error. Try again.', 'toast--error');
+        skipBtn.classList.remove('sending'); skipBtn.textContent = 'Skip';
+      });
+    }
+
+    /* Intercept form submit for progressive enhancement.
+       Only preventDefault if fetch is available — otherwise let the
+       native form POST work as fallback. */
+    form.addEventListener('submit', function(e) {
+      if (typeof fetch !== 'function') return; /* let native form submit */
+      e.preventDefault();
+      var submitter = e.submitter;
+      if (submitter && submitter.formAction && submitter.formAction.indexOf('/skip') !== -1) {
+        doSkip();
+      } else {
+        doApprove();
+      }
+    });
+
+    /* Edit button click — no changes, handled above */
+
+    /* Expose helpers for keyboard shortcuts */
+    card._doApprove = doApprove;
+    card._doSkip = doSkip;
+    card._toggleEdit = function() { editBtn.click(); };
+    card._selectVariant = function(n) {
+      if (radios[n]) {
+        radios[n].checked = true;
+        radios[n].dispatchEvent(new Event('change'));
+      }
+    };
+    card._isEditing = function() { return editing; };
+    card._editArea = editArea;
+  });
+
+  /* --- Keyboard navigation --- */
+  var focusedIdx = -1;
+  function getCards() { return Array.from(document.querySelectorAll('.card:not(.exiting)')); }
+
+  function setFocus(idx) {
+    var cards = getCards();
+    if (!cards.length) return;
+    cards.forEach(function(c) { c.classList.remove('focused'); });
+    if (idx < 0) idx = 0;
+    if (idx >= cards.length) idx = cards.length - 1;
+    focusedIdx = idx;
+    cards[idx].classList.add('focused');
+    cards[idx].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  }
+
+  document.addEventListener('keydown', function(e) {
+    /* Ignore when typing in inputs */
+    var tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+
+    var cards = getCards();
+    if (!cards.length) return;
+    var focused = focusedIdx >= 0 && focusedIdx < cards.length ? cards[focusedIdx] : null;
+
+    switch (e.key) {
+      case 'j': setFocus(focusedIdx + 1); e.preventDefault(); break;
+      case 'k': setFocus(focusedIdx - 1); e.preventDefault(); break;
+      case 'a':
+        if (focused && focused._doApprove) { focused._doApprove(); e.preventDefault(); }
+        break;
+      case 's':
+        if (focused && focused._doSkip) { focused._doSkip(); e.preventDefault(); }
+        break;
+      case 'e':
+        if (focused && focused._toggleEdit) { focused._toggleEdit(); e.preventDefault(); }
+        break;
+      case '1': if (focused) { focused._selectVariant(0); e.preventDefault(); } break;
+      case '2': if (focused) { focused._selectVariant(1); e.preventDefault(); } break;
+      case '3': if (focused) { focused._selectVariant(2); e.preventDefault(); } break;
+    }
+  });
+
+  /* --- Show toast from URL params (fallback for non-JS redirect) --- */
   var params = new URLSearchParams(window.location.search);
   var action = params.get('action');
-  if (action) {
-    var toast = document.getElementById('toast');
-    if (action === 'approved') {
-      toast.textContent = 'Reply approved and scheduled.';
-      toast.className = 'toast toast--success';
-    } else if (action === 'skipped') {
-      toast.textContent = 'Tweet skipped.';
-      toast.className = 'toast toast--skip';
-    }
-    setTimeout(function() { toast.classList.add('hidden'); }, 2500);
+  if (action === 'approved') {
+    showToast('Reply approved and scheduled.', 'toast--success');
+    window.history.replaceState({}, '', '/dashboard');
+  } else if (action === 'skipped') {
+    showToast('Tweet skipped.', 'toast--skip');
     window.history.replaceState({}, '', '/dashboard');
   }
 })();

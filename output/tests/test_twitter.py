@@ -211,3 +211,42 @@ async def test_budget_usage_pct():
     twitter._rate_budget["window_start"] = time.monotonic()
     pct = twitter.budget_usage_pct()
     assert 40 < pct < 55  # ~49% of 55
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_request_syncs_budget_from_rate_headers():
+    """When Twitter returns x-rate-limit-remaining, local budget syncs down."""
+    twitter.reset_budget()
+    twitter._rate_budget["count"] = 5  # local thinks 5 used
+    twitter._rate_budget["window_start"] = time.monotonic()
+
+    # Twitter says only 10 remaining (out of 55 limit) — means 45 used
+    respx.get("https://api.twitter.com/2/tweets/sync-1").mock(
+        return_value=httpx.Response(
+            200,
+            json={"data": {"id": "sync-1", "public_metrics": {"like_count": 1, "retweet_count": 0}}},
+            headers={"x-rate-limit-remaining": "10"},
+        )
+    )
+    async with httpx.AsyncClient() as client:
+        await twitter.get_tweet_engagement(client, "sync-1")
+
+    # Budget should have been corrected: 55 - 10 = 45
+    assert twitter._rate_budget["count"] == 45
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_429_error_includes_reset_time():
+    """429 error message includes the reset timestamp from headers."""
+    respx.get("https://api.twitter.com/2/tweets/search/recent").mock(
+        return_value=httpx.Response(
+            429,
+            json={"detail": "Rate limit"},
+            headers={"x-rate-limit-reset": "1700000000"},
+        )
+    )
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(twitter.RateLimitError, match="1700000000"):
+            await twitter.search_mentions(client)

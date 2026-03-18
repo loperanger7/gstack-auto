@@ -758,3 +758,44 @@ async def test_full_cycle_approve_to_send(conn):
     # Tweet status is replied
     cursor = await conn.execute("SELECT status FROM tweets WHERE id='t200'")
     assert (await cursor.fetchone())[0] == "replied"
+
+
+# ============================================================
+# HEALTH ENDPOINT ENRICHMENT TESTS
+# ============================================================
+
+@pytest.mark.asyncio
+async def test_health_includes_error_count_24h(conn):
+    """Health includes error_count_24h field."""
+    # Create a cycle with errors
+    cid = await db.start_cycle(conn)
+    await db.end_cycle(conn, cid, errors="test error")
+    health = await db.get_health(conn)
+    assert "error_count_24h" in health
+    assert health["error_count_24h"] == 1
+
+
+@pytest.mark.asyncio
+async def test_health_includes_total_tweets(conn):
+    """Health includes total_tweets field."""
+    await db.upsert_tweet(conn, "h1", "a1", "u", 0, "text1")
+    await db.upsert_tweet(conn, "h2", "a2", "u", 0, "text2")
+    health = await db.get_health(conn)
+    assert "total_tweets" in health
+    assert health["total_tweets"] == 2
+
+
+@pytest.mark.asyncio
+async def test_health_includes_total_replies_sent(conn):
+    """Health includes total_replies_sent field."""
+    await db.upsert_tweet(conn, "h3", "a3", "u", 100, "text")
+    await db.save_variants(conn, "h3", [{"text": "reply", "label": "A"}])
+    cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 'h3'")
+    vid = (await cursor.fetchone())[0]
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    await db.approve_variant(conn, "h3", vid, "reply", past, "morning")
+    queue = await db.get_send_queue(conn)
+    await db.mark_sent(conn, queue[0]["reply_id"], "twitter-reply-h3")
+    health = await db.get_health(conn)
+    assert "total_replies_sent" in health
+    assert health["total_replies_sent"] == 1

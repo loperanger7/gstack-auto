@@ -104,14 +104,47 @@ Large blue number (1.6rem 700) over small gray label (0.8rem).
 ### Empty State
 Centered text, 3rem/1rem padding, muted color, 1.1rem.
 
-## Known Design Issues (Phase 11 Review)
+## Round 2 UX Improvements
 
-1. **No navigation** — Dashboard has no link to stats page; stats has "Back to Dashboard" only
-2. **No loading states** — Approve/skip are full page reloads with no feedback
-3. **No skip confirmation** — Skip is permanent, single click, no undo
-4. **Stats grid orphan** — 6 stat cards with auto-fit wraps to 5+1 layout
-5. **Stat values lack semantic color** — All blue; should be green (replied), red (stale), etc.
-6. **line-height unset** — All elements use browser default (~1.2), dense on long text
-7. **No letter-spacing on badges** — Uppercase .75rem text runs tight
-8. **Toast unused** — `style.css` defines `.toast` but templates never reference it
-9. **No system health on dashboard** — No last-poll time, queue depth, or auto-refresh
+### Navigation Bar
+Shared `<nav>` on both dashboard and stats with active link indicator (2px bottom border).
+Health dot (green/yellow pulse) shows system status. Pending count badge in nav.
+
+### AJAX Approve/Skip
+Form submissions intercepted by `fetch()` for smooth card exit animation (slide up + fade out,
+300ms transition). Toast notification on success/error. Falls back to full-page POST if JS disabled.
+
+### Keyboard Shortcuts
+`j`/`k` navigate cards, `a` approve, `s` skip, `e` edit, `1`/`2`/`3` select variant.
+Disabled when typing in textarea/input. Subtle kbd hint at bottom of page.
+
+### Auto Send Window
+Pre-selects nearest ET send window based on current time.
+
+### Character Count Polish
+Pulse animation (`char-pulse`) on count badge when approaching 280 chars.
+CSS transition on color/background changes.
+
+### Card Focus
+Focused card gets blue left border for keyboard navigation visual feedback.
+
+### Stats Bar Chart
+Pure CSS horizontal bar chart below send window table. Width proportional to max replies.
+
+### Stats Grid
+Changed from `repeat(3,1fr)` to `repeat(auto-fit,minmax(140px,1fr))` with `repeat(2,1fr)` mobile fallback.
+
+### Favicon
+Inline SVG lightning bolt favicon on both pages.
+
+## Resolved Design Issues (from Phase 11 Review)
+
+1. ~~No navigation~~ -- FIXED: Shared nav bar with active state on both pages
+2. ~~No loading states~~ -- FIXED: AJAX with card animation + sending button state
+3. ~~No skip confirmation~~ -- WAS ALREADY PRESENT: `confirm()` dialog existed in Round 1
+4. ~~Stats grid orphan~~ -- FIXED: `auto-fit` with `minmax(140px,1fr)` + mobile breakpoint
+5. ~~Stat values lack semantic color~~ -- FIXED: Each status has its own color class
+6. ~~line-height unset~~ -- FIXED: `line-height:1.5` on body
+7. ~~No letter-spacing on badges~~ -- FIXED: `letter-spacing:.04em` on sentiment badges
+8. ~~Toast unused~~ -- FIXED: Toast used for AJAX approve/skip feedback + URL param fallback
+9. ~~No system health on dashboard~~ -- FIXED: Health dot with pulse animation + last cycle time

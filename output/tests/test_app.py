@@ -33,7 +33,7 @@ async def seeded_db(tmp_path):
     ])
     await conn.close()
 
-    # Patch DB_PATH in the app module
+    # Patch DB_PATH in the app module (route modules read it via deferred import)
     import app as app_module
     old_path = app_module.DB_PATH
     app_module.DB_PATH = db_path
@@ -177,3 +177,146 @@ def test_index_redirects_to_dashboard(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code in (301, 302, 307, 308)
     assert "/dashboard" in resp.headers.get("location", "")
+
+
+# --- Round 2 regression + UX tests ---
+
+
+def test_dashboard_has_stats_link(client):
+    """Dashboard nav bar contains a link to /stats."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert resp.status_code == 200
+    assert 'href="/stats"' in resp.text
+
+
+def test_dashboard_has_dashboard_active_link(client):
+    """Dashboard nav bar has active class on dashboard link."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert 'class="nav-link active"' in resp.text
+    assert 'href="/dashboard"' in resp.text
+
+
+def test_dashboard_renders_health_dot(client):
+    """Dashboard contains health indicator dot."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert "health-dot" in resp.text
+
+
+def test_dashboard_has_keyboard_hint(client):
+    """Dashboard shows keyboard shortcut hints when tweets exist."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert "<kbd>" in resp.text
+    assert "approve" in resp.text.lower() or "skip" in resp.text.lower()
+
+
+def test_dashboard_edit_textarea_present(client):
+    """Each tweet card has an edit textarea."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert "edit-area" in resp.text
+    assert 'rows="3"' in resp.text
+
+
+def test_dashboard_char_count_rendered(client):
+    """Variant character counts are rendered."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert "char-count" in resp.text
+    assert "char-green" in resp.text
+
+
+def test_dashboard_send_window_options(client):
+    """All three send window options are present."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert 'value="morning"' in resp.text
+    assert 'value="lunch"' in resp.text
+    assert 'value="evening"' in resp.text
+
+
+def test_dashboard_favicon_present(client):
+    """Dashboard has an inline favicon."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert 'rel="icon"' in resp.text
+
+
+def test_approve_returns_json_for_xhr(client):
+    """POST /approve with XHR header returns JSON instead of redirect."""
+    dash = client.get("/dashboard", headers=_auth_header())
+    match = re.search(r'name="variant_id" value="(\d+)"', dash.text)
+    assert match, "Could not find variant_id in dashboard HTML"
+    variant_id = match.group(1)
+
+    resp = client.post("/approve", headers={
+        **_auth_header(),
+        "X-Requested-With": "XMLHttpRequest",
+    }, data={
+        "tweet_id": "tweet-1",
+        "variant_id": variant_id,
+        "reply_text": "Thanks! Check out gstack-auto.",
+        "send_window": "morning",
+    }, follow_redirects=False)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["action"] == "approved"
+
+
+def test_skip_returns_json_for_xhr(client):
+    """POST /skip with XHR header returns JSON instead of redirect."""
+    resp = client.post("/skip", headers={
+        **_auth_header(),
+        "X-Requested-With": "XMLHttpRequest",
+    }, data={
+        "tweet_id": "tweet-1",
+    }, follow_redirects=False)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["action"] == "skipped"
+
+
+def test_approve_xhr_rejects_over_280(client):
+    """XHR approve with >280 chars returns JSON error."""
+    resp = client.post("/approve", headers={
+        **_auth_header(),
+        "X-Requested-With": "XMLHttpRequest",
+    }, data={
+        "tweet_id": "tweet-1",
+        "variant_id": "1",
+        "reply_text": "x" * 281,
+        "send_window": "morning",
+    }, follow_redirects=False)
+    assert resp.status_code == 400
+    assert "error" in resp.json()
+
+
+def test_stats_has_dashboard_link(client):
+    """Stats page has a link back to dashboard."""
+    resp = client.get("/stats", headers=_auth_header())
+    assert resp.status_code == 200
+    assert 'href="/dashboard"' in resp.text
+
+
+def test_stats_semantic_colors(client):
+    """Stats page uses semantic color classes for stat values."""
+    resp = client.get("/stats", headers=_auth_header())
+    assert "stat-value-replied" in resp.text
+    assert "stat-value-pending" in resp.text
+    assert "stat-value-stale" in resp.text
+
+
+def test_stats_favicon_present(client):
+    """Stats page has an inline favicon."""
+    resp = client.get("/stats", headers=_auth_header())
+    assert 'rel="icon"' in resp.text
+
+
+def test_dashboard_card_has_data_index(client):
+    """Tweet cards have data-card-index for keyboard navigation."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert 'data-card-index="0"' in resp.text
+
+
+def test_dashboard_toast_element_present(client):
+    """Dashboard has a toast element for notifications."""
+    resp = client.get("/dashboard", headers=_auth_header())
+    assert 'id="toast"' in resp.text
+    assert "toast" in resp.text
