@@ -2,6 +2,18 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.11.0] - 2026-03-17
+
+### Fixed
+- `{ENV_VARS}` placeholder now present in all build and QA phase prompts (phases 01, 02, 03, 06, 07, 08, 11) — API keys saved in Mission Control were silently dropped and never reached pipeline agents
+- Added anti-hardcode warning to implementation phases (03, 08): agents now instructed to reference API keys via environment variables, never baked into output files
+- Added export instructions to QA phases (06, 11): agents now instructed to `export KEY=VALUE` before starting the app under test
+
+### Changed
+- CLAUDE.md Step 2a: added `{ENV_VARS}`, `{STYLE_NAME}`, `{STYLE_PRINCIPLES}` to the Phase 01 spawn substitution list (were missing, causing silent no-ops)
+- CLAUDE.md Step 2c: added note to apply same template variable substitutions as Step 2b for bug-fix phases (07–11)
+- CLAUDE.md: fixed stale description of `{ENV_VARS}` ("for QA testing" → "for implementation and testing")
+
 ## [0.1.10.1] - 2026-03-17
 
 ### Changed
