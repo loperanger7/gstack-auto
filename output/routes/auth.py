@@ -47,6 +47,32 @@ async def login_page(request: Request):
     )
 
 
+@router.get("/dev-login")
+async def dev_login(request: Request):
+    """Dev-only login bypass. Creates/finds a test user and logs in directly.
+    Only available when GOOGLE_CLIENT_ID is not set (local dev)."""
+    if os.environ.get("GOOGLE_CLIENT_ID"):
+        return RedirectResponse("/auth/login?error=dev_disabled", status_code=302)
+
+    a = _get_app()
+    email = os.environ.get("DEV_LOGIN_EMAIL", "dev@localhost")
+    conn = await db.get_connection(a.DB_PATH)
+    try:
+        user = await db.get_or_create_user(
+            conn, email=email, name="Dev User", picture="", google_sub="dev-local",
+        )
+        if email in a.ADMIN_EMAILS and not user.get("is_admin"):
+            await db.update_user(conn, user["id"], is_admin=1)
+        request.session["user_id"] = user["id"]
+        request.session["user_email"] = email
+        request.session["user_name"] = user.get("name", email)
+        if user.get("onboard_step", 0) < 3:
+            return RedirectResponse("/onboard", status_code=302)
+        return RedirectResponse("/dashboard", status_code=302)
+    finally:
+        await conn.close()
+
+
 @router.get("/google")
 async def google_login(request: Request):
     """Initiate Google OAuth flow."""

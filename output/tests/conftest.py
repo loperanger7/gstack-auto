@@ -18,6 +18,7 @@ os.environ.setdefault("GOOGLE_CLIENT_ID", "test-google-client-id")
 os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 os.environ.setdefault("APP_FERNET_KEY", "")  # Will be set by fixtures that need it
 os.environ.setdefault("ADMIN_EMAILS", "admin@test.com")
+os.environ.setdefault("APP_BEARER_TOKEN", "test-bearer-token")
 
 import pytest
 import pytest_asyncio

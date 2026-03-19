@@ -23,13 +23,13 @@ TONE_INSTRUCTIONS = {
 
 DEFAULT_LINK = "https://github.com/loperanger7/gstack-auto"
 
-SENTIMENT_PROMPT = """Classify the sentiment of this tweet about gstack into exactly one category: praise, question, criticism, or neutral.
+SENTIMENT_PROMPT = """Classify the sentiment of this tweet into exactly one category: praise, question, criticism, or neutral.
 
 <tweet_text>{tweet_text}</tweet_text>
 
 Respond with ONLY one word: praise, question, criticism, or neutral."""
 
-DRAFT_PROMPT = """You are helping maintain an authentic Twitter presence for gstack-auto, an open-source project built on Garry Tan's gstack.
+DRAFT_PROMPT = """You are helping a user craft authentic Twitter replies to tweets that match their interests.
 
 A Twitter user posted the following tweet. Draft 2-3 reply variants.
 
@@ -39,11 +39,11 @@ A Twitter user posted the following tweet. Draft 2-3 reply variants.
 <thread_context>{thread_context}</thread_context>
 
 Tone: {tone_instruction}
+{link_instruction}
 
 Rules:
 - Each reply MUST be 280 characters or fewer
 - Be helpful and genuine, not promotional or spammy
-- Every reply MUST include a link to {custom_link} — weave it in naturally (e.g. "we built gstack-auto on top of it: {custom_link}")
 - Match the tone: supportive for praise, helpful for questions, respectful for criticism, conversational for neutral
 - No hashtags, no emojis unless the original tweet uses them
 
@@ -102,6 +102,10 @@ async def draft_variants(
 
     tone_instruction = TONE_INSTRUCTIONS.get(tone, TONE_INSTRUCTIONS["professional"])
     link = custom_link if custom_link else DEFAULT_LINK
+    if custom_link:
+        link_instruction = f"Include a link to {link} when it fits naturally — but only if it adds value to the reply. Do not force it."
+    else:
+        link_instruction = "Include a link to " + DEFAULT_LINK + " when it fits naturally — but only if it adds value to the reply. Do not force it."
 
     prompt = DRAFT_PROMPT.format(
         tweet_text=_xml_escape(tweet_text),
@@ -110,7 +114,7 @@ async def draft_variants(
         sentiment=sentiment,
         thread_context=thread_context or "(no thread context)",
         tone_instruction=tone_instruction,
-        custom_link=link,
+        link_instruction=link_instruction,
     )
 
     for attempt in range(retries + 1):
@@ -168,6 +172,9 @@ def _parse_variants(raw: str) -> list[dict]:
             label = str(item.get("label", "")).strip()
             draft = str(item.get("text", "")).strip()
             if not label or not draft:
+                continue
+            if label not in {"A", "B", "C", "D", "E"}:
+                log.warning("Unexpected variant label '%s', skipping", label)
                 continue
             if len(draft) > 280:
                 log.warning("Variant %s exceeds 280 chars (%d), discarding", label, len(draft))

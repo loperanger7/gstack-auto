@@ -85,7 +85,7 @@ def _get_credentials(
     """Get Twitter credentials. Uses explicit args if provided, else env vars."""
     return {
         "consumer_key": consumer_key or os.environ.get("CONSUMER_KEY", ""),
-        "consumer_secret": consumer_secret or os.environ.get("CONSUMER_KEY_SECRET", ""),
+        "consumer_secret": consumer_secret or os.environ.get("CONSUMER_SECRET", ""),
         "token": access_token or os.environ.get("ACCESS_TOKEN", ""),
         "token_secret": access_secret or os.environ.get("ACCESS_TOKEN_SECRET", ""),
     }
@@ -142,19 +142,25 @@ async def _request(
     json_body: dict | None = None,
     retries: int = 2,
     creds: dict | None = None,
+    use_bearer: bool = False,
 ) -> dict[str, Any]:
     """Authenticated request with retry, budget tracking, fail-safe error handling."""
     if not _check_budget():
         raise RateLimitError("Rate budget exhausted for this window")
 
-    if creds is None:
-        creds = _get_credentials()
-    sig_params = {k: str(v) for k, v in params.items()} if params and method == "GET" else {}
-
     _spend_budget()
     for attempt in range(retries + 1):
-        auth_header = _oauth_header(method, url, creds, sig_params if method == "GET" else None)
-        headers = {"Authorization": auth_header}
+        if use_bearer:
+            bearer = os.environ.get("APP_BEARER_TOKEN", "")
+            if not bearer:
+                raise TwitterAuthError("APP_BEARER_TOKEN not set")
+            headers = {"Authorization": f"Bearer {bearer}"}
+        else:
+            if creds is None:
+                creds = _get_credentials()
+            sig_params = {k: str(v) for k, v in params.items()} if params and method == "GET" else {}
+            auth_header = _oauth_header(method, url, creds, sig_params if method == "GET" else None)
+            headers = {"Authorization": auth_header}
 
         try:
             resp = await client.request(
@@ -235,7 +241,7 @@ async def search_mentions(
                 "tweet.fields": "author_id,created_at,conversation_id,public_metrics",
                 "expansions": "author_id",
                 "user.fields": "name,username,public_metrics",
-            })
+            }, use_bearer=True)
         except (RateLimitError, TwitterAuthError):
             raise
         except TwitterError as e:
@@ -277,7 +283,7 @@ async def fetch_thread(
             "query": f"conversation_id:{conversation_id}",
             "max_results": str(min(max_tweets, 100)),
             "tweet.fields": "author_id,created_at,text",
-        })
+        }, use_bearer=True)
         return [
             {"id": t["id"], "text": t.get("text", ""), "author_id": t.get("author_id", "")}
             for t in data.get("data", [])[:max_tweets]

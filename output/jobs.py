@@ -19,6 +19,10 @@ import twitter
 
 log = logging.getLogger(__name__)
 
+# Reentry guard for send_approved_replies
+_send_lock = asyncio.Lock()
+MAX_SEND_ATTEMPTS = 3
+
 
 def _get_app():
     """Import app module. Deferred to avoid circular imports."""
@@ -63,7 +67,7 @@ def _decrypt_user_creds(user: dict) -> dict | None:
         access_secret = crypto.decrypt_token(user["twitter_access_secret"])
         return twitter._get_credentials(
             consumer_key=os.environ.get("CONSUMER_KEY", ""),
-            consumer_secret=os.environ.get("CONSUMER_KEY_SECRET", ""),
+            consumer_secret=os.environ.get("CONSUMER_SECRET", ""),
             access_token=access_token,
             access_secret=access_secret,
         )
@@ -109,6 +113,30 @@ async def monitor_cycle() -> None:
         await conn.close()
 
     log.info("Multi-tenant monitor cycle done for %d users", len(users) if 'users' in dir() else 0)
+
+
+async def trigger_first_monitor(user_id: int) -> None:
+    """Run a single-user monitor cycle immediately (e.g. after onboarding).
+    Self-contained: creates its own DB connection and API clients."""
+    a = _get_app()
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        log.warning("ANTHROPIC_API_KEY not set, skipping first monitor for user %d", user_id)
+        return
+
+    conn = await db.get_connection(a.DB_PATH)
+    try:
+        user = await db.get_user_by_id(conn, user_id)
+        if not user:
+            return
+        async with httpx.AsyncClient() as http_client:
+            claude_client = anthropic.AsyncAnthropic(api_key=api_key)
+            await _monitor_for_user(a, conn, http_client, claude_client, user)
+        log.info("First monitor cycle complete for user %d", user_id)
+    except Exception as e:
+        log.error("First monitor cycle failed for user %d: %s", user_id, e, exc_info=True)
+    finally:
+        await conn.close()
 
 
 async def _monitor_for_user(a, conn, http_client, claude_client, user):
@@ -216,56 +244,67 @@ async def _monitor_for_user(a, conn, http_client, claude_client, user):
 
 async def send_approved_replies() -> None:
     """Post approved replies whose send window is active. Uses per-user credentials."""
+    if _send_lock.locked():
+        log.info("Send already in progress, skipping")
+        return
+
     a = _get_app()
     if a.shutdown_event.is_set():
         return
 
-    conn = await db.get_connection(a.DB_PATH)
-    try:
-        queue = await db.get_send_queue(conn)
-        if not queue:
-            return
+    async with _send_lock:
+        conn = await db.get_connection(a.DB_PATH)
+        try:
+            queue = await db.get_send_queue(conn)
+            if not queue:
+                return
 
-        # Cache user credentials to avoid repeated decryption
-        user_creds_cache: dict[int, dict | None] = {}
+            # Cache user credentials to avoid repeated decryption
+            user_creds_cache: dict[int, dict | None] = {}
 
-        async with httpx.AsyncClient() as http_client:
-            for item in queue:
-                if a.shutdown_event.is_set():
-                    break
+            async with httpx.AsyncClient() as http_client:
+                for item in queue:
+                    if a.shutdown_event.is_set():
+                        break
 
-                if not any(_is_in_send_window(w) for w in a.VALID_SEND_WINDOWS):
-                    continue
+                    if not any(_is_in_send_window(w) for w in a.VALID_SEND_WINDOWS):
+                        continue
 
-                user_id = item.get("user_id", 0)
-                if user_id not in user_creds_cache:
-                    user = await db.get_user_by_id(conn, user_id)
-                    user_creds_cache[user_id] = _decrypt_user_creds(user) if user else None
+                    # Atomic claim: only proceed if we successfully claim this reply
+                    claimed = await db.claim_reply_for_send(conn, item["reply_id"])
+                    if not claimed:
+                        continue
 
-                creds = user_creds_cache.get(user_id)
-                if not creds:
-                    log.warning("No valid creds for user %d, skipping reply", user_id)
-                    continue
+                    user_id = item.get("user_id", 0)
+                    if user_id not in user_creds_cache:
+                        user = await db.get_user_by_id(conn, user_id)
+                        user_creds_cache[user_id] = _decrypt_user_creds(user) if user else None
 
-                try:
-                    reply_id = await twitter.post_reply(
-                        http_client, item["tweet_id"], item["reply_text"],
-                        user_creds=creds,
-                    )
-                    await db.mark_sent(conn, item["reply_id"], reply_id)
-                    await db.update_cooldown(conn, item["author_id"], user_id=user_id)
-                    log.info("Sent reply %s to tweet %s (user %d)", reply_id, item["tweet_id"], user_id)
-                    await asyncio.sleep(10)
-                except twitter.TweetDeletedError:
-                    await db.mark_stale(conn, item["tweet_id"])
-                    log.warning("Tweet %s deleted, marked stale", item["tweet_id"])
-                except twitter.RateLimitError:
-                    log.warning("Rate limited during send — will retry next cycle")
-                    break
-                except Exception as e:
-                    log.error("Send failed for tweet %s: %s", item["tweet_id"], e)
-    finally:
-        await conn.close()
+                    creds = user_creds_cache.get(user_id)
+                    if not creds:
+                        log.warning("No valid creds for user %d, skipping reply", user_id)
+                        continue
+
+                    try:
+                        reply_id = await twitter.post_reply(
+                            http_client, item["tweet_id"], item["reply_text"],
+                            user_creds=creds,
+                        )
+                        await db.mark_sent(conn, item["reply_id"], reply_id)
+                        await db.update_cooldown(conn, item["author_id"], user_id=user_id)
+                        log.info("Sent reply %s to tweet %s (user %d)", reply_id, item["tweet_id"], user_id)
+                        await asyncio.sleep(10)
+                    except twitter.TweetDeletedError:
+                        await db.mark_stale(conn, item["tweet_id"])
+                        log.warning("Tweet %s deleted, marked stale", item["tweet_id"])
+                    except twitter.RateLimitError:
+                        log.warning("Rate limited during send — will retry next cycle")
+                        break
+                    except Exception as e:
+                        await db.record_send_failure(conn, item["reply_id"])
+                        log.error("Send failed for tweet %s: %s", item["tweet_id"], e)
+        finally:
+            await conn.close()
 
 
 async def check_engagement() -> None:

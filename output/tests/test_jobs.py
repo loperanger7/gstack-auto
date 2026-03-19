@@ -221,6 +221,7 @@ async def test_send_replies_happy_path(job_db):
     mock_creds = {"access_token": "at", "access_secret": "as"}
 
     with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch.object(jobs.db, "claim_reply_for_send", new_callable=AsyncMock, return_value=True), \
          patch("jobs._is_in_send_window", return_value=True), \
          patch("jobs._decrypt_user_creds", return_value=mock_creds), \
          patch.object(jobs.db, "get_user_by_id", new_callable=AsyncMock, return_value={"id": 1}), \
@@ -244,6 +245,7 @@ async def test_send_replies_outside_window(job_db):
     ]
 
     with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch.object(jobs.db, "claim_reply_for_send", new_callable=AsyncMock, return_value=True), \
          patch("jobs._is_in_send_window", return_value=False), \
          patch.object(jobs.twitter, "post_reply", new_callable=AsyncMock) as mock_post:
         await jobs.send_approved_replies()
@@ -263,6 +265,7 @@ async def test_send_replies_tweet_deleted(job_db):
     mock_creds = {"access_token": "at", "access_secret": "as"}
 
     with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch.object(jobs.db, "claim_reply_for_send", new_callable=AsyncMock, return_value=True), \
          patch("jobs._is_in_send_window", return_value=True), \
          patch("jobs._decrypt_user_creds", return_value=mock_creds), \
          patch.object(jobs.db, "get_user_by_id", new_callable=AsyncMock, return_value={"id": 1}), \
@@ -295,6 +298,7 @@ async def test_send_replies_rate_limit_breaks(job_db):
         return f"reply-{call_count}"
 
     with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch.object(jobs.db, "claim_reply_for_send", new_callable=AsyncMock, return_value=True), \
          patch("jobs._is_in_send_window", return_value=True), \
          patch("jobs._decrypt_user_creds", return_value=mock_creds), \
          patch.object(jobs.db, "get_user_by_id", new_callable=AsyncMock, return_value={"id": 1}), \

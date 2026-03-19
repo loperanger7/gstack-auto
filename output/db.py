@@ -74,7 +74,9 @@ CREATE TABLE IF NOT EXISTS replies (
     scheduled_for TEXT NOT NULL,
     send_window TEXT NOT NULL,
     sent_at TEXT,
-    twitter_reply_id TEXT
+    twitter_reply_id TEXT,
+    send_attempts INTEGER NOT NULL DEFAULT 0,
+    claimed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS cooldowns (
@@ -86,7 +88,7 @@ CREATE TABLE IF NOT EXISTS cooldowns (
 
 CREATE TABLE IF NOT EXISTS engagement (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reply_id INTEGER NOT NULL REFERENCES replies(id),
+    reply_id INTEGER NOT NULL UNIQUE REFERENCES replies(id),
     likes INTEGER NOT NULL DEFAULT 0,
     retweets INTEGER NOT NULL DEFAULT 0,
     checked_at TEXT NOT NULL
@@ -457,24 +459,39 @@ async def mark_stale(conn: aiosqlite.Connection, tweet_id: str) -> None:
     await conn.commit()
 
 
+async def claim_reply_for_send(conn: aiosqlite.Connection, reply_id: int) -> bool:
+    """Atomically claim a reply for sending. Returns True if claimed, False if already claimed or max attempts exceeded."""
+    cursor = await conn.execute(
+        """UPDATE replies SET claimed_at = ?, send_attempts = send_attempts + 1
+           WHERE id = ? AND sent_at IS NULL AND claimed_at IS NULL AND send_attempts < 3
+           RETURNING id""",
+        (datetime.now(timezone.utc).isoformat(), reply_id),
+    )
+    row = await cursor.fetchone()
+    await conn.commit()
+    return row is not None
+
+
+async def record_send_failure(conn: aiosqlite.Connection, reply_id: int) -> None:
+    """Release claim on a reply after a send failure so it can be retried (up to max attempts)."""
+    await conn.execute(
+        "UPDATE replies SET claimed_at = NULL WHERE id = ?", (reply_id,)
+    )
+    await conn.commit()
+
+
 async def upsert_engagement(
     conn: aiosqlite.Connection, reply_id: int, likes: int, retweets: int
 ) -> None:
     """Insert or update engagement metrics for a reply."""
     now = datetime.now(timezone.utc).isoformat()
-    cursor = await conn.execute(
-        "SELECT id FROM engagement WHERE reply_id = ?", (reply_id,)
+    await conn.execute(
+        """INSERT INTO engagement (reply_id, likes, retweets, checked_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(reply_id) DO UPDATE SET
+               likes = excluded.likes, retweets = excluded.retweets, checked_at = excluded.checked_at""",
+        (reply_id, max(0, likes), max(0, retweets), now),
     )
-    if await cursor.fetchone():
-        await conn.execute(
-            "UPDATE engagement SET likes=?, retweets=?, checked_at=? WHERE reply_id=?",
-            (max(0, likes), max(0, retweets), now, reply_id),
-        )
-    else:
-        await conn.execute(
-            "INSERT INTO engagement (reply_id, likes, retweets, checked_at) VALUES (?,?,?,?)",
-            (reply_id, max(0, likes), max(0, retweets), now),
-        )
     await conn.commit()
 
 

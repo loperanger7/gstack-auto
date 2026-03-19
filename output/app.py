@@ -226,11 +226,16 @@ app = FastAPI(lifespan=lifespan)
 # Session middleware for OAuth
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("AUTH_SECRET_KEY", "dev-secret-change-me"),
+    secret_key=os.environ.get("AUTH_SECRET_KEY", "INSECURE-DEV-ONLY"),
     max_age=COOKIE_MAX_AGE,
     same_site="lax",
     https_only=os.environ.get("ENVIRONMENT", "development") == "production",
 )
+
+@app.get("/")
+async def root():
+    """Redirect root to login page."""
+    return RedirectResponse("/auth/login", status_code=302)
 
 app.include_router(health_router)
 app.include_router(auth_router)

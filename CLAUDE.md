@@ -250,10 +250,10 @@ find {WORKTREE}/output -name '*.html' -type f | head -1 | grep -q . && echo "HAS
 ```
 
 Also check `design_review` in config.yml. If `design_review: false` OR
-`NO_HTML`, skip phases 11-12 entirely for this run.
+`NO_HTML`, skip phase 11 entirely for this run.
 
 **If design review runs:**
-Resume each run with phase 11 (design review), then phase 12 (design fix).
+Resume each run with phase 11 (design review & fix — single pass).
 Replace template variables:
 - `{DESIGN_STYLE_NAME}` — from design style resolution (or "Default")
 - `{DESIGN_STYLE_PRINCIPLES}` — from design style file (or generic fallback)
@@ -261,7 +261,6 @@ Replace template variables:
 Each run writes:
 - `.context/runs/run-{id}/phase-11-design-review.md`
 - `.context/runs/run-{id}/design-scores.json`
-- `.context/runs/run-{id}/phase-12-design-fix.md`
 
 ### Step 2d: Retro & Scoring
 

@@ -1,5 +1,6 @@
 """Dashboard routes — approval queue, approve, skip. Auth required. User-scoped."""
 
+import asyncio
 import logging
 import re
 from datetime import datetime
@@ -54,6 +55,12 @@ async def dashboard(request: Request):
 
         tweets = await db.get_pending_tweets(conn, user_id=user_id)
         health_data = await db.get_health(conn)
+
+        # Trigger first monitor cycle if user has never had one
+        user_cycles = await db.get_cycle_history(conn, limit=1, user_id=user_id)
+        if not user_cycles:
+            import jobs
+            asyncio.create_task(jobs.trigger_first_monitor(user_id))
     finally:
         await conn.close()
 

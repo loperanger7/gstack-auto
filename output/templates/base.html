@@ -45,7 +45,7 @@ h2{font-size:1.2rem;margin:1.5rem 0 .8rem;color:#f0f6fc;font-weight:600}
 </head>
 <body>
 <nav class="nav-bar">
-  <h1>{% block page_title %}gstack{% endblock %}</h1>
+  <div><h1 style="margin:0">{% block page_title %}gstack{% endblock %}</h1><div style="font-size:.65rem;color:#484f58;letter-spacing:.02em">built autonomously with <a href="https://github.com/loperanger7/gstack-auto" style="color:#6e7681;text-decoration:none;border-bottom:1px dotted #30363d">gstack-auto</a></div></div>
   <div class="nav-right">
     {% block nav_status %}{% endblock %}
     <a href="/dashboard" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
