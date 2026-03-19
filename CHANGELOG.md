@@ -2,6 +2,24 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.13.0] - 2026-03-18
+
+### Added
+- **Multi-tenant Twitter SaaS:** Complete FastAPI application with Google OAuth, per-user Twitter OAuth 1.0a, 8-table SQLite schema, encrypted credentials, admin panel, engagement leaderboard, mobile swipe approval, and 3-step onboarding wizard.
+- **Pipeline phase prompt updates:** Synced phases 04 (review), 06 (QA), 07 (plan-bugfix), 08 (implement-fix), 11 (design-review), and 13 (retro-score) to gstack v0.7.3+ artifact formats — 4-pass review structure, 8-category health scoring, 10-category design audit with dual weight tables.
+- **Atomic send claims:** `claim_reply_for_send()` with `UPDATE ... WHERE ... RETURNING` prevents duplicate Twitter posts from concurrent scheduler invocations.
+- **Engagement upsert race fix:** Replaced SELECT-then-INSERT/UPDATE with `INSERT ... ON CONFLICT DO UPDATE` for engagement tracking.
+- **LLM output validation:** Variant label allowlist (`A`–`E`) rejects unexpected Claude output before DB write.
+- **239 tests passing:** Full test coverage for multi-tenant app including crypto, jobs, drafter, DB, routes, edge cases, and regression suites.
+
+### Fixed
+- Admin route missing `RedirectResponse` import causing NameError on user toggle.
+- Session middleware hardcoded fallback secret renamed to `INSECURE-DEV-ONLY` (app exits before serving if `AUTH_SECRET_KEY` missing).
+
+### Removed
+- Nested `output/output/` duplicate directory (46 files, 8,234 lines).
+- Committed `__pycache__/` and `.pytest_cache/` files from tracking.
+
 ## [0.1.12.1] - 2026-03-18
 
 ### Changed
