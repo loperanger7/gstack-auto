@@ -29,8 +29,7 @@ Read ALL prior phase artifacts:
 - `{PHASE_ARTIFACTS}/phase-05-ship.md` — ship log
 - `{PHASE_ARTIFACTS}/phase-06-qa.md` — QA report
 - Any bug-fix phase artifacts (07-11) if they exist
-- `{PHASE_ARTIFACTS}/phase-11-design-review.md` — design audit (if exists)
-- `{PHASE_ARTIFACTS}/phase-12-design-fix.md` — design fix log (if exists)
+- `{PHASE_ARTIFACTS}/phase-11-design-review.md` — design audit & fix (if exists)
 - `{PHASE_ARTIFACTS}/design-scores.json` — design scores (if exists)
 
 Read the actual code in `output/`.
