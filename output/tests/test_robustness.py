@@ -94,7 +94,6 @@ def test_approve_nonexistent_tweet_returns_error(client):
         "tweet_id": "does-not-exist",
         "variant_id": "1",
         "reply_text": "Hello!",
-        "send_window": "morning",
     })
     # 403 because the tweet doesn't exist so ownership check fails
     assert resp.status_code in (403, 409)
@@ -116,7 +115,6 @@ def test_approve_variant_id_zero_rejected(client):
         "tweet_id": "t1",
         "variant_id": "0",
         "reply_text": "Hello!",
-        "send_window": "morning",
     })
     assert resp.status_code == 400
 
@@ -127,7 +125,6 @@ def test_approve_negative_variant_id_rejected(client):
         "tweet_id": "t1",
         "variant_id": "-1",
         "reply_text": "Hello!",
-        "send_window": "morning",
     })
     assert resp.status_code == 400
 
@@ -137,12 +134,17 @@ def test_approve_exactly_280_chars_accepted(seeded_db):
     import asyncio
     db_path, user_id = seeded_db
 
+    variant_id = None
+
     async def setup():
+        nonlocal variant_id
         conn = await db.get_connection(db_path)
         await db.upsert_tweet(conn, tweet_id="t280", author_id="a1",
                              author_name="Test", follower_count=100, text="test",
                              user_id=user_id)
         await db.save_variants(conn, "t280", [{"label": "A", "text": "x" * 280}])
+        cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't280'")
+        variant_id = (await cursor.fetchone())[0]
         await conn.close()
 
     asyncio.get_event_loop().run_until_complete(setup())
@@ -154,9 +156,9 @@ def test_approve_exactly_280_chars_accepted(seeded_db):
 
     resp = c.post("/approve", data={
         "tweet_id": "t280",
-        "variant_id": "1",
+        "variant_id": str(variant_id),
         "reply_text": "x" * 280,
-        "send_window": "morning",
-    })
-    # Should be accepted (200 or 303 redirect, not 400)
-    assert resp.status_code in (200, 303)
+    }, follow_redirects=False)
+    # Should redirect to Twitter intent URL, not 400
+    assert resp.status_code == 303
+    assert "x.com/intent/post" in resp.headers.get("location", "")

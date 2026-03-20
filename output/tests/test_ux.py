@@ -67,22 +67,13 @@ def client(seeded_db):
     return c
 
 
-# --- Auto-select send window ---
+# --- Intent URL UI ---
 
-def test_dashboard_has_default_window(client):
-    """Dashboard select has a selected option (not hardcoded to morning)."""
+def test_dashboard_has_reply_on_x_button(client):
+    """Dashboard shows 'Reply on X' button instead of old Approve."""
     resp = client.get("/dashboard")
     assert resp.status_code == 200
-    assert "selected" in resp.text
-
-
-def test_dashboard_default_window_is_valid(client):
-    """The selected window is one of morning/lunch/evening."""
-    resp = client.get("/dashboard")
-    import re
-    matches = re.findall(r'value="(\w+)"[^>]*selected', resp.text)
-    assert len(matches) >= 1
-    assert matches[0] in ("morning", "lunch", "evening")
+    assert "Reply on X" in resp.text
 
 
 # --- Keyboard shortcut overlay ---

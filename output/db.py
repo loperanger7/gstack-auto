@@ -346,40 +346,38 @@ async def approve_variant(
     tweet_id: str,
     variant_id: int,
     reply_text: str,
-    scheduled_for: str,
-    send_window: str,
-) -> bool:
-    """Approve a variant and queue reply. Returns False if tweet not pending."""
-    allowed_windows = {"morning", "lunch", "evening"}
-    if send_window not in allowed_windows:
-        log.warning("Invalid send_window: %s", send_window)
-        return False
+) -> int | None:
+    """Approve a variant — marks tweet as 'posted', creates reply row.
+    Returns reply_id on success, None on failure."""
     if len(reply_text) > 280:
         log.warning("Reply text exceeds 280 chars, rejecting")
-        return False
+        return None
     cursor = await conn.execute(
         "SELECT id FROM variants WHERE id = ? AND tweet_id = ?",
         (variant_id, tweet_id),
     )
     if not await cursor.fetchone():
         log.warning("Variant %d not found for tweet %s", variant_id, tweet_id)
-        return False
+        return None
     cursor = await conn.execute(
-        "UPDATE tweets SET status = 'approved' WHERE id = ? AND status = 'pending'",
+        "UPDATE tweets SET status = 'posted' WHERE id = ? AND status = 'pending'",
         (tweet_id,),
     )
     if cursor.rowcount == 0:
-        return False
+        return None
     await conn.execute(
         "UPDATE variants SET chosen = 1 WHERE id = ?", (variant_id,)
     )
+    now = datetime.now(timezone.utc).isoformat()
     await conn.execute(
-        """INSERT INTO replies (tweet_id, variant_id, reply_text, scheduled_for, send_window)
-           VALUES (?, ?, ?, ?, ?)""",
-        (tweet_id, variant_id, reply_text, scheduled_for, send_window),
+        """INSERT INTO replies (tweet_id, variant_id, reply_text, scheduled_for, send_window, sent_at)
+           VALUES (?, ?, ?, ?, '', ?)""",
+        (tweet_id, variant_id, reply_text, now, now),
     )
     await conn.commit()
-    return True
+    cursor = await conn.execute("SELECT last_insert_rowid()")
+    row = await cursor.fetchone()
+    return row[0]
 
 
 async def skip_tweet(conn: aiosqlite.Connection, tweet_id: str) -> bool:
@@ -420,37 +418,6 @@ async def update_cooldown(conn: aiosqlite.Connection, author_id: str, user_id: i
     await conn.commit()
 
 
-async def get_send_queue(conn: aiosqlite.Connection) -> list[dict]:
-    """Return replies ready to send (scheduled time passed, not yet sent)."""
-    now = datetime.now(timezone.utc).isoformat()
-    cursor = await conn.execute(
-        """SELECT r.id as reply_id, r.tweet_id, r.reply_text, r.send_window,
-                  t.author_id, t.author_name, t.user_id
-           FROM replies r
-           JOIN tweets t ON t.id = r.tweet_id
-           WHERE r.sent_at IS NULL AND r.scheduled_for <= ?
-           ORDER BY r.scheduled_for ASC""",
-        (now,),
-    )
-    return [dict(row) for row in await cursor.fetchall()]
-
-
-async def mark_sent(
-    conn: aiosqlite.Connection, reply_id: int, twitter_reply_id: str
-) -> None:
-    """Mark a reply as sent. Only updates if not already sent (idempotent)."""
-    await conn.execute(
-        "UPDATE replies SET sent_at = ?, twitter_reply_id = ? WHERE id = ? AND sent_at IS NULL",
-        (datetime.now(timezone.utc).isoformat(), str(twitter_reply_id), reply_id),
-    )
-    await conn.execute(
-        """UPDATE tweets SET status = 'replied'
-           WHERE id = (SELECT tweet_id FROM replies WHERE id = ?)""",
-        (reply_id,),
-    )
-    await conn.commit()
-
-
 async def mark_stale(conn: aiosqlite.Connection, tweet_id: str) -> None:
     """Mark a tweet as stale (deleted on Twitter)."""
     await conn.execute(
@@ -459,25 +426,62 @@ async def mark_stale(conn: aiosqlite.Connection, tweet_id: str) -> None:
     await conn.commit()
 
 
-async def claim_reply_for_send(conn: aiosqlite.Connection, reply_id: int) -> bool:
-    """Atomically claim a reply for sending. Returns True if claimed, False if already claimed or max attempts exceeded."""
+async def undo_posted(conn: aiosqlite.Connection, reply_id: int, user_id: int) -> bool:
+    """Undo a 'posted' action — delete the reply row, reset tweet to pending.
+    Only works if the reply belongs to this user. Returns True on success."""
     cursor = await conn.execute(
-        """UPDATE replies SET claimed_at = ?, send_attempts = send_attempts + 1
-           WHERE id = ? AND sent_at IS NULL AND claimed_at IS NULL AND send_attempts < 3
-           RETURNING id""",
-        (datetime.now(timezone.utc).isoformat(), reply_id),
+        """SELECT r.id, r.tweet_id FROM replies r
+           JOIN tweets t ON t.id = r.tweet_id
+           WHERE r.id = ? AND t.user_id = ?""",
+        (reply_id, user_id),
     )
     row = await cursor.fetchone()
-    await conn.commit()
-    return row is not None
-
-
-async def record_send_failure(conn: aiosqlite.Connection, reply_id: int) -> None:
-    """Release claim on a reply after a send failure so it can be retried (up to max attempts)."""
+    if not row:
+        return False
+    tweet_id = row["tweet_id"]
+    await conn.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
     await conn.execute(
-        "UPDATE replies SET claimed_at = NULL WHERE id = ?", (reply_id,)
+        "UPDATE variants SET chosen = 0 WHERE tweet_id = ?", (tweet_id,)
+    )
+    await conn.execute(
+        "UPDATE tweets SET status = 'pending' WHERE id = ?", (tweet_id,)
     )
     await conn.commit()
+    return True
+
+
+async def save_reply_url(
+    conn: aiosqlite.Connection, reply_id: int, twitter_reply_id: str, user_id: int
+) -> bool:
+    """Save the Twitter reply URL/ID for engagement tracking. User-scoped."""
+    cursor = await conn.execute(
+        """SELECT r.id FROM replies r
+           JOIN tweets t ON t.id = r.tweet_id
+           WHERE r.id = ? AND t.user_id = ?""",
+        (reply_id, user_id),
+    )
+    if not await cursor.fetchone():
+        return False
+    await conn.execute(
+        "UPDATE replies SET twitter_reply_id = ? WHERE id = ?",
+        (str(twitter_reply_id), reply_id),
+    )
+    await conn.commit()
+    return True
+
+
+async def get_recently_posted(conn: aiosqlite.Connection, user_id: int, limit: int = 10) -> list[dict]:
+    """Get recently posted replies for the dashboard 'recently replied' section."""
+    cursor = await conn.execute(
+        """SELECT r.id as reply_id, r.reply_text, r.sent_at, r.twitter_reply_id,
+                  t.id as tweet_id, t.author_name, t.author_id
+           FROM replies r
+           JOIN tweets t ON t.id = r.tweet_id
+           WHERE t.user_id = ? AND t.status = 'posted'
+           ORDER BY r.sent_at DESC LIMIT ?""",
+        (user_id, limit),
+    )
+    return [dict(row) for row in await cursor.fetchall()]
 
 
 async def upsert_engagement(

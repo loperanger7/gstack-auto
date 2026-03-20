@@ -90,10 +90,10 @@ async def test_approve_variant_sets_status(conn_with_tweet):
     conn = conn_with_tweet
     tweets = await db.get_pending_tweets(conn)
     variant_id = tweets[0]["variants"][0]["id"]
-    ok = await db.approve_variant(
-        conn, "tweet-1", variant_id, "Thanks!", "2025-01-01T09:00:00+00:00", "morning"
+    reply_id = await db.approve_variant(
+        conn, "tweet-1", variant_id, "Thanks!"
     )
-    assert ok is True
+    assert reply_id is not None
     pending = await db.get_pending_tweets(conn)
     assert len(pending) == 0
 
@@ -101,21 +101,10 @@ async def test_approve_variant_sets_status(conn_with_tweet):
 @pytest.mark.asyncio
 async def test_approve_variant_wrong_tweet(conn_with_tweet):
     conn = conn_with_tweet
-    ok = await db.approve_variant(
-        conn, "tweet-1", 99999, "Thanks!", "2025-01-01T09:00:00+00:00", "morning"
+    reply_id = await db.approve_variant(
+        conn, "tweet-1", 99999, "Thanks!"
     )
-    assert ok is False
-
-
-@pytest.mark.asyncio
-async def test_approve_variant_invalid_window(conn_with_tweet):
-    conn = conn_with_tweet
-    tweets = await db.get_pending_tweets(conn)
-    vid = tweets[0]["variants"][0]["id"]
-    ok = await db.approve_variant(
-        conn, "tweet-1", vid, "Thanks!", "2025-01-01T09:00:00+00:00", "midnight"
-    )
-    assert ok is False
+    assert reply_id is None
 
 
 @pytest.mark.asyncio
@@ -123,46 +112,10 @@ async def test_approve_variant_over_280(conn_with_tweet):
     conn = conn_with_tweet
     tweets = await db.get_pending_tweets(conn)
     vid = tweets[0]["variants"][0]["id"]
-    ok = await db.approve_variant(
-        conn, "tweet-1", vid, "x" * 281, "2025-01-01T09:00:00+00:00", "morning"
+    reply_id = await db.approve_variant(
+        conn, "tweet-1", vid, "x" * 281
     )
-    assert ok is False
-
-
-@pytest.mark.asyncio
-async def test_get_send_queue_respects_window(conn_with_tweet):
-    conn = conn_with_tweet
-    tweets = await db.get_pending_tweets(conn)
-    vid = tweets[0]["variants"][0]["id"]
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    await db.approve_variant(conn, "tweet-1", vid, "Reply!", past, "morning")
-    queue = await db.get_send_queue(conn)
-    assert len(queue) == 1
-    assert queue[0]["reply_text"] == "Reply!"
-
-
-@pytest.mark.asyncio
-async def test_get_send_queue_future_not_ready(conn_with_tweet):
-    conn = conn_with_tweet
-    tweets = await db.get_pending_tweets(conn)
-    vid = tweets[0]["variants"][0]["id"]
-    future = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
-    await db.approve_variant(conn, "tweet-1", vid, "Reply!", future, "morning")
-    queue = await db.get_send_queue(conn)
-    assert len(queue) == 0
-
-
-@pytest.mark.asyncio
-async def test_mark_sent(conn_with_tweet):
-    conn = conn_with_tweet
-    tweets = await db.get_pending_tweets(conn)
-    vid = tweets[0]["variants"][0]["id"]
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    await db.approve_variant(conn, "tweet-1", vid, "Reply!", past, "morning")
-    queue = await db.get_send_queue(conn)
-    await db.mark_sent(conn, queue[0]["reply_id"], "twitter-reply-123")
-    queue_after = await db.get_send_queue(conn)
-    assert len(queue_after) == 0
+    assert reply_id is None
 
 
 @pytest.mark.asyncio

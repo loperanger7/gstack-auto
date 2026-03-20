@@ -128,27 +128,12 @@ async def test_approve_sets_chosen_and_creates_reply(conn):
     await db.save_variants(conn, "t1", [{"text": "reply text", "label": "A"}])
     cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't1'")
     vid = (await cursor.fetchone())[0]
-    ok = await db.approve_variant(
-        conn, "t1", vid, "reply text",
-        datetime.now(timezone.utc).isoformat(), "morning"
+    reply_id = await db.approve_variant(
+        conn, "t1", vid, "reply text"
     )
-    assert ok is True
+    assert reply_id is not None
     cursor = await conn.execute("SELECT chosen FROM variants WHERE id = ?", (vid,))
     assert (await cursor.fetchone())[0] == 1
-
-
-@pytest.mark.asyncio
-async def test_approve_rejects_invalid_window(conn):
-    user = await db.get_or_create_user(conn, "u@test.com")
-    await db.upsert_tweet(conn, "t1", "a1", "user", 100, "text", user_id=user["id"])
-    await db.save_variants(conn, "t1", [{"text": "hi", "label": "A"}])
-    cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't1'")
-    vid = (await cursor.fetchone())[0]
-    ok = await db.approve_variant(
-        conn, "t1", vid, "hi",
-        datetime.now(timezone.utc).isoformat(), "midnight"
-    )
-    assert ok is False
 
 
 @pytest.mark.asyncio
@@ -158,11 +143,10 @@ async def test_approve_rejects_long_reply(conn):
     await db.save_variants(conn, "t1", [{"text": "x" * 281, "label": "A"}])
     cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't1'")
     vid = (await cursor.fetchone())[0]
-    ok = await db.approve_variant(
-        conn, "t1", vid, "x" * 281,
-        datetime.now(timezone.utc).isoformat(), "morning"
+    reply_id = await db.approve_variant(
+        conn, "t1", vid, "x" * 281
     )
-    assert ok is False
+    assert reply_id is None
 
 
 @pytest.mark.asyncio
@@ -182,8 +166,7 @@ async def test_upsert_engagement(conn):
     await db.save_variants(conn, "t1", [{"text": "reply", "label": "A"}])
     cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't1'")
     vid = (await cursor.fetchone())[0]
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    await db.approve_variant(conn, "t1", vid, "reply", past, "morning")
+    await db.approve_variant(conn, "t1", vid, "reply")
     cursor = await conn.execute("SELECT id FROM replies LIMIT 1")
     rid = (await cursor.fetchone())[0]
     await db.upsert_engagement(conn, rid, 5, 2)
@@ -391,22 +374,6 @@ async def test_auth_check_rejects_invalid_session():
     assert check_auth(mock_request) is False
 
 
-@pytest.mark.asyncio
-async def test_send_window_logic():
-    from app import _next_send_time
-    result = _next_send_time("morning")
-    parsed = datetime.fromisoformat(result)
-    assert parsed > datetime.now(timezone.utc) - timedelta(days=2)
-
-
-@pytest.mark.asyncio
-async def test_send_window_logic_all_windows():
-    from app import _next_send_time
-    for window in ("morning", "lunch", "evening"):
-        result = _next_send_time(window)
-        datetime.fromisoformat(result)
-
-
 # ============================================================
 # INTEGRATION-STYLE TESTS
 # ============================================================
@@ -429,22 +396,20 @@ async def test_full_cycle_search_to_pending(conn):
 
 
 @pytest.mark.asyncio
-async def test_full_cycle_approve_to_send(conn):
+async def test_full_cycle_approve_to_posted(conn):
     user = await db.get_or_create_user(conn, "u@test.com")
     uid = user["id"]
     await db.upsert_tweet(conn, "t200", "a200", "author200", 1000, "text", user_id=uid)
     await db.save_variants(conn, "t200", [{"text": "my reply", "label": "A"}])
     cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't200'")
     vid = (await cursor.fetchone())[0]
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    ok = await db.approve_variant(conn, "t200", vid, "my reply", past, "morning")
-    assert ok is True
-    queue = await db.get_send_queue(conn)
-    assert len(queue) == 1
-    await db.mark_sent(conn, queue[0]["reply_id"], "tw-reply-999")
+    reply_id = await db.approve_variant(conn, "t200", vid, "my reply")
+    assert reply_id is not None
+    # Verify tweet status is 'posted'
+    cursor = await conn.execute("SELECT status FROM tweets WHERE id='t200'")
+    status = (await cursor.fetchone())[0]
+    assert status == "posted"
     await db.update_cooldown(conn, "a200", user_id=uid)
-    queue2 = await db.get_send_queue(conn)
-    assert len(queue2) == 0
     assert await db.check_cooldown(conn, "a200", 7, user_id=uid) is True
 
 

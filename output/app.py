@@ -10,7 +10,7 @@ import os
 import signal
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, time, timezone
+from datetime import datetime, time, timezone
 
 try:
     from zoneinfo import ZoneInfo
@@ -138,27 +138,6 @@ def _deny_api() -> Response:
     return HTMLResponse(status_code=401, content=body)
 
 
-# --- Send window logic ---
-
-def _is_in_send_window(window_name: str) -> bool:
-    """Check if current ET time is within the named send window."""
-    if window_name not in SEND_WINDOWS:
-        return False
-    now_et = datetime.now(ET).time()
-    start, end = SEND_WINDOWS[window_name]
-    return start <= now_et <= end
-
-
-def _next_send_time(window: str) -> str:
-    """Compute next occurrence of send window start as ISO UTC string."""
-    start, _ = SEND_WINDOWS.get(window, (time(9, 0), time(11, 0)))
-    now_et = datetime.now(ET)
-    candidate = now_et.replace(hour=start.hour, minute=0, second=0, microsecond=0)
-    if candidate < now_et:
-        candidate += timedelta(days=1)
-    return candidate.astimezone(timezone.utc).isoformat()
-
-
 # --- App lifecycle ---
 
 @asynccontextmanager
@@ -183,10 +162,6 @@ async def lifespan(app: FastAPI):
     else:
         log.warning("ANTHROPIC_API_KEY not set — monitor cycle disabled")
 
-    scheduler.add_job(
-        jobs.send_approved_replies, "interval", minutes=1,
-        id="sender", max_instances=1,
-    )
     scheduler.add_job(
         jobs.check_engagement, "interval", hours=6,
         id="engagement", max_instances=1,

@@ -126,7 +126,6 @@ def test_approve_creates_reply(auth_client):
         "tweet_id": "tweet-1",
         "variant_id": variant_id,
         "reply_text": "Thanks! Check out gstack-auto.",
-        "send_window": "morning",
     }, follow_redirects=False)
     assert resp.status_code == 303
 
@@ -136,7 +135,6 @@ def test_approve_rejects_over_280(auth_client):
         "tweet_id": "tweet-1",
         "variant_id": "1",
         "reply_text": "x" * 281,
-        "send_window": "morning",
     }, follow_redirects=False)
     assert resp.status_code == 400
 
@@ -146,19 +144,8 @@ def test_approve_rejects_empty(auth_client):
         "tweet_id": "tweet-1",
         "variant_id": "1",
         "reply_text": "",
-        "send_window": "morning",
     }, follow_redirects=False)
     assert resp.status_code in (400, 422)
-
-
-def test_approve_rejects_invalid_window(auth_client):
-    resp = auth_client.post("/approve", data={
-        "tweet_id": "tweet-1",
-        "variant_id": "1",
-        "reply_text": "Hello",
-        "send_window": "midnight",
-    }, follow_redirects=False)
-    assert resp.status_code == 400
 
 
 def test_skip_updates_status(auth_client):
@@ -173,7 +160,7 @@ def test_skip_updates_status(auth_client):
 def test_approve_requires_auth(client):
     resp = client.post("/approve", data={
         "tweet_id": "tweet-1", "variant_id": "1",
-        "reply_text": "hi", "send_window": "morning",
+        "reply_text": "hi",
     }, follow_redirects=False)
     assert resp.status_code in (302, 401)
 
@@ -229,11 +216,9 @@ def test_dashboard_char_count_rendered(auth_client):
     assert "char-green" in resp.text
 
 
-def test_dashboard_send_window_options(auth_client):
+def test_dashboard_has_reply_on_x_button(auth_client):
     resp = auth_client.get("/dashboard")
-    assert 'value="morning"' in resp.text
-    assert 'value="lunch"' in resp.text
-    assert 'value="evening"' in resp.text
+    assert 'Reply on X' in resp.text
 
 
 def test_dashboard_favicon_present(auth_client):
@@ -258,11 +243,12 @@ def test_approve_returns_json_for_xhr(auth_client):
         "tweet_id": "tweet-1",
         "variant_id": variant_id,
         "reply_text": "Thanks! Check out gstack-auto.",
-        "send_window": "morning",
     }, follow_redirects=False)
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
+    assert "intent_url" in data
+    assert "x.com/intent/post" in data["intent_url"]
 
 
 def test_skip_returns_json_for_xhr(auth_client):

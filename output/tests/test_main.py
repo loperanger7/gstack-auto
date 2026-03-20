@@ -108,8 +108,7 @@ async def test_approve_empty_text_rejected(client):
             "tweet_id": "t1",
             "variant_id": "1",
             "reply_text": "",
-            "send_window": "morning",
-        },
+                    },
         follow_redirects=False,
     )
     assert resp.status_code in (400, 422)
@@ -123,26 +122,12 @@ async def test_approve_over_280_rejected(client):
             "tweet_id": "t1",
             "variant_id": "1",
             "reply_text": "x" * 281,
-            "send_window": "morning",
-        },
+                    },
         follow_redirects=False,
     )
     assert resp.status_code == 400
 
 
-@pytest.mark.asyncio
-async def test_approve_invalid_window_rejected(client):
-    resp = await client.post(
-        "/approve",
-        data={
-            "tweet_id": "t1",
-            "variant_id": "1",
-            "reply_text": "Hello!",
-            "send_window": "midnight",
-        },
-        follow_redirects=False,
-    )
-    assert resp.status_code == 400
 
 
 @pytest.mark.asyncio

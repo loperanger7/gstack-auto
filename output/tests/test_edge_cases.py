@@ -116,26 +116,14 @@ class TestHostileDbInputs:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_approve_invalid_window_rejected(self, conn, uid):
-        """Approve with invalid send_window should be rejected."""
-        await db.upsert_tweet(conn, "t6", "a6", "User", 100, "test", user_id=uid)
-        await db.save_variants(conn, "t6", [{"label": "A", "text": "reply"}])
-        cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t6'")
-        vid = (await cursor.fetchone())["id"]
-        result = await db.approve_variant(
-            conn, "t6", vid, "reply", "2026-01-01T00:00:00", "invalid_window"
-        )
-        assert result is False
-
-    @pytest.mark.asyncio
     async def test_approve_wrong_variant_for_tweet(self, conn, uid):
         """Approve with variant_id that doesn't belong to tweet should fail."""
         await db.upsert_tweet(conn, "t7", "a7", "User", 100, "test", user_id=uid)
         await db.save_variants(conn, "t7", [{"label": "A", "text": "reply"}])
         result = await db.approve_variant(
-            conn, "t7", 99999, "reply", "2026-01-01T00:00:00", "morning"
+            conn, "t7", 99999, "reply"
         )
-        assert result is False
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_skip_nonexistent_tweet(self, conn):
@@ -171,7 +159,7 @@ class TestHostileDbInputs:
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t9'")
         vid = (await cursor.fetchone())["id"]
         await db.approve_variant(
-            conn, "t9", vid, "reply", "2026-01-01T00:00:00", "morning"
+            conn, "t9", vid, "reply"
         )
         cursor = await conn.execute("SELECT id FROM replies WHERE tweet_id='t9'")
         rid = (await cursor.fetchone())["id"]

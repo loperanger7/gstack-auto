@@ -61,7 +61,6 @@ async def test_approve_rejects_sql_injection_tweet_id(client):
             "tweet_id": "'; DROP TABLE tweets--",
             "variant_id": "1",
             "reply_text": "test reply",
-            "send_window": "morning",
         },
         follow_redirects=False,
     )
@@ -78,7 +77,6 @@ async def test_approve_rejects_negative_variant_id(client):
             "tweet_id": "12345",
             "variant_id": "-1",
             "reply_text": "test reply",
-            "send_window": "morning",
         },
         follow_redirects=False,
     )
@@ -105,7 +103,6 @@ async def test_approve_strips_control_chars(client):
             "tweet_id": "t1",
             "variant_id": str(vid),
             "reply_text": "clean\x00text\x07here",
-            "send_window": "morning",
         },
         follow_redirects=False,
     )
@@ -122,7 +119,6 @@ async def test_approve_rejects_very_long_tweet_id(client):
             "tweet_id": "a" * 200,
             "variant_id": "1",
             "reply_text": "test reply",
-            "send_window": "morning",
         },
         follow_redirects=False,
     )
@@ -141,27 +137,6 @@ async def test_skip_rejects_invalid_tweet_id(client):
 
 
 @pytest.mark.asyncio
-async def test_approve_generic_error_no_leak(client):
-    """Error messages don't leak valid send window names."""
-    resp = await client.post(
-        "/approve",
-        data={
-            "tweet_id": "12345",
-            "variant_id": "1",
-            "reply_text": "test",
-            "send_window": "midnight",
-        },
-        follow_redirects=False,
-    )
-    assert resp.status_code == 400
-    body = resp.json()
-    # Error message should be generic, not reveal valid options
-    assert "morning" not in body.get("error", "").lower()
-    assert "lunch" not in body.get("error", "").lower()
-    assert "evening" not in body.get("error", "").lower()
-
-
-@pytest.mark.asyncio
 async def test_approve_rejects_zero_variant_id(client):
     """variant_id=0 is rejected (must be positive)."""
     resp = await client.post(
@@ -170,7 +145,6 @@ async def test_approve_rejects_zero_variant_id(client):
             "tweet_id": "12345",
             "variant_id": "0",
             "reply_text": "test reply",
-            "send_window": "morning",
         },
         follow_redirects=False,
     )

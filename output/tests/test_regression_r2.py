@@ -174,10 +174,10 @@ class TestInputBoundaries:
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t6'")
         vid = (await cursor.fetchone())["id"]
         reply_text = "a" * 280
-        result = await db.approve_variant(
-            conn, "t6", vid, reply_text, "2026-01-01T00:00:00", "morning"
+        reply_id = await db.approve_variant(
+            conn, "t6", vid, reply_text
         )
-        assert result is True
+        assert reply_id is not None
 
     @pytest.mark.asyncio
     async def test_approve_281_chars_rejected(self, conn, uid):
@@ -187,7 +187,7 @@ class TestInputBoundaries:
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t7'")
         vid = (await cursor.fetchone())["id"]
         reply_text = "a" * 281
-        result = await db.approve_variant(
-            conn, "t7", vid, reply_text, "2026-01-01T00:00:00", "morning"
+        reply_id = await db.approve_variant(
+            conn, "t7", vid, reply_text
         )
-        assert result is False
+        assert reply_id is None

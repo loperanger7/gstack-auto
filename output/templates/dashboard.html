@@ -37,20 +37,18 @@
 .edit-area{width:100%;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:.875rem;line-height:1.4;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.625rem;resize:vertical;min-height:72px;margin-bottom:.25rem}
 .edit-area:focus{border-color:#58a6ff;outline:none;box-shadow:0 0 0 2px rgba(88,166,255,.25)}
 .actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-@media(max-width:480px){.actions{flex-direction:column;align-items:stretch}.actions select{width:100%}.actions .btn{justify-content:center}}
+@media(max-width:480px){.actions{flex-direction:column;align-items:stretch}.actions .btn{justify-content:center}}
 .btn{padding:.5rem 1rem;border-radius:6px;border:1px solid #30363d;font-family:inherit;font-size:.875rem;cursor:pointer;font-weight:500;min-height:44px;display:inline-flex;align-items:center;transition:border-color .15s,background .15s,color .15s}
 .btn:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
-.btn-approve{background:#238636;color:#fff;border-color:#238636}
-.btn-approve:hover{background:#2ea043}
-.btn-approve:disabled{opacity:.5;cursor:not-allowed}
+.btn-reply{background:#238636;color:#fff;border-color:#238636;gap:.4rem}
+.btn-reply:hover{background:#2ea043}
+.btn-reply:disabled{opacity:.5;cursor:not-allowed}
+.btn-reply .arrow{font-size:1rem}
 .btn.sending{opacity:.6;pointer-events:none}
-.btn.sending::after{content:' ...';}
 .btn-skip{background:transparent;color:#9ca3af;border-color:#30363d}
 .btn-skip:hover{color:#f85149;border-color:#f85149}
 .btn-edit{background:transparent;color:#58a6ff;border-color:#30363d}
 .btn-edit:hover{border-color:#58a6ff}
-select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem .75rem;font-family:inherit;font-size:.875rem;min-height:44px}
-select:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
 .edit-counter{font-size:.75rem;margin-bottom:.3rem}
 .kbd-hint{text-align:center;color:#484f58;font-size:.75rem;padding:1rem 0 .5rem}
 kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size:.7rem;font-family:'SF Mono',Menlo,monospace;border:1px solid #30363d}
@@ -61,7 +59,22 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 .kbd-grid div:nth-child(odd){text-align:right;color:#c9d1d9}
 .kbd-grid div:nth-child(even){color:#8b949e}
 .kbd-overlay-close{text-align:center;color:#484f58;font-size:.78rem;margin-top:1rem}
-@media(prefers-reduced-motion:reduce){.card.exiting{transition:none}.char-pulse{transform:none}.variant,.btn{transition:none}}
+.undo-toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:#161b22;border:1px solid #30363d;border-radius:8px;padding:.75rem 1.25rem;display:flex;align-items:center;gap:1rem;z-index:1500;box-shadow:0 4px 12px rgba(0,0,0,.4);transition:opacity .3s,transform .3s}
+.undo-toast.hidden{opacity:0;transform:translateX(-50%) translateY(20px);pointer-events:none}
+.undo-toast .countdown{color:#9ca3af;font-size:.85rem;font-variant-numeric:tabular-nums}
+.undo-toast .btn-undo{background:transparent;color:#58a6ff;border:1px solid #58a6ff;padding:.35rem .75rem;border-radius:4px;cursor:pointer;font-size:.85rem;font-family:inherit;min-height:36px}
+.undo-toast .btn-undo:hover{background:#1c2d4a}
+.recently-posted{margin-bottom:2rem}
+.recently-posted h3{font-size:.9rem;color:#8b949e;margin-bottom:.75rem;font-weight:500}
+.posted-item{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:#161b22;border:1px solid #21262d;border-radius:6px;margin-bottom:.5rem;font-size:.85rem}
+.posted-item .posted-author{color:#f0f6fc;font-weight:600;white-space:nowrap}
+.posted-item .posted-text{color:#9ca3af;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'SF Mono',Menlo,monospace;font-size:.8rem}
+.posted-item .posted-link{flex-shrink:0}
+.posted-item .posted-link input{background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;padding:.25rem .5rem;font-size:.78rem;font-family:'SF Mono',Menlo,monospace;width:180px}
+.posted-item .posted-link input:focus{border-color:#58a6ff;outline:none}
+.posted-item .posted-link .saved{color:#3fb950;font-size:.78rem;margin-left:.25rem}
+@media(max-width:480px){.posted-item{flex-direction:column;align-items:flex-start}.posted-item .posted-link input{width:100%}}
+@media(prefers-reduced-motion:reduce){.card.exiting{transition:none}.char-pulse{transform:none}.variant,.btn,.undo-toast{transition:none}}
 {% endblock %}
 
 {% block nav_status %}
@@ -70,6 +83,26 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 {% endblock %}
 
 {% block content %}
+{% if recently_posted %}
+<div class="recently-posted">
+  <h3>Recently replied (paste your reply URL for engagement tracking)</h3>
+  {% for item in recently_posted %}
+  <div class="posted-item" data-reply-id="{{ item.reply_id }}">
+    <span class="posted-author">{{ item.author_name }}</span>
+    <span class="posted-text">{{ item.reply_text }}</span>
+    <span class="posted-link">
+      {% if item.twitter_reply_id %}
+      <a href="https://x.com/i/web/status/{{ item.twitter_reply_id }}" target="_blank" rel="noopener" style="color:#58a6ff;font-size:.78rem">View reply ↗</a>
+      {% else %}
+      <input type="text" placeholder="Paste reply URL" class="reply-url-input" aria-label="Paste reply URL for {{ item.author_name }}">
+      <span class="saved" style="display:none">✓</span>
+      {% endif %}
+    </span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if not tweets %}
 <div class="empty">
   No tweets in your queue right now.
@@ -126,15 +159,10 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     <input type="hidden" name="variant_id_hidden" class="variant-id-hidden">
 
     <div class="actions">
-      <select name="send_window" aria-label="Send window">
-        <option value="morning"{% if default_window == "morning" %} selected{% endif %}>Morning (9-11am ET)</option>
-        <option value="lunch"{% if default_window == "lunch" %} selected{% endif %}>Lunch (12-2pm ET)</option>
-        <option value="evening"{% if default_window == "evening" %} selected{% endif %}>Evening (5-7pm ET)</option>
-      </select>
       {% if tweet.variants %}
-      <button type="submit" class="btn btn-approve" formaction="/approve">Approve</button>
+      <button type="submit" class="btn btn-reply" formaction="/approve">Reply on X <span class="arrow">↗</span></button>
       {% else %}
-      <button type="submit" class="btn btn-approve" formaction="/approve" disabled>Approve</button>
+      <button type="submit" class="btn btn-reply" formaction="/approve" disabled>Reply on X <span class="arrow">↗</span></button>
       {% endif %}
       <button type="button" class="btn btn-edit">Edit</button>
       <button type="submit" class="btn btn-skip" formaction="/skip">Skip</button>
@@ -146,7 +174,7 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 {% if tweets %}
 <div class="kbd-hint">
   <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;
-  <kbd>a</kbd> approve &middot;
+  <kbd>a</kbd> reply on X &middot;
   <kbd>s</kbd> skip &middot;
   <kbd>e</kbd> edit &middot;
   <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick variant &middot;
@@ -159,7 +187,7 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     <h2>Keyboard Shortcuts</h2>
     <div class="kbd-grid">
       <div><kbd>j</kbd> / <kbd>k</kbd></div><div>Navigate tweets</div>
-      <div><kbd>a</kbd></div><div>Approve focused tweet</div>
+      <div><kbd>a</kbd></div><div>Reply on X (opens intent URL)</div>
       <div><kbd>s</kbd></div><div>Skip focused tweet</div>
       <div><kbd>e</kbd></div><div>Toggle edit mode</div>
       <div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div><div>Select variant</div>
@@ -167,6 +195,12 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     </div>
     <p class="kbd-overlay-close">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</p>
   </div>
+</div>
+
+<div class="undo-toast hidden" id="undo-toast">
+  <span class="countdown" id="undo-countdown">30s</span>
+  <span style="color:#c9d1d9">Reply marked as posted</span>
+  <button class="btn-undo" id="undo-btn">Undo</button>
 </div>
 {% endblock %}
 
@@ -202,18 +236,95 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       updatePendingCount(0);
       if (callback) callback();
       if (!document.querySelector('.card')) {
-        var body = document.querySelector('body');
         var hint = document.querySelector('.kbd-hint');
         if (hint) hint.remove();
         var empty = document.createElement('div');
         empty.className = 'empty';
         empty.textContent = 'No tweets to review right now.';
-        body.insertBefore(empty, toastEl);
+        document.querySelector('.content') ? document.querySelector('.content').appendChild(empty) : document.body.appendChild(empty);
       }
     }
     card.addEventListener('transitionend', finish, {once: true});
     setTimeout(finish, 500);
   }
+
+  // Undo toast state
+  var undoToast = document.getElementById('undo-toast');
+  var undoCountdown = document.getElementById('undo-countdown');
+  var undoBtn = document.getElementById('undo-btn');
+  var undoReplyId = null;
+  var undoTimer = null;
+  var undoCountdownInterval = null;
+  var undoSeconds = 0;
+
+  function showUndoToast(replyId) {
+    clearTimeout(undoTimer);
+    clearInterval(undoCountdownInterval);
+    undoReplyId = replyId;
+    undoSeconds = 30;
+    undoCountdown.textContent = undoSeconds + 's';
+    undoToast.classList.remove('hidden');
+    undoCountdownInterval = setInterval(function() {
+      undoSeconds--;
+      undoCountdown.textContent = undoSeconds + 's';
+      if (undoSeconds <= 0) hideUndoToast();
+    }, 1000);
+    undoTimer = setTimeout(hideUndoToast, 30000);
+  }
+
+  function hideUndoToast() {
+    clearTimeout(undoTimer);
+    clearInterval(undoCountdownInterval);
+    undoToast.classList.add('hidden');
+    undoReplyId = null;
+  }
+
+  undoBtn.addEventListener('click', function() {
+    if (!undoReplyId) return;
+    var fd = new FormData();
+    fd.set('reply_id', undoReplyId);
+    fetch('/undo', {
+      method: 'POST',
+      headers: {'X-Requested-With': 'XMLHttpRequest'},
+      body: fd,
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        hideUndoToast();
+        showToast('Undone — tweet is back in your queue.', 'toast--success');
+        setTimeout(function() { location.reload(); }, 800);
+      } else {
+        showToast(data.error || 'Undo failed.', 'toast--error');
+      }
+    }).catch(function() {
+      showToast('Network error.', 'toast--error');
+    });
+  });
+
+  // Reply URL paste handlers
+  document.querySelectorAll('.reply-url-input').forEach(function(input) {
+    var item = input.closest('.posted-item');
+    var replyId = item.getAttribute('data-reply-id');
+    var savedSpan = item.querySelector('.saved');
+    input.addEventListener('change', function() {
+      var val = input.value.trim();
+      if (!val) return;
+      var fd = new FormData();
+      fd.set('reply_id', replyId);
+      fd.set('twitter_reply_id', val);
+      fetch('/save-reply-url', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd,
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+          input.style.borderColor = '#238636';
+          savedSpan.style.display = 'inline';
+        } else {
+          input.style.borderColor = '#f85149';
+        }
+      });
+    });
+  });
 
   document.querySelectorAll('.tweet-form').forEach(function(form) {
     var card = form.closest('.card');
@@ -221,7 +332,7 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
     var editArea = form.querySelector('.edit-area');
     var editCounter = form.querySelector('.edit-counter');
     var editBtn = form.querySelector('.btn-edit');
-    var approveBtn = form.querySelector('.btn-approve');
+    var replyBtn = form.querySelector('.btn-reply');
     var replyHidden = form.querySelector('.reply-text-hidden');
     var variantHidden = form.querySelector('.variant-id-hidden');
     var radios = form.querySelectorAll('input[name="variant_id"]');
@@ -238,7 +349,7 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       var len = editArea.value.length;
       var cls = len <= 260 ? 'char-green' : len <= 270 ? 'char-yellow' : 'char-red';
       editCounter.innerHTML = '<span class="char-count ' + cls + (len >= 270 ? ' char-pulse' : '') + '">' + len + '/280</span>';
-      if (approveBtn) approveBtn.disabled = len > 280 || len === 0;
+      if (replyBtn) replyBtn.disabled = len > 280 || len === 0;
     }
 
     for (var i = 0; i < radios.length; i++) {
@@ -259,11 +370,11 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
       if (editing) {
         var sel = getSelected();
         editArea.value = sel ? sel.getAttribute('data-text') : '';
-        if (approveBtn) approveBtn.disabled = false;
+        if (replyBtn) replyBtn.disabled = false;
         updateCounter();
         editArea.focus();
       } else {
-        if (!radios.length && approveBtn) approveBtn.disabled = true;
+        if (!radios.length && replyBtn) replyBtn.disabled = true;
       }
     });
 
@@ -286,9 +397,8 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
         showToast('Reply must be 1-280 characters.', 'toast--error');
         return;
       }
-      if (approveBtn) {
-        approveBtn.classList.add('sending');
-        approveBtn.textContent = 'Sending';
+      if (replyBtn) {
+        replyBtn.classList.add('sending');
       }
       var fd = new FormData(form);
       fd.set('reply_text', text);
@@ -299,16 +409,18 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
         body: fd,
       }).then(function(resp) { return resp.json(); }).then(function(data) {
         if (data.ok) {
+          // Open Twitter intent URL in new tab
+          window.open(data.intent_url, '_blank');
           animateCardOut(card, function() {
-            showToast('Reply approved and scheduled.', 'toast--success');
+            showUndoToast(data.reply_id);
           });
         } else {
-          showToast(data.error || 'Approve failed.', 'toast--error');
-          if (approveBtn) { approveBtn.classList.remove('sending'); approveBtn.textContent = 'Approve'; }
+          showToast(data.error || 'Failed.', 'toast--error');
+          if (replyBtn) replyBtn.classList.remove('sending');
         }
       }).catch(function() {
         showToast('Network error. Try again.', 'toast--error');
-        if (approveBtn) { approveBtn.classList.remove('sending'); approveBtn.textContent = 'Approve'; }
+        if (replyBtn) replyBtn.classList.remove('sending');
       });
     }
 
@@ -432,8 +544,8 @@ kbd{background:#21262d;color:#8b949e;padding:1px 5px;border-radius:3px;font-size
 
   var params = new URLSearchParams(window.location.search);
   var action = params.get('action');
-  if (action === 'approved') {
-    showToast('Reply approved and scheduled.', 'toast--success');
+  if (action === 'undone') {
+    showToast('Undone — tweet is back in your queue.', 'toast--success');
     window.history.replaceState({}, '', '/dashboard');
   } else if (action === 'skipped') {
     showToast('Tweet skipped.', 'toast--skip');

@@ -199,7 +199,12 @@ async def _request(
         if resp.status_code == 404:
             raise TweetDeletedError(f"Tweet not found (404): {resp.text[:100]}")
         if resp.status_code == 403:
-            raise TweetDeletedError(f"Forbidden (403): {resp.text[:100]}")
+            # 403 can mean "tweet deleted" OR "reply not allowed" (Twitter free tier).
+            # Only treat it as deleted if the body doesn't mention permissions.
+            body = resp.text[:200]
+            if "not allowed" in body.lower() or "not permitted" in body.lower():
+                raise TwitterError(f"Reply permission denied (403): {body[:100]}")
+            raise TweetDeletedError(f"Forbidden (403): {body[:100]}")
 
         if resp.status_code >= 500 and attempt < retries:
             log.warning("Twitter %d, retrying...", resp.status_code)
