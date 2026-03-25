@@ -52,7 +52,8 @@ def receive_results():
         return jsonify({'error': 'Empty payload'}), 400
 
     build_id = payload.get('build_id')
-    build = get_build(build_id)
+    user_id = payload.get('user_id')
+    build = get_build(build_id, user_id)
     if not build:
         return jsonify({'error': 'Build not found'}), 404
 
@@ -91,7 +92,8 @@ def receive_progress():
         return jsonify({'error': 'Empty payload'}), 400
 
     build_id = payload.get('build_id')
-    build = get_build(build_id)
+    user_id = payload.get('user_id')
+    build = get_build(build_id, user_id)
     if not build:
         return jsonify({'error': 'Build not found'}), 404
 

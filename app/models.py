@@ -260,14 +260,11 @@ def store_nonce(nonce, build_id):
 
 
 def check_and_use_nonce(nonce):
-    """Check if nonce exists and is unused. Mark as used atomically. Returns True if valid."""
+    """Atomically mark nonce as used. Returns True if it was valid and unused."""
     db = get_db()
-    row = db.execute('SELECT used FROM nonces WHERE nonce = ?', (nonce,)).fetchone()
-    if not row or row['used']:
-        return False
-    db.execute('UPDATE nonces SET used = 1 WHERE nonce = ? AND used = 0', (nonce,))
+    cursor = db.execute('UPDATE nonces SET used = 1 WHERE nonce = ? AND used = 0', (nonce,))
     db.commit()
-    return db.total_changes > 0
+    return cursor.rowcount > 0
 
 
 def record_token_spend(user_id, tokens_used):

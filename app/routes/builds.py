@@ -46,20 +46,25 @@ def new_build(session_id):
     if chat_session['status'] != 'completed':
         return redirect(url_for('office_hours.chat', session_id=session_id))
 
-    # Check concurrent build limit (1 active per user)
-    if count_active_builds(user['id']) >= 1:
-        return render_template('handoff.html',
-                               user=user,
-                               chat_session=chat_session,
-                               error='You already have an active build. Wait for it to complete.')
-
-    # Create build first with placeholder token, then generate real token
-    build_id = create_build(user['id'], session_id, 'pending')
-    build_token = generate_build_token(user['id'], build_id)
+    # Check concurrent build limit (1 active per user) — atomic check-and-create
     from app.models import get_db
     db = get_db()
-    db.execute('UPDATE builds SET build_token = ? WHERE id = ?', (build_token, build_id))
-    db.commit()
+    db.execute('BEGIN IMMEDIATE')
+    try:
+        if count_active_builds(user['id']) >= 1:
+            db.execute('ROLLBACK')
+            return render_template('handoff.html',
+                                   user=user,
+                                   chat_session=chat_session,
+                                   error='You already have an active build. Wait for it to complete.')
+
+        build_id = create_build(user['id'], session_id, 'pending')
+        build_token = generate_build_token(user['id'], build_id)
+        db.execute('UPDATE builds SET build_token = ? WHERE id = ?', (build_token, build_id))
+        db.commit()
+    except Exception:
+        db.execute('ROLLBACK')
+        raise
 
     # Build the handoff prompt
     base_url = current_app.config['BASE_URL']
