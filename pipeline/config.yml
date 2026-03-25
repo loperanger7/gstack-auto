@@ -1,4 +1,4 @@
-# Pattaya Pipeline Configuration
+# gstack-auto Pipeline Configuration (v2)
 
 # Number of parallel runs. Override from invocation prompt: "run with N=5"
 parallel_runs: 3
@@ -19,18 +19,30 @@ auto_accept_winner: true
 # Available: carmack, antirez, abramov, metz, holowaychuk, majors, marlinspike
 style: "marlinspike"
 
-# Maximum bug-fix cycles before forced scoring (phases 07-11 loop)
+# Maximum bug-fix cycles before forced scoring (QA sub-loop in Phase 11)
 max_fix_cycles: 3
 
-# Design review: run design audit + fix phases on HTML output.
-# Set to false to skip phases 12-13. Auto-skipped when output has no HTML.
+# Design review: run design plan phase (Phase 05) on output.
+# Set to false to skip Phase 05. Auto-skipped when output has no HTML.
 design_review: true
 
 # Design style inspiration — name a design philosophy that should guide
-# the design review and fix phases. Looks for a matching file in
+# design planning and implementation. Looks for a matching file in
 # pipeline/design-styles/{name}.md. Leave blank for the default style.
 # Available: dieter-rams, brutalist, playful
 design_style: ""
+
+# Adversarial review phases — list of phase numbers where dual Claude+Codex
+# adversarial review runs. The orchestrator executes these between agent phases.
+# Default: [02, 08] — after CEO plan and before implementation.
+# Full mode: [02, 04, 06, 08] — after every planning phase.
+# Empty list [] disables adversarial review entirely.
+adversarial_reviews: ["02", "08"]
+
+# Follow-up question budget per round. Shared across all N parallel runs.
+# The orchestrator collects questions from agents, deduplicates, and asks
+# the user. Set to 0 to disable follow-up questions (fully autonomous).
+follow_up_budget: 3
 
 # Scoring dimensions (must match rubric.md)
 # design_quality is added automatically when design review runs.

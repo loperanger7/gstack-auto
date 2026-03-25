@@ -10,6 +10,7 @@
 set -euo pipefail
 
 GSTACK_DIR="${HOME}/.claude/skills/gstack"
+# v2 pipeline uses pipeline/phases/ directly (v1-phases/ is archived)
 PHASES_DIR="$(dirname "$0")/../pipeline/phases"
 STALE=0
 CHECKED=0
