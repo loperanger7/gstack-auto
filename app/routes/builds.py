@@ -58,7 +58,8 @@ def new_build(session_id):
                                    chat_session=chat_session,
                                    error='You already have an active build. Wait for it to complete.')
 
-        build_id = create_build(user['id'], session_id, 'pending')
+        import uuid
+        build_id = create_build(user['id'], session_id, f'pending-{uuid.uuid4().hex[:12]}')
         build_token = generate_build_token(user['id'], build_id)
         db.execute('UPDATE builds SET build_token = ? WHERE id = ?', (build_token, build_id))
         db.commit()

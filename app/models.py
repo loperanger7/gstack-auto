@@ -202,7 +202,7 @@ def count_active_builds(user_id):
 def update_build_progress(build_id, phases_json):
     db = get_db()
     db.execute(
-        "UPDATE builds SET status = 'running', phases_json = ? WHERE id = ?",
+        "UPDATE builds SET status = 'running', phases_json = ? WHERE id = ? AND status NOT IN ('completed', 'failed')",
         (phases_json, build_id)
     )
     db.commit()

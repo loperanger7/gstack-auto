@@ -37,12 +37,7 @@ def receive_results():
     if error_response:
         return error_response, status
 
-    # Verify nonce (one-time-use)
-    valid, err = verify_payload_integrity(payload, request.get_data())
-    if not valid:
-        return jsonify({'error': err}), 403
-
-    # Parse body
+    # Parse body BEFORE consuming nonce — failed parse shouldn't burn the token
     try:
         data = request.get_json(force=True)
     except Exception:
@@ -50,6 +45,11 @@ def receive_results():
 
     if not data:
         return jsonify({'error': 'Empty payload'}), 400
+
+    # Verify nonce (one-time-use) — after body validation so parse failures are retryable
+    valid, err = verify_payload_integrity(payload, request.get_data())
+    if not valid:
+        return jsonify({'error': err}), 403
 
     build_id = payload.get('build_id')
     user_id = payload.get('user_id')

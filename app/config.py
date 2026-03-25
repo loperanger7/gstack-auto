@@ -7,7 +7,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', os.urandom(32).hex())
+    SECRET_KEY = os.environ['SECRET_KEY']  # Required — sessions/JWTs invalid without stable key
     DATABASE = os.path.join(os.path.dirname(__file__), '..', 'instance', 'app.db')
 
     # Google OAuth
