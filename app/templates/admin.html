@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Admin — gstack-auto{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+<p class="subtitle">user management &amp; stats</p>
+
+<section>
+  <h2>Stats</h2>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total_users }}</div>
+      <div class="stat-label">total users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.approved_users }}</div>
+      <div class="stat-label">approved</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total_sessions }}</div>
+      <div class="stat-label">sessions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total_builds }}</div>
+      <div class="stat-label">builds</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.completed_builds }}</div>
+      <div class="stat-label">completed</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Users</h2>
+  {% for u in users %}
+  <div class="admin-user-row">
+    <div class="admin-user-info">
+      {% if u.avatar_url %}
+      <img src="{{ u.avatar_url }}" class="admin-avatar" alt="" width="24" height="24">
+      {% endif %}
+      <span class="admin-user-name">{{ u.name or u.email }}</span>
+      <span class="admin-user-email">{{ u.email }}</span>
+      {% if u.is_admin %}
+      <span class="admin-badge">admin</span>
+      {% endif %}
+    </div>
+    <div class="admin-user-actions">
+      {% if u.is_approved %}
+      <span class="admin-status-approved">approved</span>
+      {% if not u.is_admin %}
+      <form method="POST" action="{{ url_for('admin.revoke', user_id=u.id) }}" style="display:inline">
+        <button type="submit" class="link-btn">revoke</button>
+      </form>
+      {% endif %}
+      {% else %}
+      <span class="admin-status-pending">pending</span>
+      <form method="POST" action="{{ url_for('admin.approve', user_id=u.id) }}" style="display:inline">
+        <button type="submit" class="primary">Approve</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

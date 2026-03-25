@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}History — gstack-auto{% endblock %}
+{% block content %}
+<h1>Session History</h1>
+<p class="subtitle">past office hours sessions</p>
+
+{% if not sessions %}
+<div class="empty-state">
+  <p>No sessions yet.</p>
+  <p>Start your first <a href="{{ url_for('office_hours.index') }}">office hours session</a>.</p>
+</div>
+{% else %}
+  {% for s in sessions %}
+  <a href="{% if s.status == 'completed' %}{{ url_for('builds.new_build', session_id=s.id) }}{% else %}{{ url_for('office_hours.chat', session_id=s.id) }}{% endif %}" class="session-row">
+    <span class="session-title">{{ s.title or 'Untitled' }}</span>
+    <span class="session-status status-{{ s.status }}">{{ s.status }}</span>
+    <span class="session-date">{{ s.created_at[:16] }}</span>
+  </a>
+  {% endfor %}
+{% endif %}
+{% endblock %}

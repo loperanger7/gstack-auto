@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}gstack-auto{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    {% if user %}
+    <nav class="top-nav">
+      <div class="top-nav-inner">
+        <a href="{{ url_for('office_hours.index') }}" class="nav-brand">gstack-auto</a>
+        <div class="nav-links">
+          <a href="{{ url_for('office_hours.index') }}" class="nav-link {% if request.path.startswith('/office-hours') %}active{% endif %}">office hours</a>
+          <a href="{{ url_for('builds.index') }}" class="nav-link {% if request.path.startswith('/builds') %}active{% endif %}">builds</a>
+          <a href="{{ url_for('office_hours.history') }}" class="nav-link {% if request.path == '/history' %}active{% endif %}">history</a>
+          {% if user.is_admin %}
+          <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.path.startswith('/admin') %}active{% endif %}">admin</a>
+          {% endif %}
+          <a href="{{ url_for('auth.logout') }}" class="nav-link nav-link-dim">logout</a>
+        </div>
+      </div>
+    </nav>
+    {% endif %}
+
+    <main class="main-content">
+      <div class="container {% block container_class %}{% endblock %}">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

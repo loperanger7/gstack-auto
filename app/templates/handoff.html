@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Build Handoff — gstack-auto{% endblock %}
+{% block content %}
+<h1>Build Handoff</h1>
+<p class="subtitle">{{ chat_session.title or 'Untitled' }}</p>
+
+{% if error %}
+<div class="status err">{{ error }}</div>
+<a href="{{ url_for('builds.index') }}" class="link-btn">← View Builds</a>
+{% else %}
+
+<div class="handoff-steps">
+  <div class="handoff-step done">
+    <div class="step-number">1</div>
+    <div class="step-content">
+      <div class="step-title">Spec Ready</div>
+      <div class="step-desc">Your product specification has been generated.</div>
+    </div>
+  </div>
+
+  <div class="handoff-step active">
+    <div class="step-number">2</div>
+    <div class="step-content">
+      <div class="step-title">Copy to Conductor</div>
+      <div class="step-desc">Copy the prompt below, open Conductor, create a workspace with the gstack-auto repo, and paste it.</div>
+    </div>
+  </div>
+
+  <div class="handoff-step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+      <div class="step-title">Waiting for Results</div>
+      <div class="step-desc">The pipeline will send results back automatically when it's done (~30 min).</div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <h2>Build Prompt</h2>
+  <div class="prompt-block-wrap">
+    <pre class="command-block prompt-text" id="prompt-block">{{ prompt_block }}</pre>
+    <button class="btn-copy" onclick="copyPrompt()" id="copy-btn">Copy</button>
+  </div>
+</section>
+
+<div class="handoff-actions">
+  <a href="{{ url_for('builds.detail', build_id=build_id) }}" class="btn-secondary">View Build Status →</a>
+  <a href="{{ url_for('builds.index') }}" class="link-btn">All Builds</a>
+</div>
+
+{% endif %}
+
+{% block scripts %}
+<script>
+function copyPrompt() {
+  const text = document.getElementById('prompt-block').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}

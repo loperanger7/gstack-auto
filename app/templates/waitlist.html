@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Waitlist — gstack-auto{% endblock %}
+{% block content %}
+<div class="login-container">
+  <h1>gstack-auto</h1>
+  <p class="subtitle">you're on the list</p>
+
+  <div class="waitlist-card">
+    <p>Hey {{ user.name or user.email }},</p>
+    <p>You're signed up. We'll approve your account shortly and you'll be able to start building.</p>
+    <p class="waitlist-email">Signed in as <strong>{{ user.email }}</strong></p>
+  </div>
+
+  <a href="{{ url_for('auth.logout') }}" class="link-btn">Sign out</a>
+</div>
+{% endblock %}

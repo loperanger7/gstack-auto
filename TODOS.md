@@ -21,7 +21,71 @@ copy-to-clipboard prompt was shipped as the universal fallback.
 **Effort: S** (once URL scheme is known)
 **Depends on:** Conductor exposing a URL scheme or web API
 
+### Conductor deep link / programmatic handoff
+Investigate Conductor's URL scheme or web API for opening workspaces
+programmatically. Currently the handoff is manual (copy prompt, open
+Conductor, paste). A deep link would eliminate copy-paste entirely.
+**Effort: S** (once URL scheme is known)
+**Depends on:** Conductor exposing a URL scheme or web API
+**Context:** Identified during gstack-auto-as-a-service CEO review.
+Existing "Deep-link to conductor.build" TODO above covers the same gap —
+merge when investigation completes.
+
 ## P2 — Medium Priority
+
+### API key rotation for office hours Claude API
+The web service uses a single server-side Anthropic API key for office
+hours chat. Add rotation support: multiple keys with round-robin or
+failover, admin alerting on auth failures, and a config UI to add/remove
+keys without restarting the server.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service CEO review.
+Single key is acceptable for launch but becomes a single point of failure.
+
+### Pipeline results webhook from Conductor
+Add a webhook endpoint that Conductor can call to push incremental build
+progress (phase completion, scores). Currently the pipeline POSTs final
+results only. Incremental updates would enable real-time SSE progress
+in Mission Control during builds.
+**Effort: M**
+**Depends on:** Conductor supporting outbound webhooks or the pipeline
+being modified to POST progress at each phase boundary.
+**Context:** Identified during gstack-auto-as-a-service CEO review.
+
+### Chat keyboard accessibility for office hours
+The office hours chat is the core new UI pattern. Keyboard users need:
+focus management when new messages arrive, Escape to stop streaming,
+arrow keys to navigate message history, and screen reader announcements
+for assistant responses (aria-live region). Without this, keyboard-only
+and screen reader users can't use the primary product feature.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service design review.
+
+### Mobile chat viewport management
+On mobile, the software keyboard pushes the viewport up and can hide the
+chat input field or cause scroll jumps during streaming responses. Needs
+explicit handling via the Visual Viewport API or fixed-bottom input with
+dynamic padding. Without it, mobile chat feels broken on iOS/Android.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service design review.
+
+### Admin audit log
+Add an `admin_audit_log` table: `(admin_id, action, target_user_id,
+timestamp, details)`. Log every admin action (user approval, revocation,
+session viewing). Without this, a compromised admin account leaves no
+forensic trail.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service adversarial review.
+Both Codex and Claude subagent flagged this independently.
+
+### Handoff conversion tracking
+Track how many users complete office hours vs. how many ever POST results
+back. If the ratio is below 30%, the manual Conductor handoff is the #1
+priority to fix. Add metrics: `sessions_completed` count, `builds_with_results`
+count, conversion funnel in admin dashboard.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service adversarial review.
+Claude subagent flagged manual handoff as the highest product risk.
 
 ### Round-over-round early stopping
 When running multi-round (rounds > 1), detect if a round's winner scores
@@ -86,6 +150,14 @@ are scored identically because the rubric doesn't differentiate.
 **Context:** Identified during v2 adversarial review.
 
 ## P3 — Low Priority
+
+### Chat history retention policy
+Define and implement a retention policy for office hours chat messages.
+Options: auto-delete after N days, archive completed sessions, let users
+export/delete their own history. Without a policy, the messages table
+grows unbounded and stale conversations clutter the UI.
+**Effort: S**
+**Context:** Identified during gstack-auto-as-a-service CEO review.
 
 ### Visual references in Phase 01
 Have the CEO persona name 2-3 real websites whose look and feel match

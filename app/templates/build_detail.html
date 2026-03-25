@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Build #{{ build.id }} — gstack-auto{% endblock %}
+{% block content %}
+<h1>Build #{{ build.id }}</h1>
+<p class="subtitle">
+  <span class="build-status build-status-{{ build.status }}">{{ build.status }}</span>
+  {% if build.completed_at %} · completed {{ build.completed_at[:16] }}{% endif %}
+</p>
+
+{% if phases %}
+<section>
+  <h2>Phase Progress</h2>
+  <div class="phase-progress-detail">
+    {% set phase_names = {
+      '01': 'CEO Plan', '02': 'Adversarial CEO', '03': 'Eng Plan',
+      '04': 'Adversarial Eng', '05': 'Design Plan', '06': 'Adversarial Design',
+      '07': 'Eng Plan v2', '08': 'Adversarial Final', '09': 'Implement',
+      '10': 'Ship', '11': 'QA', '12': 'Docs', '13': 'Score'
+    } %}
+    {% for phase_id in ['01','02','03','04','05','06','07','08','09','10','11','12','13'] %}
+    <div class="phase-row">
+      <div class="phase-dot {% if phases.get(phase_id) == 'done' %}done{% elif phases.get(phase_id) == 'running' %}active{% endif %}"></div>
+      <span class="phase-name">{{ phase_names.get(phase_id, phase_id) }}</span>
+      <span class="phase-status">{{ phases.get(phase_id, '—') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if scores %}
+<section>
+  <h2>Scores</h2>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Final Scores</span>
+      <span class="card-score">{{ scores.get('average', '—') }}<span class="score-max">/10</span></span>
+    </div>
+    <div class="score-bars">
+      {% for dim in ['functionality', 'code_quality', 'test_coverage', 'ux_polish', 'spec_adherence', 'design_quality'] %}
+      {% if scores.get(dim) is not none %}
+      <div class="score-bar">
+        <span class="score-bar-label">{{ dim | replace('_', ' ') }}</span>
+        <div class="score-bar-track">
+          <div class="score-bar-fill {% if scores[dim] >= 8 %}score-high{% elif scores[dim] >= 5 %}score-mid{% else %}score-low{% endif %}"
+               style="width: {{ scores[dim] * 10 }}%"></div>
+        </div>
+        <span class="score-bar-value">{{ scores[dim] }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if scores.get('narrative') %}
+    <details>
+      <summary>Why I built it this way</summary>
+      <p>{{ scores.narrative }}</p>
+    </details>
+    {% endif %}
+
+    <div class="card-meta">
+      {% if scores.get('bugs_remaining') is not none %}
+      <span>Bugs remaining: {{ scores.bugs_remaining }}</span>
+      {% endif %}
+      {% if scores.get('fix_cycles_used') is not none %}
+      <span>Fix cycles: {{ scores.fix_cycles_used }}/3</span>
+      {% endif %}
+      {% if scores.get('test_count') is not none %}
+      <span>Tests: {{ scores.test_count }}</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if build.conductor_url %}
+<section>
+  <h2>Output</h2>
+  <p class="build-conductor-hint">Your build output is in Conductor workspace:</p>
+  <div class="command-block">{{ build.conductor_url }}</div>
+</section>
+{% endif %}
+
+<div class="build-actions">
+  <a href="{{ url_for('builds.index') }}" class="link-btn">← All Builds</a>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+"""Machine API endpoints — results POST, progress POST."""
+
+import json
+from flask import Blueprint, request, jsonify
+
+from app.models import (
+    get_build_by_token, get_build, update_build_progress, complete_build,
+    fail_build, get_user_by_id,
+)
+from app.services.tokens import validate_build_token, verify_payload_integrity
+from app.services.notify import send_build_notification
+
+api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
+
+
+def extract_token():
+    """Extract and validate bearer token from Authorization header."""
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return None, jsonify({'error': 'Missing or invalid Authorization header'}), 401
+
+    token = auth[7:]
+    payload = validate_build_token(token)
+    if not payload:
+        return None, jsonify({'error': 'Invalid or expired token'}), 401
+
+    return payload, None, None
+
+
+@api_bp.route('/results', methods=['POST'])
+def receive_results():
+    """Receive final build results from the pipeline.
+
+    Validates: JWT → nonce one-time-use → store results.
+    """
+    payload, error_response, status = extract_token()
+    if error_response:
+        return error_response, status
+
+    # Verify nonce (one-time-use)
+    valid, err = verify_payload_integrity(payload, request.get_data())
+    if not valid:
+        return jsonify({'error': err}), 403
+
+    # Parse body
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON body'}), 400
+
+    if not data:
+        return jsonify({'error': 'Empty payload'}), 400
+
+    build_id = payload.get('build_id')
+    build = get_build(build_id)
+    if not build:
+        return jsonify({'error': 'Build not found'}), 404
+
+    status_val = data.get('status', 'completed')
+    scores_json = json.dumps(data.get('scores', {}))
+    round_results_json = json.dumps(data.get('round_results', []))
+    conductor_url = data.get('conductor_workspace', '')
+
+    if status_val == 'failed':
+        fail_build(build_id)
+    else:
+        complete_build(build_id, scores_json, round_results_json, conductor_url)
+
+    # Send email notification (best-effort)
+    user = get_user_by_id(payload.get('user_id'))
+    if user:
+        build = get_build(build_id)
+        send_build_notification(user['email'], build, data.get('spec_title', ''))
+
+    return jsonify({'status': 'ok', 'build_id': build_id}), 200
+
+
+@api_bp.route('/progress', methods=['POST'])
+def receive_progress():
+    """Receive per-phase progress updates from the pipeline."""
+    payload, error_response, status = extract_token()
+    if error_response:
+        return error_response, status
+
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON body'}), 400
+
+    if not data:
+        return jsonify({'error': 'Empty payload'}), 400
+
+    build_id = payload.get('build_id')
+    build = get_build(build_id)
+    if not build:
+        return jsonify({'error': 'Build not found'}), 404
+
+    # Merge progress into existing phases
+    existing = {}
+    if build['phases_json']:
+        try:
+            existing = json.loads(build['phases_json'])
+        except json.JSONDecodeError:
+            pass
+
+    phase = data.get('phase', '')
+    phase_status = data.get('status', 'running')
+    if phase:
+        existing[phase] = phase_status
+
+    update_build_progress(build_id, json.dumps(existing))
+
+    return jsonify({'status': 'ok'}), 200

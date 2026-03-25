@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Chat — gstack-auto{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+{% block content %}
+<div class="chat-header">
+  <h1>{{ chat_session.title or 'Office Hours' }}</h1>
+  {% if chat_session.status == 'active' %}
+  <form method="POST" action="{{ url_for('office_hours.complete', session_id=chat_session.id) }}" class="chat-complete-form">
+    <button type="submit" class="primary" id="complete-btn">Complete & Build →</button>
+  </form>
+  {% else %}
+  <a href="{{ url_for('builds.new_build', session_id=chat_session.id) }}" class="primary btn-link">View Handoff →</a>
+  {% endif %}
+</div>
+
+<div class="chat-container" id="chat-container">
+  <div class="chat-messages" id="chat-messages">
+    {% if not messages %}
+    <div class="chat-empty">
+      <p>Tell me what you want to build.</p>
+      <p class="chat-empty-hint">I'll ask questions to understand your vision, then write a detailed spec for the pipeline.</p>
+    </div>
+    {% endif %}
+
+    {% for msg in messages %}
+    <div class="chat-message chat-{{ msg.role }}">
+      {% if msg.role == 'user' %}
+      <span class="chat-prompt">&gt; </span>{{ msg.content }}
+      {% else %}
+      {{ msg.content }}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if chat_session.status == 'active' %}
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <span class="chat-prompt">&gt; </span>
+      <textarea id="chat-input" placeholder="Describe your idea..." rows="1" autofocus></textarea>
+    </div>
+    <div class="chat-input-hint">Enter to send · Shift+Enter for newline</div>
+  </div>
+  {% endif %}
+</div>
+
+{% block scripts %}
+<script>
+const sessionId = {{ chat_session.id }};
+const messagesEl = document.getElementById('chat-messages');
+const inputEl = document.getElementById('chat-input');
+const containerEl = document.getElementById('chat-container');
+let streaming = false;
+
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(role, content) {
+  // Remove empty state
+  const empty = messagesEl.querySelector('.chat-empty');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'chat-message chat-' + role;
+  if (role === 'user') {
+    div.innerHTML = '<span class="chat-prompt">&gt; </span>' + escapeHtml(content);
+  } else {
+    div.textContent = content;
+  }
+  messagesEl.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function sendMessage(text) {
+  if (streaming || !text.trim()) return;
+  streaming = true;
+
+  addMessage('user', text);
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  // Add assistant message with cursor
+  const assistantDiv = addMessage('assistant', '');
+  assistantDiv.innerHTML = '<span class="chat-cursor">▌</span>';
+
+  try {
+    const response = await fetch(`/office-hours/${sessionId}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.text) {
+              fullText += data.text;
+              assistantDiv.textContent = fullText;
+              assistantDiv.innerHTML += '<span class="chat-cursor">▌</span>';
+              scrollToBottom();
+            }
+          } catch (e) {}
+        } else if (line.startsWith('event: done')) {
+          // Remove cursor
+          const cursor = assistantDiv.querySelector('.chat-cursor');
+          if (cursor) cursor.remove();
+        } else if (line.startsWith('event: error')) {
+          // Next data line has the error
+          // handled in the data parsing above
+        }
+      }
+    }
+
+    // Clean up cursor if still there
+    const cursor = assistantDiv.querySelector('.chat-cursor');
+    if (cursor) cursor.remove();
+    if (!fullText) {
+      assistantDiv.textContent = '[No response received]';
+    }
+
+  } catch (err) {
+    assistantDiv.textContent = '[Connection error. Please try again.]';
+    const cursor = assistantDiv.querySelector('.chat-cursor');
+    if (cursor) cursor.remove();
+  }
+
+  streaming = false;
+}
+
+if (inputEl) {
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputEl.value);
+    }
+  });
+
+  // Auto-resize textarea
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px';
+  });
+}
+
+scrollToBottom();
+</script>
+{% endblock %}
+{% endblock %}

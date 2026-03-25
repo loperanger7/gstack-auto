@@ -5,6 +5,12 @@ results-history.json
 output/
 product-spec.md
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.db
+
 # OS
 .DS_Store
 

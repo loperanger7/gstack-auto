@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Builds — gstack-auto{% endblock %}
+{% block content %}
+<h1>Builds</h1>
+<p class="subtitle">your pipeline results</p>
+
+{% if not builds %}
+<div class="empty-state">
+  <p>No builds yet.</p>
+  <p>Complete an <a href="{{ url_for('office_hours.index') }}">office hours session</a> to start your first build.</p>
+</div>
+{% else %}
+  {% for build in builds %}
+  <a href="{{ url_for('builds.detail', build_id=build.id) }}" class="card {% if build.status == 'completed' %}{% elif build.status in ('pending', 'running') %}in-progress{% endif %}">
+    <div class="card-header">
+      <div>
+        <span class="card-title">{{ build.session_title or 'Build #' + build.id|string }}</span>
+        <span class="build-status build-status-{{ build.status }}">{{ build.status }}</span>
+      </div>
+      {% if build.scores_json %}
+      {% set scores = build.scores_json | tojson | safe %}
+      <span class="card-score">
+        {{ (build.scores_json | from_json).get('average', '—') if build.scores_json else '—' }}<span class="score-max">/10</span>
+      </span>
+      {% endif %}
+    </div>
+
+    {% if build.phases_json %}
+    <div class="phase-progress">
+      {% for phase in ['01','02','03','04','05','06','07','08','09','10','11','12','13'] %}
+      {% set phases = build.phases_json | from_json if build.phases_json else {} %}
+      <div class="phase-dot {% if phases.get(phase) == 'done' %}done{% elif phases.get(phase) == 'running' %}active{% endif %}"></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card-meta">
+      <span>{{ build.created_at[:10] }}</span>
+      {% if build.completed_at %}
+      <span>Completed {{ build.completed_at[:10] }}</span>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+{% endif %}
+{% endblock %}

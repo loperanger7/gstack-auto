@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Office Hours — gstack-auto{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+{% block content %}
+<h1>Office Hours</h1>
+<p class="subtitle">describe what you want to build</p>
+
+{% if error %}
+<div class="status err">{{ error }}</div>
+{% endif %}
+
+<section>
+  <h2>Start a New Session</h2>
+  <p class="template-hint">Pick a starting point or start from scratch.</p>
+
+  <div class="template-grid">
+    {% for template in templates %}
+    <form method="POST" action="{{ url_for('office_hours.new_session') }}" class="template-card">
+      <input type="hidden" name="template_id" value="{{ template.id }}">
+      <div class="template-name">{{ template.name }}</div>
+      <div class="template-desc">{{ template.description }}</div>
+      <button type="submit" class="template-start">Start →</button>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+
+{% if sessions %}
+<section>
+  <h2>Recent Sessions</h2>
+  {% for s in sessions[:5] %}
+  <a href="{% if s.status == 'completed' %}{{ url_for('builds.new_build', session_id=s.id) }}{% else %}{{ url_for('office_hours.chat', session_id=s.id) }}{% endif %}" class="session-row">
+    <span class="session-title">{{ s.title or 'Untitled' }}</span>
+    <span class="session-status status-{{ s.status }}">{{ s.status }}</span>
+    <span class="session-date">{{ s.created_at[:10] }}</span>
+  </a>
+  {% endfor %}
+  {% if sessions|length > 5 %}
+  <a href="{{ url_for('office_hours.history') }}" class="link-btn">View all sessions →</a>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
