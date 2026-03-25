@@ -2,6 +2,33 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.14.0] - 2026-03-25
+
+### Added
+- **v2 pipeline architecture:** 13 skill-modeled phases replacing v1's 13 custom phases. New phase sequence: CEO Plan → Adversarial → Eng Plan → Adversarial → Design Plan → Adversarial → Eng Plan v2 → Adversarial → Implement → Ship → QA → Document → Score.
+- **Dual adversarial review system:** Configurable cross-model review (Claude + Codex) at phases 02, 04, 06, 08. Orchestrator-level execution with `{ADVERSARIAL_FINDINGS}` injection into subsequent phases.
+- **Follow-up question system:** Budget-controlled mid-run questions (`follow_up_budget` in config.yml). Phases 01, 03, 07, 09, 11 can emit `FOLLOW_UP_QUESTION:` lines. Orchestrator deduplicates across N parallel runs via LLM call and broadcasts answers via `{FOLLOW_UP_ANSWERS}`.
+- **Design doc discovery:** Orchestrator checks `~/.gstack/projects/` for approved `/office-hours` design docs before reading product-spec.md. Design doc is injected as `{DESIGN_DOC}` — a binding constraint for phase 01.
+- **Bug-fix sub-loop phases:** 11a (fix plan), 11b (implement fix), 11c (re-QA) — dedicated sub-phases replacing v1's shared fix phases.
+- **16 v2 phase prompt files:** 01-plan-ceo.md through 13-retro-score.md plus 11a/11b/11c sub-loop, all with autonomy markers, template variables, and no-skill/no-AskUserQuestion directives.
+- **153 validation checks:** Complete v2 test suite covering phase files, autonomy directives, namespace isolation, template variables, follow-up question support, design DNA, config, dead code cleanup, CLAUDE.md v2 content, and server integration.
+
+### Changed
+- **CLAUDE.md:** Full v2 orchestrator rewrite — gstack-auto branding, adversarial review orchestration, follow-up question system, design doc discovery, safe winner copy (atomic temp dir swap), partial failure handling.
+- **pipeline/config.yml:** Added `adversarial_reviews: ["02", "08"]` and `follow_up_budget: 3`. Updated header to "gstack-auto Pipeline Configuration (v2)".
+- **index.html + dashboard.html:** Updated PHASE_NAMES to v2 (13 phases with adversarial review labels).
+- **README.md:** Updated pipeline diagram, phase list, getting started (office hours entry point), and config examples for v2.
+- **TODOS.md:** Removed superseded v1 items, added v2 items (follow-up question validation, cross-run scoring, style adherence dimension, N>3 differentiation).
+
+### Fixed
+- **XSS in index.html:** `ai_slop_grade` now escaped with `esc()`. `colorDots()` CSS injection prevented with allowlist regex for safe color values.
+- **Stale artifact references in phase 09:** Fixed v1 artifact names (`phase-03-implement.md`) to v2 (`phase-07-plan-eng-v2.md`).
+
+### Removed
+- **pipeline/gen-phases.mjs:** Dead v1 code (auto-generated bug-fix loop phases).
+- **pipeline/phase-config.json:** Dead v1 code (phase generation config).
+- **12 v1 phase files:** 02-plan-eng.md, 03-implement.md, 04-review.md, 05-ship.md, 06-qa.md, 07-plan-bugfix.md, 08-implement-fix.md, 09-review-and-commit-fix.md, 10-qa-confirm.md, 11-design-review.md, 12-design-fix.md.
+
 ## [0.1.13.0] - 2026-03-18
 
 ### Added

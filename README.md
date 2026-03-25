@@ -2,16 +2,21 @@
 
 Reinforcement learning applied to the development process itself. Not at the token level — at the product level.
 
-You write a spec. gstack-auto spawns parallel implementations, each one planning, building, reviewing, testing, and fixing bugs autonomously. The best one wins. Then it does it again, starting from the winner's code. Each round gets better.
+You describe what you want to build. gstack-auto brainstorms the spec with you, then spawns parallel implementations — each one planning, reviewing adversarially, building, testing, and fixing bugs autonomously. The best one wins. Then it does it again. Each round gets better.
 
 ```
-  product-spec.md
+  /office-hours (or product-spec.md)
         |
         v
   +-- ROUND LOOP (1..R) --------------------------------+
   |                                                      |
   |   +-- N PARALLEL RUNS ----------------------------+  |
-  |   |  Each run: plan > build > review > QA > fix   |  |
+  |   |  Each run:                                    |  |
+  |   |    CEO plan > adversarial review              |  |
+  |   |    eng plan > adversarial review              |  |
+  |   |    design plan > adversarial review           |  |
+  |   |    eng plan v2 > adversarial review           |  |
+  |   |    implement > ship > QA > fix                |  |
   |   |  Run A biases toward code quality             |  |
   |   |  Run B biases toward UX polish                |  |
   |   |  Run C biases toward robustness               |  |
@@ -41,18 +46,24 @@ Round 2: Best 8.4/10 (run-a)  ================       84%  (+1.2)
 Round 3: Best 9.1/10 (run-c)  ==================     91%  (+0.7)
 ```
 
-## The 12 Phases
+## The 13 Phases
 
 Each build goes through:
 
-1. **Plan** — CEO-level product thinking
-2. **Plan** — Engineering architecture
-3. **Build** — Write the code
-4. **Review** — Code review
-5. **Ship** — Package and prepare
-6. **QA** — Automated testing with screenshots
-7-11. **Bug fix loop** — Find, fix, verify (up to 3 cycles)
-12. **Score** — Rate on 5 dimensions, write a retrospective
+1. **CEO Plan** — Product vision, MVP scope, risk assessment
+2. **Adversarial Review** — Dual Claude+Codex challenge of the plan
+3. **Eng Plan** — Architecture, file plan, test strategy
+4. **Adversarial Review** — Cross-model engineering challenge
+5. **Design Plan** — Visual hierarchy, typography, spacing, color
+6. **Adversarial Review** — Design critique
+7. **Eng Plan v2** — Reconcile design constraints with architecture
+8. **Adversarial Review** — Final pre-implementation challenge
+9. **Implement** — Write the code in the style of a legendary engineer
+10. **Ship** — Validate, lint, security check
+11. **QA** — Headless browser testing with screenshot evidence
+    - Bug fix sub-loop (up to 3 cycles: plan fix → implement → re-QA)
+12. **Document** — Generate README, CHANGELOG
+13. **Score** — Rate on 6 dimensions, write a retrospective
 
 Every build runs in its own git worktree. Completely isolated. They can't see each other.
 
@@ -66,7 +77,9 @@ Install [Conductor](https://conductor.build) (the AI development environment) an
 
 ### 2. Configure
 
-Edit `product-spec.md` with what you want built. Be specific:
+**Option A (recommended):** Run `/office-hours` in Claude Code to brainstorm your idea interactively. It produces a structured design doc that the pipeline reads automatically.
+
+**Option B (power users):** Edit `product-spec.md` directly with what you want built. Be specific:
 
 ```markdown
 # Product Spec
@@ -113,14 +126,16 @@ The winning build lives in `output/`. Open its `index.html` and see what you got
 `pipeline/config.yml`:
 
 ```yaml
-parallel_runs: 3          # How many builds to run simultaneously
-rounds: 1                 # Sequential rounds (each improves on the last)
-auto_accept_winner: true   # Auto-select best score (false = pick via dashboard)
-max_fix_cycles: 3          # Max bug-fix attempts before forced scoring
-style: "marlinspike"       # Engineering style (see pipeline/styles/)
+parallel_runs: 3              # How many builds to run simultaneously
+rounds: 1                     # Sequential rounds (each improves on the last)
+auto_accept_winner: true       # Auto-select best score (false = pick via dashboard)
+max_fix_cycles: 3              # Max bug-fix attempts before forced scoring
+style: "marlinspike"           # Engineering style (see pipeline/styles/)
+adversarial_reviews: [02, 08]  # Which phases get dual Claude+Codex review
+follow_up_budget: 3            # Mid-run questions per round (0 = fully autonomous)
 email:
   to: "you@gmail.com"
-  method: "smtp"           # or "file-only" to skip email
+  method: "smtp"               # or "file-only" to skip email
 ```
 
 Available styles: `carmack`, `antirez`, `abramov`, `metz`, `holowaychuk`, `majors`, `marlinspike`. Each encodes concrete coding principles that guide implementation, review, and scoring. Or leave it blank for the default.
@@ -131,7 +146,7 @@ Available styles: `carmack`, `antirez`, `abramov`, `metz`, `holowaychuk`, `major
 bash tests/validate-pipeline.sh
 ```
 
-All 164 checks should pass before you run the pipeline.
+All checks should pass before you run the pipeline.
 
 ---
 

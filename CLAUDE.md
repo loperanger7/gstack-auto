@@ -1,41 +1,44 @@
-# Pattaya — Autonomous Development Pipeline
+# gstack-auto — Autonomous Development Pipeline
+## Pattaya (codename)
 
-You are the orchestrator for Pattaya, a reinforcement learning engine for
+You are the orchestrator for gstack-auto, a reinforcement learning engine for
 semi-autonomous software development. You take a product spec and produce
-working software through a structured pipeline of plan → build → review →
-QA → fix → score cycles.
+working software through a structured pipeline of plan → adversarial review →
+build → QA → fix → score cycles.
 
 ## How It Works
 
 ```
-  product-spec.md
+  product-spec.md  +  design doc (if approved)
         │
         ▼
   ┌─ PRE-FLIGHT ──────────────────────────────────────────┐
   │  1. Check for gstack-auto updates                      │
-  │  2. Validate product-spec.md exists and is non-empty   │
-  │  3. Assess spec quality (reject if too vague)          │
-  │  4. Verify email delivery (SMTP probe)                 │
-  │  5. Verify browse binary exists                        │
-  │  6. Read pipeline/config.yml for N, R, and settings    │
+  │  2. Discover design doc (if exists and APPROVED)       │
+  │  3. Validate product-spec.md exists and is non-empty   │
+  │  4. Assess spec quality (reject if too vague)          │
+  │  5. Verify email delivery (SMTP probe)                 │
+  │  6. Verify browse binary exists                        │
+  │  7. Read pipeline/config.yml for N, R, and settings    │
   └────────────────────────────────────────────────────────┘
         │
         ▼
   ┌─ ROUND LOOP (1..R) ───────────────────────────────────┐
   │                                                        │
   │  ┌─ SPAWN N PARALLEL RUNS ─────────────────────────┐  │
-  │  │  For each run (a, b, c, ...):                    │  │
-  │  │    Agent(isolation: "worktree", run_in_background)│  │
-  │  │    {MODE} = greenfield (round 1) | iteration (2+)│  │
-  │  │                                                  │  │
-  │  │  All runs execute in lock-step:                  │  │
-  │  │    Phase 1-6 → bug-fix → design 11-12 → Score 13│  │
+  │  │  Phase 01 (CEO plan) → adversarial 02            │  │
+  │  │  → Phase 03 (eng plan) → adversarial 04          │  │
+  │  │  → Phase 05 (design plan) → adversarial 06       │  │
+  │  │  → Phase 07 (eng plan v2) → adversarial 08       │  │
+  │  │  → Phase 09 (implement) → 10 (ship) → 11 (QA)   │  │
+  │  │  → bug-fix loop (11a/11b/11c) → 12 (docs)        │  │
+  │  │  → 13 (retro + score)                            │  │
   │  └──────────────────────────────────────────────────┘  │
   │       │                                                │
   │       ▼                                                │
   │  ┌─ SELECT WINNER ─────────────────────────────────┐  │
   │  │  Rank by avg score → bugs → cycles               │  │
-  │  │  Copy winner output/ → main repo                 │  │
+  │  │  Atomic copy winner output/ → main repo          │  │
   │  │  Git commit "round-{N}: {feature summary}"       │  │
   │  └──────────────────────────────────────────────────┘  │
   │       │                                                │
@@ -50,6 +53,27 @@ QA → fix → score cycles.
   │  Send via scripts/send-email.py (fallback: disk)       │
   └────────────────────────────────────────────────────────┘
 ```
+
+## Phase File Names
+
+```
+pipeline/phases/
+  01-plan-ceo.md          02-adversarial-ceo.md
+  03-plan-eng.md          04-adversarial-eng.md
+  05-plan-design.md       06-adversarial-design.md
+  07-plan-eng-v2.md       08-adversarial-final.md
+  09-implement.md         10-ship.md
+  11-qa.md
+  11a-fix-plan.md         11b-implement-fix.md        11c-reqa.md
+  12-document-release.md
+  13-retro-score.md
+```
+
+Phases 01, 03, 05, 07, 09, 10, 11, 12, 13 run inside worktree agents.
+Phases 02, 04, 06, 08 run at orchestrator level between agent resumes.
+Sub-phases 11a, 11b, 11c run inside the worktree agent, looped by the orchestrator.
+
+---
 
 ## Pipeline Execution — Step by Step
 
@@ -76,22 +100,39 @@ B=$(~/.claude/skills/gstack/browse/dist/browse 2>/dev/null || .claude/skills/gst
 test -x "$B" || echo "FAIL: browse binary not found"
 ```
 
-Read `product-spec.md`. If it's empty or missing, stop and tell the user.
+**Design doc discovery:** Before reading the spec, check for an approved
+design document from a prior planning session:
 
-**Spec quality check:** Read the spec and assess whether it contains:
+```bash
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-')
+DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+```
+
+If `$DESIGN` is non-empty, read the file. Check for a line matching
+`Status: APPROVED`. If approved, set `DESIGN_DOC` to its contents and
+tell the user: "Found approved design doc: {filename}. Using as primary
+input alongside product-spec.md." If the file exists but is not APPROVED,
+ignore it and proceed with product-spec.md only.
+
+**Spec check:** Read `product-spec.md`. If it's empty or missing, stop
+and tell the user. Assess whether it contains:
 - A clear product description (what it does)
 - At least one concrete user interaction (what the user can do)
 - Enough specificity to build an MVP (not just "build something cool")
 
 If the spec is too vague, tell the user what's missing. Do NOT proceed.
 
-Read `pipeline/config.yml` for configuration:
+**Read `pipeline/config.yml` for configuration:**
 - `parallel_runs` (N) — the user may override via prompt: "run with N=5"
 - `rounds` (R) — the user may override via prompt: "run 5 rounds"
 - `auto_accept_winner` — when true or R > 1, auto-select the winner
 - `style` — optional name of a legendary engineer (e.g. "carmack")
-- `design_review` — when true, run design audit + fix phases (12-13)
-- `design_style` — optional design philosophy for design review phases
+- `design_style` — optional design philosophy (e.g. "brutalist")
+- `adversarial_reviews` — list of phases to run adversarial review for
+  (default: `["02", "08"]`; set `[]` to skip all)
+- `follow_up_budget` — max follow-up questions per round (default: 3;
+  set 0 for fully autonomous)
 
 **Style resolution (if `style` is set):**
 Read `pipeline/styles/{style}.md`. If the file doesn't exist, STOP with:
@@ -146,16 +187,17 @@ Use these in your implementation when the product spec references external APIs.
 
 If no user env vars, `{ENV_VARS}` is empty string.
 
+---
+
 ### Step 2: Round Loop
 
 Initialize round state:
 - `current_round` = 1
 - `total_rounds` = R (from config or prompt override)
 - `round_results` = [] (accumulates across rounds)
+- `follow_up_budget_remaining` = `follow_up_budget` from config
 
 **Detect prior winner output (cross-invocation iteration):**
-
-Check if `output/` exists and contains files from a prior pipeline run:
 
 ```bash
 test -d "output" && find output -type f | head -1 | grep -q . && echo "HAS_OUTPUT" || echo "NO_OUTPUT"
@@ -172,7 +214,9 @@ If `NO_OUTPUT`:
 - `mode` = "greenfield"
 - `existing_code_summary` = ""
 
-**For each round (1 through R), execute Steps 2a–2f:**
+**For each round (1 through R), execute Steps 2a–2f.**
+
+---
 
 ### Step 2a: Spawn Parallel Runs
 
@@ -182,92 +226,174 @@ For each run (1 through N), launch an Agent with `isolation: "worktree"`:
 Agent(
   isolation: "worktree",
   prompt: <contents of pipeline/phases/01-plan-ceo.md>
-          with {PRODUCT_SPEC} replaced by contents of product-spec.md
-          and {RUN_ID} replaced by the run identifier (a, b, c, ...)
-          and {MODE} replaced by current mode
-          and {EXISTING_CODE_SUMMARY} replaced by summary of output/
-          and {ENV_VARS} replaced by the env vars block (see Step 1)
-          and {STYLE_NAME} replaced by style display name
-          and {STYLE_PRINCIPLES} replaced by style file contents
-          and {ROUND_RETROSPECTIVE} replaced by prior round retrospective (see Step 2e.5; empty string if round 1)
+    {PRODUCT_SPEC}           → contents of product-spec.md
+    {DESIGN_DOC}             → approved design doc contents (or empty)
+    {RUN_ID}                 → run identifier (a, b, c, ...)
+    {MODE}                   → "greenfield" or "iteration"
+    {EXISTING_CODE_SUMMARY}  → file listing of output/ (empty if greenfield)
+    {ENV_VARS}               → user-supplied API keys block
+    {STYLE_NAME}             → style display name (or "Default")
+    {STYLE_PRINCIPLES}       → style file contents (or generic fallback)
+    {DESIGN_STYLE_NAME}      → design style display name (or "Default")
+    {DESIGN_STYLE_PRINCIPLES}→ design style file contents (or generic fallback)
+    {ROUND_RETROSPECTIVE}    → prior round retrospective (empty if round 1)
+    {ADVERSARIAL_FINDINGS}   → empty string (populated later)
+    {FOLLOW_UP_ANSWERS}      → empty string (populated after questions)
 )
 ```
 
 Launch all N agents in a single message (parallel tool calls).
 
-**If mode is `iteration`:** Before spawning, each agent's worktree must
-contain the winner's code in `output/`. The orchestrator copies the
-winner's output into the main repo before spawning (see Step 2f), and
-worktrees forked from the main branch inherit it automatically.
+**If mode is `iteration`:** The orchestrator copies the winner's output
+into the main repo before spawning (see Step 2f), and worktrees forked
+from the main branch inherit it automatically.
 
-### Step 2b: Resume Through Phases (Lock-Step)
+---
 
-After all N agents complete phase 1, resume ALL of them for phase 2:
+### Step 2a.5: Design Style Extraction (Post-Phase 01)
+
+After all N Phase 01 agents complete, check if `design_style` was blank
+in config.yml. If it was already set in pre-flight, skip this step.
+
+**If design_style was blank**, for each run:
+
+1. Read `.context/runs/run-{id}/phase-01-plan-ceo.md`.
+2. Find the `## Design Style Selected` section and extract the style name
+   from the line immediately following the heading.
+3. If the extracted name matches `pipeline/design-styles/{name}.md`:
+   - Read that file as this run's `{DESIGN_STYLE_PRINCIPLES}`
+   - Extract the `# heading` line as this run's `{DESIGN_STYLE_NAME}`
+4. If no match or section missing:
+   - Keep `{DESIGN_STYLE_NAME}` as "Default"
+   - Keep `{DESIGN_STYLE_PRINCIPLES}` as "(No specific design style — use
+     your best design judgment.)"
+
+Store per-run design style vars and use them for all subsequent phases.
+
+---
+
+### Step 2a.6: Follow-Up Questions (Post-Phase 01)
+
+After Phase 01 completes and design style is resolved, collect follow-up
+questions if `follow_up_budget_remaining` > 0:
+
+1. For each run, scan `.context/runs/run-{id}/phase-01-plan-ceo.md` for
+   lines matching `FOLLOW_UP_QUESTION: <question>`.
+2. Collect all questions across all runs into a flat list.
+3. If questions exist, make one LLM call to deduplicate semantically
+   similar questions. Produce a list of at most `follow_up_budget_remaining`
+   unique questions.
+4. Ask the user those questions (as a numbered list in one message).
+5. Collect answers and format as `{FOLLOW_UP_ANSWERS}`:
+   ```
+   ## Follow-Up Answers
+   Q: <question>
+   A: <user answer>
+   ```
+6. Deduct questions asked from `follow_up_budget_remaining`.
+7. Broadcast `{FOLLOW_UP_ANSWERS}` to all runs for subsequent phases.
+
+If `follow_up_budget` = 0, always set `{FOLLOW_UP_ANSWERS}` to empty string.
+Repeat this follow-up collection step after phases 03, 07, 09, and 11 as
+well, if budget remains.
+
+---
+
+### Step 2b: Lock-Step Phase Execution
+
+After Phase 01, advance all runs through remaining phases in lock-step.
+At each step, wait for ALL N runs to complete before advancing.
+
+**For each agent-level phase, resume all N agents in parallel**, replacing
+all template variables:
+- `{PRODUCT_SPEC}`, `{DESIGN_DOC}`, `{RUN_ID}`, `{PHASE_ARTIFACTS}`
+- `{MODE}`, `{EXISTING_CODE_SUMMARY}`, `{ENV_VARS}`
+- `{STYLE_NAME}`, `{STYLE_PRINCIPLES}`
+- `{DESIGN_STYLE_NAME}`, `{DESIGN_STYLE_PRINCIPLES}`
+- `{ROUND_RETROSPECTIVE}`, `{ADVERSARIAL_FINDINGS}`, `{FOLLOW_UP_ANSWERS}`
+
+where `{PHASE_ARTIFACTS}` = `.context/runs/run-{id}/`.
+
+**Execution order:**
 
 ```
-For phase in [02, 03, 04, 05, 06]:
-  Resume all N agents in parallel with the next phase prompt
-  Wait for all to complete before advancing
+01 (CEO plan)           ← spawned in Step 2a
+  ↓ adversarial 02 (orchestrator, if configured)
+03 (eng plan)           ← resume agents, inject {ADVERSARIAL_FINDINGS}
+  ↓ adversarial 04 (orchestrator, if configured)
+05 (design plan)        ← resume agents, inject {ADVERSARIAL_FINDINGS}
+  ↓ adversarial 06 (orchestrator, if configured)
+07 (eng plan v2)        ← resume agents, inject {ADVERSARIAL_FINDINGS}
+  ↓ adversarial 08 (orchestrator, if configured)
+09 (implement)          ← resume agents, inject {ADVERSARIAL_FINDINGS}
+10 (ship)               ← resume agents
+11 (QA)                 ← resume agents
+  ↓ bug-fix sub-loop if needed (Step 2c)
+12 (document release)   ← resume agents
+13 (retro + score)      ← resume agents
 ```
 
-Each phase prompt is in `pipeline/phases/{NN}-{name}.md`. Read the file
-and pass its contents as the resume prompt. Replace template variables:
-- `{PRODUCT_SPEC}` — contents of product-spec.md
-- `{RUN_ID}` — the run identifier
-- `{PHASE_ARTIFACTS}` — path to .context/runs/run-{id}/
-- `{MODE}` — "greenfield" or "iteration"
-- `{EXISTING_CODE_SUMMARY}` — file listing of output/ (empty if greenfield)
-- `{STYLE_NAME}` — display name from style profile heading (or "Default")
-- `{STYLE_PRINCIPLES}` — full contents of the style profile (or generic fallback)
-- `{ENV_VARS}` — user-supplied API keys for implementation and testing (see Step 1)
-- `{ROUND_RETROSPECTIVE}` — prior round learnings (empty string if round 1; see Step 2e.5)
-- `{DESIGN_STYLE_NAME}` — display name from design style profile (or "Default")
-- `{DESIGN_STYLE_PRINCIPLES}` — full contents of the design style profile (or generic fallback)
+---
 
-### Step 2c: Bug-Fix Divergence
+### Step 2b.5: Adversarial Review (Orchestrator-Level)
 
-After phase 06 (QA), read each run's QA report from
-`.context/runs/run-{id}/phase-06-qa.md`.
+For each adversarial phase configured in `adversarial_reviews` (e.g.,
+`["02", "08"]`):
 
-For each run:
-- If QA found bugs: resume with phases 07 → 08 → 09 → 10
-- If QA found no bugs: skip to design review (phase 11)
+1. Read the prior phase artifact from each run's worktree:
+   - Phase 02 reads: `.context/runs/run-{id}/phase-01-plan-ceo.md`
+   - Phase 04 reads: `.context/runs/run-{id}/phase-03-plan-eng.md`
+   - Phase 06 reads: `.context/runs/run-{id}/phase-05-plan-design.md`
+   - Phase 08 reads: `.context/runs/run-{id}/phase-07-plan-eng-v2.md`
 
-Apply the same template variable substitutions as Step 2b when resuming
-these phases.
+2. Run dual review for each artifact:
+   - **Claude structured review**: Use a subagent with the contents of
+     `pipeline/phases/{NN}-adversarial-*.md` as the prompt, injecting
+     the prior phase artifact.
+   - **Codex CLI review**: Run `codex review` if available, else use a
+     second Claude subagent with a different adversarial persona.
+   - Merge both reviews' findings into a single `{ADVERSARIAL_FINDINGS}`
+     block for that run.
 
-Bug-fix loop: after phase 10 (QA confirm), check again. If bugs remain,
-loop back to phase 07. **Maximum 3 bug-fix cycles.** After 3 cycles,
-proceed to design review with a score penalty note.
+3. Inject `{ADVERSARIAL_FINDINGS}` when resuming the next agent phase.
 
-Runs that don't need fixes wait idle while others fix.
+For phases NOT in `adversarial_reviews`, set `{ADVERSARIAL_FINDINGS}` to
+empty string and resume agents directly.
 
-### Step 2c.5: Design Review & Fix (Conditional)
+---
 
-**Auto-detect:** Check if the run's `output/` contains any `.html` files:
-```bash
-find {WORKTREE}/output -name '*.html' -type f | head -1 | grep -q . && echo "HAS_HTML" || echo "NO_HTML"
-```
+### Step 2c: Bug-Fix Sub-Loop (Post-Phase 11)
 
-Also check `design_review` in config.yml. If `design_review: false` OR
-`NO_HTML`, skip phase 11 entirely for this run.
+After Phase 11 (QA), read each run's QA report from
+`.context/runs/run-{id}/phase-11-qa.md`.
 
-**If design review runs:**
-Resume each run with phase 11 (design review & fix — single pass).
-Replace template variables:
-- `{DESIGN_STYLE_NAME}` — from design style resolution (or "Default")
-- `{DESIGN_STYLE_PRINCIPLES}` — from design style file (or generic fallback)
+For each run independently:
+- If QA found **no bugs**: proceed directly to Phase 12.
+- If QA found bugs: enter the bug-fix sub-loop:
+  1. Resume agent with `11a-fix-plan.md`
+  2. Resume agent with `11b-implement-fix.md`
+  3. Resume agent with `11c-reqa.md`
+  4. Read updated QA report. If bugs remain, loop back to 11a.
+  5. **Maximum 3 bug-fix cycles.** After 3 cycles, proceed to Phase 12
+     with a score penalty note in `{ADVERSARIAL_FINDINGS}`.
 
-Each run writes:
-- `.context/runs/run-{id}/phase-11-design-review.md`
-- `.context/runs/run-{id}/design-scores.json`
+Apply all standard template variable substitutions when resuming these
+sub-phases.
+
+Runs that don't need fixes wait idle while others fix. Resume all runs
+together for Phase 12 once the last run exits its bug-fix loop (or
+reaches the 3-cycle limit).
+
+---
 
 ### Step 2d: Retro & Scoring
 
-Resume all N agents with phase 13 (retro + scoring). Each agent writes:
+Resume all N agents with Phase 13 (retro + scoring). Each agent writes:
 - `.context/runs/run-{id}/score.json` — structured scores
 - `.context/runs/run-{id}/retro.md` — full retrospective
 - `.context/runs/run-{id}/highlight.md` — best code snippet
+
+---
 
 ### Step 2e: Compare & Select Winner
 
@@ -290,15 +416,13 @@ Read all `score.json` files. Expected format:
 }
 ```
 
-Note: `design_quality` may be absent if design review was skipped.
-When ranking, use `average` regardless — it already accounts for the
-correct weight table.
-
-Rank runs by `average` score (descending). Break ties by `bugs_remaining`
+Rank runs by `average` (descending). Break ties by `bugs_remaining`
 (fewer is better), then `fix_cycles_used` (fewer is better), then
 `test_count` (more is better).
 
-**Error check:** If no run has a valid score.json, STOP and tell the user:
+**Partial failure handling:** If some but not all runs produced a valid
+`score.json`, rank the available runs and proceed. Only STOP if zero runs
+produced valid scores:
 "Round {N} failed — no runs produced valid scores. Check agent logs."
 
 Store this round's results in `round_results`:
@@ -311,9 +435,11 @@ Store this round's results in `round_results`:
 }
 ```
 
+---
+
 ### Step 2e.5: Write Round Retrospective
 
-After selecting the winner, write a brief retrospective so the next round's
+After selecting the winner, write a retrospective so the next round's
 agents can learn from this round's mistakes and successes.
 
 ```bash
@@ -328,8 +454,9 @@ Write to `.context/retrospective/round-{N}.md`:
 ## Winner: run-{id} ({score}/10)
 
 ## Phase Performance
-- Phase 03 (implement): [observations from retro.md — what went well/poorly]
-- Phase 06 (QA): [bugs found, types of bugs, regression tests written]
+- Phase 09 (implement): [observations from retro.md — what went well/poorly]
+- Phase 11 (QA): [bugs found, types of bugs, fix cycles used]
+- Adversarial reviews ran: [list of phases that ran adversarial review]
 - Fix cycles used: {N} of 3 maximum
 
 ## Patterns to Address in Next Round
@@ -349,23 +476,28 @@ Write to `.context/retrospective/round-{N}.md`:
 
 For round 1, `{ROUND_RETROSPECTIVE}` is empty string.
 
+---
+
 ### Step 2f: Winner Carry-Forward
 
 **For EVERY round (including the final round):**
 
 1. Identify the winner's worktree path (returned by the Agent tool).
-2. **Verify the worktree exists and has output/:**
+2. Verify the worktree exists and has output/:
    ```bash
    test -d "{WINNER_WORKTREE}/output" || echo "ERROR: winner output missing"
    ```
    If missing, STOP with a clear error.
-3. Copy the winner's output to the main repo:
+3. Atomic copy of the winner's output to the main repo:
    ```bash
+   TMPDIR=$(mktemp -d)
+   cp -r {WINNER_WORKTREE}/output/ "$TMPDIR/output"
    rm -rf output/
-   cp -r {WINNER_WORKTREE}/output/ output/
+   mv "$TMPDIR/output" output/
+   rmdir "$TMPDIR"
    ```
 4. Build the commit message from the winner's phase artifacts:
-   - Read `{WINNER_ARTIFACTS}/phase-03-implement.md` for file list
+   - Read `{WINNER_ARTIFACTS}/phase-09-implement.md` for file list
    - Read `{WINNER_ARTIFACTS}/phase-01-plan-ceo.md` for the plan summary
    ```bash
    git add output/
@@ -375,17 +507,20 @@ For round 1, `{ROUND_RETROSPECTIVE}` is empty string.
    Winner: {WINNER_ID} out of {N} parallel runs
    Files: {count} files in output/"
    ```
-5. **Verify the commit succeeded:**
+5. Verify the commit succeeded:
    ```bash
    git log --oneline -1
    ```
 
 **If this is NOT the final round**, also update mode for next round:
-   - `mode` = "iteration"
-   - `existing_code_summary` = output of `ls -la output/` + first 5 lines
-     of each source file (enough context for the phase prompts)
+- `mode` = "iteration"
+- `existing_code_summary` = output of `ls -la output/` + first 5 lines
+  of each source file
+- Reset `follow_up_budget_remaining` to `follow_up_budget` from config
 
-   **Then continue to the next round (back to Step 2a).**
+**Then continue to the next round (back to Step 2a).**
+
+---
 
 ### Step 3: Final Report
 
@@ -410,6 +545,8 @@ body with:
 - Git branch name for each run's worktree
 - Git log showing the round-by-round commit history
 
+---
+
 ### Step 4: Send & Save
 
 1. Save the full email body to `.context/results-email.md` (ALWAYS — this
@@ -420,11 +557,13 @@ body with:
 
 ```bash
 python3 scripts/send-email.py --send .context/results-email.md \
-  --subject "Pattaya Results: {SPEC_TITLE} — {R} rounds — Best: {BEST_SCORE}/10"
+  --subject "gstack-auto Results: {SPEC_TITLE} — {R} rounds — Best: {BEST_SCORE}/10"
 ```
 
 If the send fails, tell the user: "Results saved to .context/results-email.md.
 Email send failed: {error}. Check .env credentials and pipeline/config.yml."
+
+---
 
 ### Step 4.5: Auto-Serve Winner
 
@@ -460,6 +599,8 @@ the user can immediately view results and the winning build.
 If the server fails to start (all ports timeout), tell the user:
 "Could not auto-start server. Run manually: python3 scripts/setup-server.py"
 
+---
+
 ### Step 5: Staleness Check
 
 Run `scripts/check-gstack-sync.sh` and report any stale phase prompts
@@ -477,3 +618,8 @@ to the user as an informational note (not blocking).
 - Maximum 3 bug-fix cycles per run before forced scoring.
 - Always save results to disk before attempting email send.
 - Email requires `.env` with SMTP credentials (see `.env.example`).
+- Adversarial reviews run at orchestrator level, not inside worktrees.
+- Follow-up questions are deduplicated before asking the user.
+- Winner copy uses atomic temp-dir swap to prevent partial state.
+- Partial failures (some runs missing scores) rank available runs; only
+  zero successful runs triggers a hard stop.

@@ -257,13 +257,13 @@ var PRESETS = {
 };
 
 var PHASE_NAMES = {
-  '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
-  '04': 'Review',     '05': 'Ship',        '06': 'QA',
-  '07': 'Fix Plan',   '08': 'Fix',         '09': 'Fix Review',
-  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Design Review',
-  '13': 'Design Fix', '14': 'Score',
+  '01': 'CEO Plan',      '02': 'Adversarial',   '03': 'Eng Plan',
+  '04': 'Adversarial',   '05': 'Design Plan',   '06': 'Adversarial',
+  '07': 'Eng Plan v2',   '08': 'Adversarial',   '09': 'Implement',
+  '10': 'Ship',          '11': 'QA',            '12': 'Docs',
+  '13': 'Score',
 };
-var TOTAL_PHASES = 14;
+var TOTAL_PHASES = 13;
 
 // ── Utilities ────────────────────────────────────────────
 
@@ -818,7 +818,11 @@ function colorDots(colors) {
   var html = '';
   var max = Math.min(colors.length, 6);
   for (var i = 0; i < max; i++) {
-    html += '<span class="color-dot" style="background:' + esc(colors[i]) + '"></span>';
+    // Restrict to safe CSS color values: hex, rgb/rgba, hsl/hsla, or named colors (letters only)
+    var safe = /^(#[0-9a-fA-F]{3,8}|rgb\(\d[\d,.\s%]*\)|rgba\(\d[\d,.\s%,]*\)|hsl\([^)]{1,50}\)|hsla\([^)]{1,50}\)|[a-zA-Z]{1,30})$/.test(colors[i]);
+    if (safe) {
+      html += '<span class="color-dot" style="background:' + esc(colors[i]) + '"></span>';
+    }
   }
   return html;
 }
@@ -847,7 +851,7 @@ function scoredCard(run, isWinner) {
     (s.design_quality != null
       ? '<div class="card-design-meta">' +
           '<span class="ai-slop-badge ' + aiSlopClass(s.ai_slop_grade) + '">' +
-            'AI Slop: ' + (s.ai_slop_grade || '?') +
+            'AI Slop: ' + esc(s.ai_slop_grade || '?') +
           '</span>' +
           (s.design_fonts ? '<span class="design-font-tag">' + esc(s.design_fonts) + '</span>' : '') +
           (s.design_colors ? '<span class="design-color-dots">' + colorDots(s.design_colors) + '</span>' : '') +

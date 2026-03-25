@@ -66,12 +66,13 @@ let roundHistory = [];
 let pollInterval = null;
 
 const PHASE_NAMES = {
-  '01': 'CEO Plan',   '02': 'Eng Plan',    '03': 'Implement',
-  '04': 'Review',     '05': 'Ship',        '06': 'QA',
-  '07': 'Fix Plan',   '08': 'Fix',         '09': 'Fix Review',
-  '10': 'Fix Ship',   '11': 'Fix QA',      '12': 'Score',
+  '01': 'CEO Plan',      '02': 'Adversarial',   '03': 'Eng Plan',
+  '04': 'Adversarial',   '05': 'Design Plan',   '06': 'Adversarial',
+  '07': 'Eng Plan v2',   '08': 'Adversarial',   '09': 'Implement',
+  '10': 'Ship',          '11': 'QA',            '12': 'Docs',
+  '13': 'Score',
 };
-const TOTAL_PHASES = 12;
+const TOTAL_PHASES = 13;
 
 // ── Helpers ───────────────────────────────────────────────
 
