@@ -2,6 +2,27 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.15.0] - 2026-03-25
+
+### Added
+- **Mission Control web service:** Flask app for running gstack-auto as a service. Google OAuth login, invite-only waitlist, admin panel for user approval.
+- **Office Hours chat:** Browser-based product spec creation via Claude-powered conversational AI with SSE streaming. Template picker for common project types.
+- **Build handoff ceremony:** JWT build tokens with one-time nonces and HMAC-SHA256 payload integrity. Atomic check-and-create with BEGIN IMMEDIATE for concurrent build limits.
+- **Machine API endpoints:** `/api/v1/results` and `/api/v1/progress` for pipeline-to-server communication with bearer token auth and build ownership verification.
+- **Build results dashboard:** Per-user build history, detail views with phase progress and scoring breakdowns.
+- **Email notifications:** SMTP-based build completion alerts via `app/services/notify.py`.
+- **Spend tracking:** Per-user daily token ceiling with automatic disable at limit.
+- **45 integration tests:** Full coverage of auth, builds, office hours, API, admin, tokens, and spend tracking.
+
+### Fixed
+- **API IDOR vulnerability:** Build endpoints now verify `user_id` ownership on all queries.
+- **Nonce TOCTOU race:** Replaced SELECT-then-UPDATE with atomic single UPDATE for nonce consumption.
+- **HMAC verification gap:** Results endpoint now validates `X-Payload-SHA` header when present.
+- **Build limit race condition:** Wrapped concurrent build check in BEGIN IMMEDIATE transaction.
+- **Progress reopening terminal builds:** `update_build_progress` now guards against reopening completed/failed builds.
+- **Nonce burn on parse failure:** Moved nonce consumption after JSON body validation so parse failures are retryable.
+- **SECRET_KEY volatility:** Now requires env var (no random default that invalidates sessions on restart).
+
 ## [0.1.14.0] - 2026-03-25
 
 ### Added
