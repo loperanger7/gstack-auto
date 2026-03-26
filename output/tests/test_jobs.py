@@ -1,4 +1,4 @@
-"""Tests for jobs.py — scheduled jobs and email sending (multi-tenant)."""
+"""Tests for jobs.py — scheduled jobs and email sending."""
 
 import asyncio
 import os
@@ -15,16 +15,10 @@ import db
 
 @pytest_asyncio.fixture
 async def job_db(tmp_path):
-    """File-based SQLite DB with an active user for job tests."""
+    """File-based SQLite DB for job tests (not :memory: — needs cross-connection)."""
     db_path = str(tmp_path / "jobs_test.db")
     conn = await db.get_connection(db_path)
     await db.init_db(conn)
-    # Create an active user with Twitter credentials for multi-tenant jobs
-    user = await db.get_or_create_user(conn, "jobuser@test.com", name="Job User")
-    await db.update_user(conn, user["id"], onboard_step=3,
-                         twitter_access_token="enc_token",
-                         twitter_access_secret="enc_secret",
-                         twitter_username="jobtester")
     await conn.close()
 
     import app as app_module
@@ -87,13 +81,10 @@ async def test_monitor_cycle_skips_duplicate(job_db):
     """Already-seen tweets are not re-drafted."""
     import jobs
 
-    # Pre-insert the tweet with a valid user_id
+    # Pre-insert the tweet
     conn = await db.get_connection(job_db)
-    users = await db.get_all_active_users(conn)
-    uid = users[0]["id"] if users else 1
     await db.upsert_tweet(conn, tweet_id="tweet-dup", author_id="auth-dup",
-                          author_name="Dup", follower_count=100, text="old tweet",
-                          user_id=uid)
+                          author_name="Dup", follower_count=100, text="old tweet")
     await conn.close()
 
     mock_mentions = [
@@ -147,7 +138,7 @@ async def test_monitor_cycle_rate_limit(job_db):
 
 @pytest.mark.asyncio
 async def test_monitor_cycle_auth_failure(job_db):
-    """TwitterAuthError is caught and recorded in cycle errors."""
+    """TwitterAuthError triggers email alert."""
     import jobs
 
     with patch.object(jobs.twitter, "search_mentions", new_callable=AsyncMock,
@@ -155,15 +146,8 @@ async def test_monitor_cycle_auth_failure(job_db):
          patch("jobs._send_email") as mock_email:
         await jobs.monitor_cycle()
 
-    # Auth error should be recorded in cycle
-    conn = await db.get_connection(job_db)
-    try:
-        rows = await conn.execute("SELECT * FROM cycles ORDER BY id DESC LIMIT 1")
-        cycle = await rows.fetchone()
-        assert cycle is not None
-        assert cycle["errors"] is not None
-    finally:
-        await conn.close()
+    mock_email.assert_called_once()
+    assert "Auth Failed" in mock_email.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -203,6 +187,97 @@ async def test_monitor_cycle_shutdown(job_db):
         mock_search.assert_not_called()
     finally:
         app_module.shutdown_event.clear()
+
+
+# ── send_approved_replies ──────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_send_replies_happy_path(job_db):
+    """Approved reply in active window gets sent."""
+    import jobs
+
+    mock_queue = [
+        {"tweet_id": "t1", "reply_id": 1, "reply_text": "Hello!", "author_id": "a1"},
+    ]
+
+    with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch("jobs._is_in_send_window", return_value=True), \
+         patch.object(jobs.twitter, "post_reply", new_callable=AsyncMock, return_value="reply-id-1"), \
+         patch.object(jobs.db, "mark_sent", new_callable=AsyncMock) as mock_sent, \
+         patch.object(jobs.db, "update_cooldown", new_callable=AsyncMock) as mock_cool, \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+        await jobs.send_approved_replies()
+
+    mock_sent.assert_called_once()
+    mock_cool.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_replies_outside_window(job_db):
+    """No replies sent when outside all send windows."""
+    import jobs
+
+    mock_queue = [
+        {"tweet_id": "t1", "reply_id": 1, "reply_text": "Hello!", "author_id": "a1"},
+    ]
+
+    with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch("jobs._is_in_send_window", return_value=False), \
+         patch.object(jobs.twitter, "post_reply", new_callable=AsyncMock) as mock_post:
+        await jobs.send_approved_replies()
+
+    mock_post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_replies_tweet_deleted(job_db):
+    """TweetDeletedError triggers mark_stale."""
+    import jobs
+
+    mock_queue = [
+        {"tweet_id": "t-del", "reply_id": 2, "reply_text": "Hey!", "author_id": "a2"},
+    ]
+
+    with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch("jobs._is_in_send_window", return_value=True), \
+         patch.object(jobs.twitter, "post_reply", new_callable=AsyncMock,
+                      side_effect=jobs.twitter.TweetDeletedError("gone")), \
+         patch.object(jobs.db, "mark_stale", new_callable=AsyncMock) as mock_stale:
+        await jobs.send_approved_replies()
+
+    mock_stale.assert_called_once_with(mock_stale.call_args[0][0], "t-del")
+
+
+@pytest.mark.asyncio
+async def test_send_replies_rate_limit_breaks(job_db):
+    """RateLimitError on second reply stops the loop after first success."""
+    import jobs
+
+    mock_queue = [
+        {"tweet_id": "t1", "reply_id": 1, "reply_text": "Hi!", "author_id": "a1"},
+        {"tweet_id": "t2", "reply_id": 2, "reply_text": "Hey!", "author_id": "a2"},
+    ]
+
+    call_count = 0
+
+    async def post_side_effect(client, tweet_id, text):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise jobs.twitter.RateLimitError("429")
+        return f"reply-{call_count}"
+
+    with patch.object(jobs.db, "get_send_queue", new_callable=AsyncMock, return_value=mock_queue), \
+         patch("jobs._is_in_send_window", return_value=True), \
+         patch.object(jobs.twitter, "post_reply", new_callable=AsyncMock, side_effect=post_side_effect), \
+         patch.object(jobs.db, "mark_sent", new_callable=AsyncMock) as mock_sent, \
+         patch.object(jobs.db, "update_cooldown", new_callable=AsyncMock), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+        await jobs.send_approved_replies()
+
+    # Only first reply was marked sent
+    assert mock_sent.call_count == 1
 
 
 # ── check_engagement ──────────────────────────────────────────────────
@@ -299,11 +374,11 @@ async def test_weekly_digest_with_data(job_db):
 
 @pytest.mark.asyncio
 async def test_weekly_digest_no_replies(job_db):
-    """Digest with zero replies still sends email."""
+    """Digest with no replies shows appropriate message."""
     import jobs
 
     mock_data = {
-        "tweets_found": 0, "replies_sent": 0,
+        "tweets_found": 3, "replies_sent": 0,
         "total_likes": 0, "total_retweets": 0, "error_cycles": 0,
         "top_replies": [],
     }
@@ -313,3 +388,31 @@ async def test_weekly_digest_no_replies(job_db):
         await jobs.weekly_digest()
 
     mock_email.assert_called_once()
+    assert "No replies sent" in mock_email.call_args[0][1]
+
+
+# ── _send_email ────────────────────────────────────────────────────────
+
+
+def test_send_email_no_credentials():
+    """No SMTP attempt when credentials missing."""
+    import jobs
+
+    with patch.dict(os.environ, {"GMAIL_ADDRESS": "", "GMAIL_APP_PASSWORD": ""}, clear=False), \
+         patch("smtplib.SMTP") as mock_smtp:
+        jobs._send_email("Test Subject", "Test body")
+
+    mock_smtp.assert_not_called()
+
+
+def test_send_email_smtp_error():
+    """SMTP error is caught — no crash."""
+    import jobs
+
+    with patch.dict(os.environ, {
+        "GMAIL_ADDRESS": "test@gmail.com",
+        "GMAIL_APP_PASSWORD": "app-password",
+    }, clear=False), \
+         patch("smtplib.SMTP", side_effect=OSError("Connection refused")):
+        # Should not raise
+        jobs._send_email("Test Subject", "Test body")

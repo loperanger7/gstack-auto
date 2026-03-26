@@ -1,8 +1,5 @@
 """Database layer — every SQL statement in the system lives here.
-SQLite WAL mode enforced on every connection. All queries are named functions.
-Multi-tenant: all tenant tables have user_id FK to users table."""
-
-from __future__ import annotations
+SQLite WAL mode enforced on every connection. All queries are named functions."""
 
 import json
 import logging
@@ -19,35 +16,8 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY
 );
 
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL DEFAULT '',
-    picture TEXT NOT NULL DEFAULT '',
-    google_sub TEXT NOT NULL DEFAULT '',
-    twitter_access_token TEXT NOT NULL DEFAULT '',
-    twitter_access_secret TEXT NOT NULL DEFAULT '',
-    twitter_username TEXT NOT NULL DEFAULT '',
-    tone TEXT NOT NULL DEFAULT 'professional',
-    custom_link TEXT NOT NULL DEFAULT 'https://github.com/loperanger7/gstack-auto',
-    is_admin INTEGER NOT NULL DEFAULT 0,
-    onboard_step INTEGER NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS queries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    query_text TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS tweets (
     id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
     author_id TEXT NOT NULL,
     author_name TEXT NOT NULL DEFAULT '',
     follower_count INTEGER NOT NULL DEFAULT 0,
@@ -74,21 +44,17 @@ CREATE TABLE IF NOT EXISTS replies (
     scheduled_for TEXT NOT NULL,
     send_window TEXT NOT NULL,
     sent_at TEXT,
-    twitter_reply_id TEXT,
-    send_attempts INTEGER NOT NULL DEFAULT 0,
-    claimed_at TEXT
+    twitter_reply_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS cooldowns (
-    author_id TEXT NOT NULL,
-    user_id INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
-    last_replied_at TEXT NOT NULL,
-    PRIMARY KEY (author_id, user_id)
+    author_id TEXT PRIMARY KEY,
+    last_replied_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS engagement (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reply_id INTEGER NOT NULL UNIQUE REFERENCES replies(id),
+    reply_id INTEGER NOT NULL REFERENCES replies(id),
     likes INTEGER NOT NULL DEFAULT 0,
     retweets INTEGER NOT NULL DEFAULT 0,
     checked_at TEXT NOT NULL
@@ -96,7 +62,6 @@ CREATE TABLE IF NOT EXISTS engagement (
 
 CREATE TABLE IF NOT EXISTS cycles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
     started_at TEXT NOT NULL,
     completed_at TEXT,
     tweets_found INTEGER NOT NULL DEFAULT 0,
@@ -106,15 +71,11 @@ CREATE TABLE IF NOT EXISTS cycles (
 
 CREATE INDEX IF NOT EXISTS idx_tweets_status ON tweets(status);
 CREATE INDEX IF NOT EXISTS idx_tweets_follower ON tweets(follower_count DESC);
-CREATE INDEX IF NOT EXISTS idx_tweets_user ON tweets(user_id);
 CREATE INDEX IF NOT EXISTS idx_variants_tweet ON variants(tweet_id);
 CREATE INDEX IF NOT EXISTS idx_replies_scheduled ON replies(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_replies_sent ON replies(sent_at);
-CREATE INDEX IF NOT EXISTS idx_queries_user ON queries(user_id);
-CREATE INDEX IF NOT EXISTS idx_cycles_user ON cycles(user_id);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (2);
+INSERT OR IGNORE INTO schema_version (version) VALUES (1);
 """
 
 
@@ -133,110 +94,6 @@ async def init_db(conn: aiosqlite.Connection) -> None:
     await conn.commit()
 
 
-# ---- User CRUD ----
-
-async def get_or_create_user(
-    conn: aiosqlite.Connection,
-    email: str,
-    name: str = "",
-    picture: str = "",
-    google_sub: str = "",
-) -> dict:
-    """Find user by email or create new. Returns user dict."""
-    email = str(email).strip().lower()
-    if not email:
-        raise ValueError("Email is required")
-
-    cursor = await conn.execute("SELECT * FROM users WHERE email = ?", (email,))
-    row = await cursor.fetchone()
-    if row:
-        return dict(row)
-
-    now = datetime.now(timezone.utc).isoformat()
-    await conn.execute(
-        """INSERT INTO users (email, name, picture, google_sub, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (email, str(name)[:200], str(picture)[:500], str(google_sub)[:200], now, now),
-    )
-    await conn.commit()
-    cursor = await conn.execute("SELECT * FROM users WHERE email = ?", (email,))
-    return dict(await cursor.fetchone())
-
-
-async def get_user_by_id(conn: aiosqlite.Connection, user_id: int) -> dict | None:
-    """Get user by ID. Returns None if not found."""
-    if not isinstance(user_id, int) or user_id < 1:
-        return None
-    cursor = await conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    row = await cursor.fetchone()
-    return dict(row) if row else None
-
-
-async def update_user(conn: aiosqlite.Connection, user_id: int, **fields) -> bool:
-    """Update user fields. Only allows known columns."""
-    allowed = {
-        "name", "picture", "twitter_access_token", "twitter_access_secret",
-        "twitter_username", "tone", "custom_link", "is_admin",
-        "onboard_step", "is_active",
-    }
-    updates = {k: v for k, v in fields.items() if k in allowed}
-    if not updates:
-        return False
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = list(updates.values()) + [user_id]
-    await conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
-    await conn.commit()
-    return True
-
-
-async def get_all_active_users(conn: aiosqlite.Connection) -> list[dict]:
-    """Get all active users with Twitter credentials configured."""
-    cursor = await conn.execute(
-        """SELECT * FROM users
-           WHERE is_active = 1 AND twitter_access_token != ''
-           ORDER BY id"""
-    )
-    return [dict(r) for r in await cursor.fetchall()]
-
-
-async def get_all_users(conn: aiosqlite.Connection) -> list[dict]:
-    """Get all users for admin panel."""
-    cursor = await conn.execute("SELECT * FROM users ORDER BY created_at DESC")
-    return [dict(r) for r in await cursor.fetchall()]
-
-
-# ---- Query CRUD ----
-
-async def get_user_queries(conn: aiosqlite.Connection, user_id: int) -> list[dict]:
-    """Get active queries for a user."""
-    cursor = await conn.execute(
-        "SELECT * FROM queries WHERE user_id = ? AND is_active = 1 ORDER BY id",
-        (user_id,),
-    )
-    return [dict(r) for r in await cursor.fetchall()]
-
-
-async def save_user_queries(conn: aiosqlite.Connection, user_id: int, query_texts: list[str]) -> int:
-    """Replace user's queries. Deactivates old, inserts new. Returns count saved."""
-    await conn.execute("UPDATE queries SET is_active = 0 WHERE user_id = ?", (user_id,))
-    count = 0
-    now = datetime.now(timezone.utc).isoformat()
-    for qt in query_texts[:20]:  # max 20 queries per user
-        qt = str(qt).strip()[:200]
-        if not qt:
-            continue
-        await conn.execute(
-            "INSERT INTO queries (user_id, query_text, created_at) VALUES (?, ?, ?)",
-            (user_id, qt, now),
-        )
-        count += 1
-    await conn.commit()
-    return count
-
-
-# ---- Tweet CRUD (user-scoped) ----
-
 async def upsert_tweet(
     conn: aiosqlite.Connection,
     tweet_id: str,
@@ -246,7 +103,6 @@ async def upsert_tweet(
     text: str,
     thread_json: str = "[]",
     sentiment: str = "neutral",
-    user_id: int = 0,
 ) -> bool:
     """Insert a tweet if not already seen. Returns True if newly inserted."""
     tweet_id = str(tweet_id).strip() if tweet_id else ""
@@ -258,17 +114,17 @@ async def upsert_tweet(
     if sentiment not in allowed_sentiments:
         sentiment = "neutral"
     try:
+        # Check if already exists to detect true insert
         cursor = await conn.execute("SELECT 1 FROM tweets WHERE id = ?", (tweet_id,))
         if await cursor.fetchone():
             return False
         await conn.execute(
             """INSERT OR IGNORE INTO tweets
-               (id, user_id, author_id, author_name, follower_count, text,
+               (id, author_id, author_name, follower_count, text,
                 thread_json, sentiment, found_at, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
             (
                 tweet_id,
-                user_id,
                 author_id,
                 str(author_name)[:200],
                 max(0, int(follower_count)),
@@ -285,24 +141,14 @@ async def upsert_tweet(
         return False
 
 
-async def get_pending_tweets(conn: aiosqlite.Connection, user_id: int = 0) -> list[dict]:
-    """Return pending tweets with variants, ordered by follower count DESC.
-    If user_id is 0, return all (legacy/admin mode)."""
-    if user_id:
-        cursor = await conn.execute(
-            """SELECT id, author_id, author_name, follower_count, text,
-                      thread_json, sentiment, found_at
-               FROM tweets WHERE status = 'pending' AND user_id = ?
-               ORDER BY follower_count DESC""",
-            (user_id,),
-        )
-    else:
-        cursor = await conn.execute(
-            """SELECT id, author_id, author_name, follower_count, text,
-                      thread_json, sentiment, found_at
-               FROM tweets WHERE status = 'pending'
-               ORDER BY follower_count DESC"""
-        )
+async def get_pending_tweets(conn: aiosqlite.Connection) -> list[dict]:
+    """Return pending tweets with variants, ordered by follower count DESC."""
+    cursor = await conn.execute(
+        """SELECT id, author_id, author_name, follower_count, text,
+                  thread_json, sentiment, found_at
+           FROM tweets WHERE status = 'pending'
+           ORDER BY follower_count DESC"""
+    )
     rows = await cursor.fetchall()
     result = []
     for row in rows:
@@ -346,38 +192,40 @@ async def approve_variant(
     tweet_id: str,
     variant_id: int,
     reply_text: str,
-) -> int | None:
-    """Approve a variant — marks tweet as 'posted', creates reply row.
-    Returns reply_id on success, None on failure."""
+    scheduled_for: str,
+    send_window: str,
+) -> bool:
+    """Approve a variant and queue reply. Returns False if tweet not pending."""
+    allowed_windows = {"morning", "lunch", "evening"}
+    if send_window not in allowed_windows:
+        log.warning("Invalid send_window: %s", send_window)
+        return False
     if len(reply_text) > 280:
         log.warning("Reply text exceeds 280 chars, rejecting")
-        return None
+        return False
     cursor = await conn.execute(
         "SELECT id FROM variants WHERE id = ? AND tweet_id = ?",
         (variant_id, tweet_id),
     )
     if not await cursor.fetchone():
         log.warning("Variant %d not found for tweet %s", variant_id, tweet_id)
-        return None
+        return False
     cursor = await conn.execute(
-        "UPDATE tweets SET status = 'posted' WHERE id = ? AND status = 'pending'",
+        "UPDATE tweets SET status = 'approved' WHERE id = ? AND status = 'pending'",
         (tweet_id,),
     )
     if cursor.rowcount == 0:
-        return None
+        return False
     await conn.execute(
         "UPDATE variants SET chosen = 1 WHERE id = ?", (variant_id,)
     )
-    now = datetime.now(timezone.utc).isoformat()
     await conn.execute(
-        """INSERT INTO replies (tweet_id, variant_id, reply_text, scheduled_for, send_window, sent_at)
-           VALUES (?, ?, ?, ?, '', ?)""",
-        (tweet_id, variant_id, reply_text, now, now),
+        """INSERT INTO replies (tweet_id, variant_id, reply_text, scheduled_for, send_window)
+           VALUES (?, ?, ?, ?, ?)""",
+        (tweet_id, variant_id, reply_text, scheduled_for, send_window),
     )
     await conn.commit()
-    cursor = await conn.execute("SELECT last_insert_rowid()")
-    row = await cursor.fetchone()
-    return row[0]
+    return True
 
 
 async def skip_tweet(conn: aiosqlite.Connection, tweet_id: str) -> bool:
@@ -391,29 +239,59 @@ async def skip_tweet(conn: aiosqlite.Connection, tweet_id: str) -> bool:
 
 
 async def check_cooldown(
-    conn: aiosqlite.Connection, author_id: str, cooldown_days: int = 7,
-    user_id: int = 0,
+    conn: aiosqlite.Connection, author_id: str, cooldown_days: int = 7
 ) -> bool:
-    """Returns True if author is on cooldown for this user."""
+    """Returns True if author is on cooldown (we should skip)."""
     cursor = await conn.execute(
-        "SELECT last_replied_at FROM cooldowns WHERE author_id = ? AND user_id = ?",
-        (author_id, user_id),
+        "SELECT last_replied_at FROM cooldowns WHERE author_id = ?",
+        (author_id,),
     )
     row = await cursor.fetchone()
     if row is None:
         return False
     if cooldown_days <= 0:
-        return True
+        return True  # 0 or negative = permanent cooldown (fail closed)
     last = datetime.fromisoformat(row["last_replied_at"])
     now = datetime.now(timezone.utc)
     return (now - last).days < cooldown_days
 
 
-async def update_cooldown(conn: aiosqlite.Connection, author_id: str, user_id: int = 0) -> None:
-    """Set or refresh cooldown for an author per user."""
+async def update_cooldown(conn: aiosqlite.Connection, author_id: str) -> None:
+    """Set or refresh cooldown for an author."""
     await conn.execute(
-        "INSERT OR REPLACE INTO cooldowns (author_id, user_id, last_replied_at) VALUES (?, ?, ?)",
-        (author_id, user_id, datetime.now(timezone.utc).isoformat()),
+        "INSERT OR REPLACE INTO cooldowns (author_id, last_replied_at) VALUES (?, ?)",
+        (author_id, datetime.now(timezone.utc).isoformat()),
+    )
+    await conn.commit()
+
+
+async def get_send_queue(conn: aiosqlite.Connection) -> list[dict]:
+    """Return replies ready to send (scheduled time passed, not yet sent)."""
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = await conn.execute(
+        """SELECT r.id as reply_id, r.tweet_id, r.reply_text, r.send_window,
+                  t.author_id, t.author_name
+           FROM replies r
+           JOIN tweets t ON t.id = r.tweet_id
+           WHERE r.sent_at IS NULL AND r.scheduled_for <= ?
+           ORDER BY r.scheduled_for ASC""",
+        (now,),
+    )
+    return [dict(row) for row in await cursor.fetchall()]
+
+
+async def mark_sent(
+    conn: aiosqlite.Connection, reply_id: int, twitter_reply_id: str
+) -> None:
+    """Mark a reply as sent. Only updates if not already sent (idempotent)."""
+    await conn.execute(
+        "UPDATE replies SET sent_at = ?, twitter_reply_id = ? WHERE id = ? AND sent_at IS NULL",
+        (datetime.now(timezone.utc).isoformat(), str(twitter_reply_id), reply_id),
+    )
+    await conn.execute(
+        """UPDATE tweets SET status = 'replied'
+           WHERE id = (SELECT tweet_id FROM replies WHERE id = ?)""",
+        (reply_id,),
     )
     await conn.commit()
 
@@ -426,76 +304,24 @@ async def mark_stale(conn: aiosqlite.Connection, tweet_id: str) -> None:
     await conn.commit()
 
 
-async def undo_posted(conn: aiosqlite.Connection, reply_id: int, user_id: int) -> bool:
-    """Undo a 'posted' action — delete the reply row, reset tweet to pending.
-    Only works if the reply belongs to this user. Returns True on success."""
-    cursor = await conn.execute(
-        """SELECT r.id, r.tweet_id FROM replies r
-           JOIN tweets t ON t.id = r.tweet_id
-           WHERE r.id = ? AND t.user_id = ?""",
-        (reply_id, user_id),
-    )
-    row = await cursor.fetchone()
-    if not row:
-        return False
-    tweet_id = row["tweet_id"]
-    await conn.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
-    await conn.execute(
-        "UPDATE variants SET chosen = 0 WHERE tweet_id = ?", (tweet_id,)
-    )
-    await conn.execute(
-        "UPDATE tweets SET status = 'pending' WHERE id = ?", (tweet_id,)
-    )
-    await conn.commit()
-    return True
-
-
-async def save_reply_url(
-    conn: aiosqlite.Connection, reply_id: int, twitter_reply_id: str, user_id: int
-) -> bool:
-    """Save the Twitter reply URL/ID for engagement tracking. User-scoped."""
-    cursor = await conn.execute(
-        """SELECT r.id FROM replies r
-           JOIN tweets t ON t.id = r.tweet_id
-           WHERE r.id = ? AND t.user_id = ?""",
-        (reply_id, user_id),
-    )
-    if not await cursor.fetchone():
-        return False
-    await conn.execute(
-        "UPDATE replies SET twitter_reply_id = ? WHERE id = ?",
-        (str(twitter_reply_id), reply_id),
-    )
-    await conn.commit()
-    return True
-
-
-async def get_recently_posted(conn: aiosqlite.Connection, user_id: int, limit: int = 10) -> list[dict]:
-    """Get recently posted replies for the dashboard 'recently replied' section."""
-    cursor = await conn.execute(
-        """SELECT r.id as reply_id, r.reply_text, r.sent_at, r.twitter_reply_id,
-                  t.id as tweet_id, t.author_name, t.author_id
-           FROM replies r
-           JOIN tweets t ON t.id = r.tweet_id
-           WHERE t.user_id = ? AND t.status = 'posted'
-           ORDER BY r.sent_at DESC LIMIT ?""",
-        (user_id, limit),
-    )
-    return [dict(row) for row in await cursor.fetchall()]
-
-
 async def upsert_engagement(
     conn: aiosqlite.Connection, reply_id: int, likes: int, retweets: int
 ) -> None:
     """Insert or update engagement metrics for a reply."""
     now = datetime.now(timezone.utc).isoformat()
-    await conn.execute(
-        """INSERT INTO engagement (reply_id, likes, retweets, checked_at)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(reply_id) DO UPDATE SET
-               likes = excluded.likes, retweets = excluded.retweets, checked_at = excluded.checked_at""",
-        (reply_id, max(0, likes), max(0, retweets), now),
+    cursor = await conn.execute(
+        "SELECT id FROM engagement WHERE reply_id = ?", (reply_id,)
     )
+    if await cursor.fetchone():
+        await conn.execute(
+            "UPDATE engagement SET likes=?, retweets=?, checked_at=? WHERE reply_id=?",
+            (max(0, likes), max(0, retweets), now, reply_id),
+        )
+    else:
+        await conn.execute(
+            "INSERT INTO engagement (reply_id, likes, retweets, checked_at) VALUES (?,?,?,?)",
+            (reply_id, max(0, likes), max(0, retweets), now),
+        )
     await conn.commit()
 
 
@@ -517,12 +343,10 @@ async def get_replies_needing_engagement_check(
     return [dict(row) for row in await cursor.fetchall()]
 
 
-async def start_cycle(conn: aiosqlite.Connection, user_id: int = 0) -> int:
+async def start_cycle(conn: aiosqlite.Connection) -> int:
     """Record cycle start. Returns cycle_id."""
     now = datetime.now(timezone.utc).isoformat()
-    await conn.execute(
-        "INSERT INTO cycles (user_id, started_at) VALUES (?, ?)", (user_id, now)
-    )
+    await conn.execute("INSERT INTO cycles (started_at) VALUES (?)", (now,))
     await conn.commit()
     cursor = await conn.execute("SELECT last_insert_rowid()")
     row = await cursor.fetchone()
@@ -546,76 +370,40 @@ async def end_cycle(
     await conn.commit()
 
 
-async def get_cycle_history(conn: aiosqlite.Connection, limit: int = 50, user_id: int = 0) -> list[dict]:
-    """Get recent cycles, optionally filtered by user."""
-    if user_id:
-        cursor = await conn.execute(
-            "SELECT * FROM cycles WHERE user_id = ? ORDER BY id DESC LIMIT ?",
-            (user_id, limit),
-        )
-    else:
-        cursor = await conn.execute(
-            "SELECT * FROM cycles ORDER BY id DESC LIMIT ?", (limit,)
-        )
+async def get_cycle_history(conn: aiosqlite.Connection, limit: int = 50) -> list[dict]:
+    """Get recent cycles."""
+    cursor = await conn.execute(
+        "SELECT * FROM cycles ORDER BY id DESC LIMIT ?", (limit,)
+    )
     return [dict(r) for r in await cursor.fetchall()]
 
 
-async def get_stats(conn: aiosqlite.Connection, user_id: int = 0) -> dict:
-    """Aggregate stats, optionally scoped to user."""
-    user_filter = " AND user_id = ?" if user_id else ""
-    user_params = (user_id,) if user_id else ()
-
+async def get_stats(conn: aiosqlite.Connection) -> dict:
+    """Aggregate stats for the stats page."""
     counts = {}
     for status in ("pending", "replied", "skipped", "stale", "approved"):
         cursor = await conn.execute(
-            f"SELECT COUNT(*) as c FROM tweets WHERE status=?{user_filter}",
-            (status,) + user_params,
+            "SELECT COUNT(*) as c FROM tweets WHERE status=?", (status,)
         )
         counts[status] = (await cursor.fetchone())["c"]
 
-    cursor = await conn.execute(
-        f"SELECT COUNT(*) as c FROM tweets WHERE 1=1{user_filter}", user_params
-    )
+    cursor = await conn.execute("SELECT COUNT(*) as c FROM tweets")
     counts["total"] = (await cursor.fetchone())["c"]
 
-    # Engagement — join through replies/tweets for user scoping
-    if user_id:
-        cursor = await conn.execute(
-            """SELECT COALESCE(SUM(e.likes),0) as l, COALESCE(SUM(e.retweets),0) as r
-               FROM engagement e
-               JOIN replies rp ON rp.id = e.reply_id
-               JOIN tweets t ON t.id = rp.tweet_id
-               WHERE t.user_id = ?""",
-            (user_id,),
-        )
-    else:
-        cursor = await conn.execute(
-            "SELECT COALESCE(SUM(likes),0) as l, COALESCE(SUM(retweets),0) as r FROM engagement"
-        )
+    cursor = await conn.execute(
+        "SELECT COALESCE(SUM(likes),0) as l, COALESCE(SUM(retweets),0) as r FROM engagement"
+    )
     eng = await cursor.fetchone()
 
-    if user_id:
-        cursor = await conn.execute(
-            """SELECT r.send_window, COUNT(*) as count,
-                      COALESCE(SUM(e.likes),0) as likes,
-                      COALESCE(SUM(e.retweets),0) as retweets
-               FROM replies r
-               JOIN tweets t ON t.id = r.tweet_id
-               LEFT JOIN engagement e ON e.reply_id = r.id
-               WHERE r.sent_at IS NOT NULL AND t.user_id = ?
-               GROUP BY r.send_window""",
-            (user_id,),
-        )
-    else:
-        cursor = await conn.execute(
-            """SELECT r.send_window, COUNT(*) as count,
-                      COALESCE(SUM(e.likes),0) as likes,
-                      COALESCE(SUM(e.retweets),0) as retweets
-               FROM replies r
-               LEFT JOIN engagement e ON e.reply_id = r.id
-               WHERE r.sent_at IS NOT NULL
-               GROUP BY r.send_window"""
-        )
+    cursor = await conn.execute(
+        """SELECT r.send_window, COUNT(*) as count,
+                  COALESCE(SUM(e.likes),0) as likes,
+                  COALESCE(SUM(e.retweets),0) as retweets
+           FROM replies r
+           LEFT JOIN engagement e ON e.reply_id = r.id
+           WHERE r.sent_at IS NOT NULL
+           GROUP BY r.send_window"""
+    )
     window_stats = [dict(r) for r in await cursor.fetchall()]
 
     return {
@@ -643,6 +431,7 @@ async def get_health(conn: aiosqlite.Connection) -> dict:
     )
     last_error = await cursor.fetchone()
 
+    # Error count in last 24 hours
     cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     cursor = await conn.execute(
         "SELECT COUNT(*) as c FROM cycles WHERE errors != '' AND started_at >= ?",
@@ -650,6 +439,7 @@ async def get_health(conn: aiosqlite.Connection) -> dict:
     )
     error_count_24h = (await cursor.fetchone())["c"]
 
+    # Total tweets and replies sent
     cursor = await conn.execute("SELECT COUNT(*) as c FROM tweets")
     total_tweets = (await cursor.fetchone())["c"]
 
@@ -657,9 +447,6 @@ async def get_health(conn: aiosqlite.Connection) -> dict:
         "SELECT COUNT(*) as c FROM replies WHERE sent_at IS NOT NULL"
     )
     total_replies_sent = (await cursor.fetchone())["c"]
-
-    cursor = await conn.execute("SELECT COUNT(*) as c FROM users")
-    total_users = (await cursor.fetchone())["c"]
 
     return {
         "status": "ok",
@@ -669,12 +456,12 @@ async def get_health(conn: aiosqlite.Connection) -> dict:
         "error_count_24h": error_count_24h,
         "total_tweets": total_tweets,
         "total_replies_sent": total_replies_sent,
-        "total_users": total_users,
     }
 
 
 async def get_weekly_digest(conn: aiosqlite.Connection, days: int = 7) -> dict:
     """Data for the weekly digest email."""
+    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     cursor = await conn.execute(
@@ -724,23 +511,3 @@ async def get_weekly_digest(conn: aiosqlite.Connection, days: int = 7) -> dict:
         "top_replies": top,
         "error_cycles": errors,
     }
-
-
-async def get_engagement_leaderboard(conn: aiosqlite.Connection, limit: int = 20) -> list[dict]:
-    """Get engagement leaderboard for admin panel."""
-    cursor = await conn.execute(
-        """SELECT u.id as user_id, u.email, u.name, u.twitter_username,
-                  COUNT(DISTINCT t.id) as tweet_count,
-                  COUNT(DISTINCT CASE WHEN t.status='replied' THEN t.id END) as reply_count,
-                  COALESCE(SUM(e.likes), 0) as total_likes,
-                  COALESCE(SUM(e.retweets), 0) as total_retweets
-           FROM users u
-           LEFT JOIN tweets t ON t.user_id = u.id
-           LEFT JOIN replies r ON r.tweet_id = t.id AND r.sent_at IS NOT NULL
-           LEFT JOIN engagement e ON e.reply_id = r.id
-           GROUP BY u.id
-           ORDER BY total_likes + total_retweets DESC
-           LIMIT ?""",
-        (limit,),
-    )
-    return [dict(r) for r in await cursor.fetchall()]

@@ -23,28 +23,19 @@ async def conn():
     c.row_factory = aiosqlite.Row
     await c.execute("PRAGMA foreign_keys=ON")
     await db.init_db(c)
-    # Create a default user for FK constraints
-    await db.get_or_create_user(c, "default@test.com", name="Default")
     yield c
     await c.close()
-
-
-@pytest_asyncio.fixture
-async def uid(conn):
-    """Return user ID of the default test user."""
-    user = await db.get_or_create_user(conn, "default@test.com")
-    return user["id"]
 
 
 class TestHostileDbInputs:
     """Test database layer with hostile/malformed inputs."""
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_tweet_id(self, conn, uid):
+    async def test_sql_injection_in_tweet_id(self, conn):
         """SQL injection attempt in tweet_id should be safely parameterized."""
         malicious_id = "'; DROP TABLE tweets; --"
         result = await db.upsert_tweet(
-            conn, malicious_id, "a1", "User", 100, "test", user_id=uid
+            conn, malicious_id, "a1", "User", 100, "test"
         )
         assert result is True
         # Table should still exist
@@ -53,19 +44,19 @@ class TestHostileDbInputs:
         assert row["c"] == 1
 
     @pytest.mark.asyncio
-    async def test_unicode_in_tweet_text(self, conn, uid):
+    async def test_unicode_in_tweet_text(self, conn):
         """Unicode characters including emoji should be handled."""
         text = "gstack is amazing! \U0001f680\U0001f525 \u2764\ufe0f"
-        result = await db.upsert_tweet(conn, "t1", "a1", "User", 100, text, user_id=uid)
+        result = await db.upsert_tweet(conn, "t1", "a1", "User", 100, text)
         assert result is True
-        tweets = await db.get_pending_tweets(conn, user_id=uid)
+        tweets = await db.get_pending_tweets(conn)
         assert tweets[0]["text"] == text
 
     @pytest.mark.asyncio
-    async def test_null_bytes_in_text(self, conn, uid):
+    async def test_null_bytes_in_text(self, conn):
         """Null bytes in text should not crash the database."""
         text = "hello\x00world"
-        result = await db.upsert_tweet(conn, "t2", "a2", "User", 100, text, user_id=uid)
+        result = await db.upsert_tweet(conn, "t2", "a2", "User", 100, text)
         assert result is True
 
     @pytest.mark.asyncio
@@ -87,21 +78,21 @@ class TestHostileDbInputs:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_very_long_author_name_truncated(self, conn, uid):
+    async def test_very_long_author_name_truncated(self, conn):
         """Extremely long author name should be truncated."""
         name = "A" * 1000
-        result = await db.upsert_tweet(conn, "t3", "a3", name, 100, "test", user_id=uid)
+        result = await db.upsert_tweet(conn, "t3", "a3", name, 100, "test")
         assert result is True
         cursor = await conn.execute("SELECT author_name FROM tweets WHERE id='t3'")
         row = await cursor.fetchone()
         assert len(row["author_name"]) <= 200
 
     @pytest.mark.asyncio
-    async def test_invalid_sentiment_defaults_to_neutral(self, conn, uid):
+    async def test_invalid_sentiment_defaults_to_neutral(self, conn):
         """Invalid sentiment value should default to neutral."""
         result = await db.upsert_tweet(
             conn, "t4", "a4", "User", 100, "test",
-            sentiment="malicious_value", user_id=uid
+            sentiment="malicious_value"
         )
         assert result is True
         cursor = await conn.execute("SELECT sentiment FROM tweets WHERE id='t4'")
@@ -109,21 +100,33 @@ class TestHostileDbInputs:
         assert row["sentiment"] == "neutral"
 
     @pytest.mark.asyncio
-    async def test_duplicate_tweet_id_returns_false(self, conn, uid):
+    async def test_duplicate_tweet_id_returns_false(self, conn):
         """Inserting same tweet_id twice should return False on second insert."""
-        await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test", user_id=uid)
-        result = await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test again", user_id=uid)
+        await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test")
+        result = await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test again")
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_approve_wrong_variant_for_tweet(self, conn, uid):
+    async def test_approve_invalid_window_rejected(self, conn):
+        """Approve with invalid send_window should be rejected."""
+        await db.upsert_tweet(conn, "t6", "a6", "User", 100, "test")
+        await db.save_variants(conn, "t6", [{"label": "A", "text": "reply"}])
+        cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t6'")
+        vid = (await cursor.fetchone())["id"]
+        result = await db.approve_variant(
+            conn, "t6", vid, "reply", "2026-01-01T00:00:00", "invalid_window"
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_approve_wrong_variant_for_tweet(self, conn):
         """Approve with variant_id that doesn't belong to tweet should fail."""
-        await db.upsert_tweet(conn, "t7", "a7", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t7", "a7", "User", 100, "test")
         await db.save_variants(conn, "t7", [{"label": "A", "text": "reply"}])
         result = await db.approve_variant(
-            conn, "t7", 99999, "reply"
+            conn, "t7", 99999, "reply", "2026-01-01T00:00:00", "morning"
         )
-        assert result is None
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_skip_nonexistent_tweet(self, conn):
@@ -132,34 +135,33 @@ class TestHostileDbInputs:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_cooldown_with_zero_days(self, conn, uid):
+    async def test_cooldown_with_zero_days(self, conn):
         """Zero cooldown days means always on cooldown after first reply."""
-        await db.update_cooldown(conn, "author-1", user_id=uid)
-        result = await db.check_cooldown(conn, "author-1", 0, user_id=uid)
+        await db.update_cooldown(conn, "author-1")
+        result = await db.check_cooldown(conn, "author-1", 0)
         # 0 days means "same day" — should still be on cooldown
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_malformed_thread_json(self, conn, uid):
+    async def test_malformed_thread_json(self, conn):
         """Malformed thread_json should not crash get_pending_tweets."""
         await db.upsert_tweet(
             conn, "t8", "a8", "User", 100, "test",
             thread_json="not valid json {{{",
-            user_id=uid,
         )
-        tweets = await db.get_pending_tweets(conn, user_id=uid)
+        tweets = await db.get_pending_tweets(conn)
         assert len(tweets) == 1
         assert tweets[0]["thread"] == []  # fallback to empty
 
     @pytest.mark.asyncio
-    async def test_engagement_negative_values_clamped(self, conn, uid):
+    async def test_engagement_negative_values_clamped(self, conn):
         """Negative engagement values should be clamped to 0."""
-        await db.upsert_tweet(conn, "t9", "a9", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t9", "a9", "User", 100, "test")
         await db.save_variants(conn, "t9", [{"label": "A", "text": "reply"}])
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t9'")
         vid = (await cursor.fetchone())["id"]
         await db.approve_variant(
-            conn, "t9", vid, "reply"
+            conn, "t9", vid, "reply", "2026-01-01T00:00:00", "morning"
         )
         cursor = await conn.execute("SELECT id FROM replies WHERE tweet_id='t9'")
         rid = (await cursor.fetchone())["id"]
@@ -188,6 +190,7 @@ class TestTwitterEdgeCases:
 
     def test_post_reply_rejects_empty_text(self):
         """post_reply should reject empty text synchronously."""
+        # This is tested via the TwitterError it raises
         pass  # covered in test_twitter.py
 
 

@@ -1,12 +1,14 @@
-"""Dashboard routes — approval queue with Twitter intent URLs. Auth required. User-scoped."""
+"""Dashboard routes — approval queue, approve, skip. Auth required."""
 
-from __future__ import annotations
-
-import asyncio
 import logging
 import re
-import urllib.parse
+from datetime import datetime
 from pathlib import Path
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -17,26 +19,8 @@ import db
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-
-def _classify_tier(follower_count: int | None) -> str:
-    """Classify a tweet's priority tier based on follower count.
-
-    Returns "hot", "warm", or "normal".
-    None/falsy follower_count is treated as normal.
-    """
-    if not follower_count:
-        return "normal"
-    try:
-        count = int(follower_count)
-    except (TypeError, ValueError):
-        return "normal"
-    a = _get_app()
-    if count >= a.HOT_TWEET_THRESHOLD:
-        return "hot"
-    if count >= a.WARM_TWEET_THRESHOLD:
-        return "warm"
-    return "normal"
-
+VALID_SEND_WINDOWS = {"morning", "lunch", "evening"}
+ET = ZoneInfo("America/New_York")
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -51,57 +35,42 @@ def _get_app():
     return app_module
 
 
-def _intent_url(tweet_id: str, text: str) -> str:
-    """Build Twitter intent URL for replying to a tweet."""
-    return (
-        "https://x.com/intent/post?"
-        + urllib.parse.urlencode({"in_reply_to": tweet_id, "text": text})
-    )
-
-
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
+    if not a.check_auth(request):
         return a._deny()
 
     conn = await db.get_connection(a.DB_PATH)
     try:
-        user = await db.get_user_by_id(conn, user_id)
-        if not user:
-            return a._deny()
-
-        if user.get("onboard_step", 0) < 3:
-            return RedirectResponse("/onboard", status_code=302)
-
-        tweets = await db.get_pending_tweets(conn, user_id=user_id)
-        recently_posted = await db.get_recently_posted(conn, user_id)
+        tweets = await db.get_pending_tweets(conn)
         health_data = await db.get_health(conn)
-
-        user_cycles = await db.get_cycle_history(conn, limit=1, user_id=user_id)
-        if not user_cycles:
-            import jobs
-            asyncio.create_task(jobs.trigger_first_monitor(user_id))
     finally:
         await conn.close()
 
-    # Classify priority tier for each tweet
-    for tweet in tweets:
-        tweet["tier"] = _classify_tier(tweet.get("follower_count"))
+    # Auto-select nearest upcoming send window
+    et_hour = datetime.now(ET).hour
+    if et_hour < 11:
+        default_window = "morning"
+    elif et_hour < 14:
+        default_window = "lunch"
+    else:
+        default_window = "evening"
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "tweets": tweets,
-            "recently_posted": recently_posted,
+            "send_windows": VALID_SEND_WINDOWS,
             "last_cycle": health_data.get("last_cycle"),
             "error_count_24h": health_data.get("error_count_24h", 0),
+            "current_et_hour": et_hour,
+            "default_window": default_window,
             "active_page": "dashboard",
-            "user": user,
         },
     )
+    return a._set_auth_cookie(response)
 
 
 @router.post("/approve")
@@ -110,12 +79,13 @@ async def approve(
     tweet_id: str = Form(...),
     variant_id: int = Form(...),
     reply_text: str = Form(""),
+    send_window: str = Form(...),
 ):
     a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
-        return a._deny_api()
+    if not a.check_auth(request):
+        return a._deny()
 
+    # Validate inputs before touching the database
     if not _TWEET_ID_RE.match(tweet_id):
         return JSONResponse({"error": "Invalid request"}, status_code=400)
     if variant_id < 1:
@@ -126,110 +96,35 @@ async def approve(
         return JSONResponse({"error": "Reply text cannot be empty"}, status_code=400)
     if len(text) > 280:
         return JSONResponse({"error": f"Reply exceeds 280 chars ({len(text)})"}, status_code=400)
+    if send_window not in VALID_SEND_WINDOWS:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
 
     conn = await db.get_connection(a.DB_PATH)
     try:
-        cursor = await conn.execute(
-            "SELECT user_id FROM tweets WHERE id = ?", (tweet_id,)
-        )
-        row = await cursor.fetchone()
-        if not row or row["user_id"] != user_id:
-            return JSONResponse({"error": "Not authorized for this tweet"}, status_code=403)
-
-        reply_id = await db.approve_variant(conn, tweet_id, variant_id, text)
-
-        # Set cooldown for this author
-        cursor = await conn.execute(
-            "SELECT author_id FROM tweets WHERE id = ?", (tweet_id,)
-        )
-        author_row = await cursor.fetchone()
-        if author_row:
-            await db.update_cooldown(conn, author_row["author_id"], user_id=user_id)
+        scheduled = a._next_send_time(send_window)
+        ok = await db.approve_variant(conn, tweet_id, variant_id, text, scheduled, send_window)
     finally:
         await conn.close()
 
-    if reply_id is None:
+    if not ok:
         return JSONResponse({"error": "Tweet not pending or variant not found"}, status_code=409)
 
-    intent = _intent_url(tweet_id, text)
-
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        return JSONResponse({"ok": True, "intent_url": intent, "reply_id": reply_id})
-    return RedirectResponse(intent, status_code=303)
-
-
-@router.post("/undo")
-async def undo(request: Request, reply_id: int = Form(...)):
-    a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
-        return a._deny_api()
-
-    if reply_id < 1:
-        return JSONResponse({"error": "Invalid request"}, status_code=400)
-
-    conn = await db.get_connection(a.DB_PATH)
-    try:
-        ok = await db.undo_posted(conn, reply_id, user_id)
-    finally:
-        await conn.close()
-
-    if not ok:
-        return JSONResponse({"error": "Cannot undo — reply not found or not yours"}, status_code=409)
-
-    if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        return JSONResponse({"ok": True, "action": "undone"})
-    return RedirectResponse("/dashboard?action=undone", status_code=303)
-
-
-@router.post("/save-reply-url")
-async def save_reply_url_endpoint(
-    request: Request,
-    reply_id: int = Form(...),
-    twitter_reply_id: str = Form(...),
-):
-    a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
-        return a._deny_api()
-
-    if reply_id < 1:
-        return JSONResponse({"error": "Invalid request"}, status_code=400)
-    # Accept a tweet ID or a full URL — extract the ID
-    tid = twitter_reply_id.strip().rstrip("/").split("/")[-1]
-    if not _TWEET_ID_RE.match(tid):
-        return JSONResponse({"error": "Invalid tweet ID or URL"}, status_code=400)
-
-    conn = await db.get_connection(a.DB_PATH)
-    try:
-        ok = await db.save_reply_url(conn, reply_id, tid, user_id)
-    finally:
-        await conn.close()
-
-    if not ok:
-        return JSONResponse({"error": "Reply not found or not yours"}, status_code=409)
-    return JSONResponse({"ok": True})
+        return JSONResponse({"ok": True, "action": "approved"})
+    return RedirectResponse("/dashboard?action=approved", status_code=303)
 
 
 @router.post("/skip")
 async def skip(request: Request, tweet_id: str = Form(...)):
     a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
-        return a._deny_api()
+    if not a.check_auth(request):
+        return a._deny()
 
     if not _TWEET_ID_RE.match(tweet_id):
         return JSONResponse({"error": "Invalid request"}, status_code=400)
 
     conn = await db.get_connection(a.DB_PATH)
     try:
-        cursor = await conn.execute(
-            "SELECT user_id FROM tweets WHERE id = ?", (tweet_id,)
-        )
-        row = await cursor.fetchone()
-        if not row or row["user_id"] != user_id:
-            return JSONResponse({"error": "Not authorized for this tweet"}, status_code=403)
-
         ok = await db.skip_tweet(conn, tweet_id)
     finally:
         await conn.close()

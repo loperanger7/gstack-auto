@@ -46,6 +46,7 @@ class TestTemplateRegression:
         path = os.path.join(os.path.dirname(__file__), "..", "templates", "stats.html")
         with open(path) as f:
             content = f.read()
+        # Check base.html too since CSS may be there
         base_path = os.path.join(os.path.dirname(__file__), "..", "templates", "base.html")
         if os.path.exists(base_path):
             with open(base_path) as f:
@@ -62,6 +63,7 @@ class TestTemplateRegression:
             base_content = f.read()
         assert ".nav-bar" in base_content, "Nav CSS should be in base.html"
 
+        # Child templates should NOT define .nav-bar
         for name in ("dashboard.html", "stats.html"):
             path = os.path.join(os.path.dirname(__file__), "..", "templates", name)
             with open(path) as f:
@@ -94,37 +96,28 @@ async def conn():
     c.row_factory = aiosqlite.Row
     await c.execute("PRAGMA foreign_keys=ON")
     await db.init_db(c)
-    # Create a default user for FK constraints
-    await db.get_or_create_user(c, "default@test.com", name="Default")
     yield c
     await c.close()
-
-
-@pytest_asyncio.fixture
-async def uid(conn):
-    """Return user ID of the default test user."""
-    user = await db.get_or_create_user(conn, "default@test.com")
-    return user["id"]
 
 
 class TestInputBoundaries:
     """Test exact boundary conditions that caused issues in round 2."""
 
     @pytest.mark.asyncio
-    async def test_tweet_text_exactly_280_chars(self, conn, uid):
+    async def test_tweet_text_exactly_280_chars(self, conn):
         """280-char tweet text should be accepted."""
         text = "a" * 280
         result = await db.upsert_tweet(
-            conn, "t1", "a1", "User", 100, text, user_id=uid
+            conn, "t1", "a1", "User", 100, text
         )
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_tweet_text_over_10000_truncated(self, conn, uid):
+    async def test_tweet_text_over_10000_truncated(self, conn):
         """Extremely long tweet text should be truncated, not rejected."""
         text = "x" * 20000
         result = await db.upsert_tweet(
-            conn, "t2", "a2", "User", 100, text, user_id=uid
+            conn, "t2", "a2", "User", 100, text
         )
         assert result is True
         cursor = await conn.execute("SELECT text FROM tweets WHERE id='t2'")
@@ -132,10 +125,10 @@ class TestInputBoundaries:
         assert len(row["text"]) <= 10000
 
     @pytest.mark.asyncio
-    async def test_negative_follower_count_clamped(self, conn, uid):
+    async def test_negative_follower_count_clamped(self, conn):
         """Negative follower count should be clamped to 0."""
         result = await db.upsert_tweet(
-            conn, "t3", "a3", "User", -500, "hello", user_id=uid
+            conn, "t3", "a3", "User", -500, "hello"
         )
         assert result is True
         cursor = await conn.execute("SELECT follower_count FROM tweets WHERE id='t3'")
@@ -143,9 +136,9 @@ class TestInputBoundaries:
         assert row["follower_count"] >= 0
 
     @pytest.mark.asyncio
-    async def test_empty_variant_text_rejected(self, conn, uid):
+    async def test_empty_variant_text_rejected(self, conn):
         """Empty variant text should not be saved."""
-        await db.upsert_tweet(conn, "t4", "a4", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t4", "a4", "User", 100, "test")
         count = await db.save_variants(conn, "t4", [
             {"label": "A", "text": ""},
             {"label": "B", "text": "Valid reply"},
@@ -153,9 +146,9 @@ class TestInputBoundaries:
         assert count == 1  # only the valid one
 
     @pytest.mark.asyncio
-    async def test_variant_over_280_truncated(self, conn, uid):
+    async def test_variant_over_280_truncated(self, conn):
         """Variant text over 280 chars should be truncated at save."""
-        await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t5", "a5", "User", 100, "test")
         count = await db.save_variants(conn, "t5", [
             {"label": "A", "text": "x" * 300},
         ])
@@ -167,27 +160,27 @@ class TestInputBoundaries:
         assert len(row["draft_text"]) <= 280
 
     @pytest.mark.asyncio
-    async def test_approve_exactly_280_chars(self, conn, uid):
+    async def test_approve_exactly_280_chars(self, conn):
         """Approving a 280-char reply should succeed."""
-        await db.upsert_tweet(conn, "t6", "a6", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t6", "a6", "User", 100, "test")
         await db.save_variants(conn, "t6", [{"label": "A", "text": "short"}])
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t6'")
         vid = (await cursor.fetchone())["id"]
         reply_text = "a" * 280
-        reply_id = await db.approve_variant(
-            conn, "t6", vid, reply_text
+        result = await db.approve_variant(
+            conn, "t6", vid, reply_text, "2026-01-01T00:00:00", "morning"
         )
-        assert reply_id is not None
+        assert result is True
 
     @pytest.mark.asyncio
-    async def test_approve_281_chars_rejected(self, conn, uid):
+    async def test_approve_281_chars_rejected(self, conn):
         """Approving a 281-char reply should fail."""
-        await db.upsert_tweet(conn, "t7", "a7", "User", 100, "test", user_id=uid)
+        await db.upsert_tweet(conn, "t7", "a7", "User", 100, "test")
         await db.save_variants(conn, "t7", [{"label": "A", "text": "short"}])
         cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id='t7'")
         vid = (await cursor.fetchone())["id"]
         reply_text = "a" * 281
-        reply_id = await db.approve_variant(
-            conn, "t7", vid, reply_text
+        result = await db.approve_variant(
+            conn, "t7", vid, reply_text, "2026-01-01T00:00:00", "morning"
         )
-        assert reply_id is None
+        assert result is False

@@ -1,16 +1,16 @@
 """FastAPI application — config, auth, lifecycle, router wiring.
-Multi-tenant with Google OAuth. Routes live in routes/. Scheduled jobs live in jobs.py."""
-
-from __future__ import annotations
+Routes live in routes/. Scheduled jobs live in jobs.py."""
 
 import asyncio
+import base64
+import hmac as _hmac
 import json
 import logging
 import os
 import signal
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, time, timezone
+from datetime import datetime, timedelta, time, timezone
 
 try:
     from zoneinfo import ZoneInfo
@@ -19,15 +19,14 @@ except ImportError:
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from itsdangerous import BadSignature, URLSafeTimedSerializer
-from starlette.middleware.sessions import SessionMiddleware
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    pass
+    pass  # python-dotenv is optional in production
 
 import db
 
@@ -55,6 +54,9 @@ else:
 # --- Configuration ---
 
 REQUIRED_ENV = [
+    "CONSUMER_KEY", "CONSUMER_KEY_SECRET",
+    "ACCESS_TOKEN", "ACCESS_TOKEN_SECRET",
+    "DASHBOARD_USERNAME", "DASHBOARD_PASSWORD",
     "AUTH_SECRET_KEY",
 ]
 
@@ -69,19 +71,7 @@ SEND_WINDOWS = {
 VALID_SEND_WINDOWS = set(SEND_WINDOWS.keys())
 DB_PATH = os.environ.get("DB_PATH", "data/gstack_replies.db")
 HOT_TWEET_THRESHOLD = int(os.environ.get("HOT_TWEET_THRESHOLD", "50000"))
-WARM_TWEET_THRESHOLD = int(os.environ.get("WARM_TWEET_THRESHOLD", "10000"))
 COOLDOWN_DAYS = int(os.environ.get("COOLDOWN_DAYS", "7"))
-
-# Google OAuth config
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-
-# Admin emails (comma-separated)
-ADMIN_EMAILS = set(
-    e.strip().lower()
-    for e in os.environ.get("ADMIN_EMAILS", "").split(",")
-    if e.strip()
-)
 
 # Global state
 shutdown_event = asyncio.Event()
@@ -95,32 +85,46 @@ def _validate_env() -> None:
         sys.exit(1)
 
 
-# --- Auth (Session-based with Google OAuth) ---
+# --- Auth ---
 
 def _get_signer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(os.environ["AUTH_SECRET_KEY"])
 
 
-def get_current_user_id(request: Request) -> int | None:
-    """Get current user ID from session. Returns None if not authenticated."""
-    user_id = request.session.get("user_id")
-    if user_id and isinstance(user_id, int) and user_id > 0:
-        return user_id
-    return None
-
-
 def check_auth(request: Request) -> bool:
-    """Check if request has a valid session. Fail closed."""
-    return get_current_user_id(request) is not None
+    """Check signed cookie or Basic Auth. Fail closed: any error = denied."""
+    cookie = request.cookies.get(COOKIE_NAME)
+    if cookie:
+        try:
+            data = _get_signer().loads(cookie, max_age=COOKIE_MAX_AGE)
+            if data == os.environ["DASHBOARD_USERNAME"]:
+                return True
+        except (BadSignature, KeyError, ValueError):
+            pass
+
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth[6:]).decode("utf-8")
+            username, password = decoded.split(":", 1)
+            if (_hmac.compare_digest(username, os.environ["DASHBOARD_USERNAME"])
+                    and _hmac.compare_digest(password, os.environ["DASHBOARD_PASSWORD"])):
+                return True
+        except (ValueError, UnicodeDecodeError, KeyError):
+            pass
+    return False
+
+
+def _set_auth_cookie(response: Response) -> Response:
+    token = _get_signer().dumps(os.environ["DASHBOARD_USERNAME"])
+    response.set_cookie(
+        COOKIE_NAME, token, max_age=COOKIE_MAX_AGE,
+        httponly=True, samesite="lax",
+    )
+    return response
 
 
 def _deny() -> Response:
-    """Redirect to login page instead of showing 401."""
-    return RedirectResponse("/auth/login", status_code=302)
-
-
-def _deny_api() -> Response:
-    """Return 401 for API endpoints."""
     body = (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -133,10 +137,35 @@ def _deny_api() -> Response:
         'p{color:#8b949e;font-size:.95rem}'
         '</style></head><body><div class="box">'
         '<h1>Unauthorized</h1>'
-        '<p>Please <a href="/auth/login" style="color:#58a6ff">log in</a> to continue.</p>'
+        '<p>Valid credentials required to access the dashboard.</p>'
         '</div></body></html>'
     )
-    return HTMLResponse(status_code=401, content=body)
+    return HTMLResponse(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="gstack"'},
+        content=body,
+    )
+
+
+# --- Send window logic ---
+
+def _is_in_send_window(window_name: str) -> bool:
+    """Check if current ET time is within the named send window."""
+    if window_name not in SEND_WINDOWS:
+        return False
+    now_et = datetime.now(ET).time()
+    start, end = SEND_WINDOWS[window_name]
+    return start <= now_et <= end
+
+
+def _next_send_time(window: str) -> str:
+    """Compute next occurrence of send window start as ISO UTC string."""
+    start, _ = SEND_WINDOWS.get(window, (time(9, 0), time(11, 0)))
+    now_et = datetime.now(ET)
+    candidate = now_et.replace(hour=start.hour, minute=0, second=0, microsecond=0)
+    if candidate < now_et:
+        candidate += timedelta(days=1)
+    return candidate.astimezone(timezone.utc).isoformat()
 
 
 # --- App lifecycle ---
@@ -163,6 +192,10 @@ async def lifespan(app: FastAPI):
     else:
         log.warning("ANTHROPIC_API_KEY not set — monitor cycle disabled")
 
+    scheduler.add_job(
+        jobs.send_approved_replies, "interval", minutes=1,
+        id="sender", max_instances=1,
+    )
     scheduler.add_job(
         jobs.check_engagement, "interval", hours=6,
         id="engagement", max_instances=1,
@@ -192,34 +225,11 @@ async def lifespan(app: FastAPI):
 from routes.health import router as health_router
 from routes.dashboard import router as dashboard_router
 from routes.stats import router as stats_router
-from routes.auth import router as auth_router
-from routes.onboarding import router as onboarding_router
-from routes.settings import router as settings_router
-from routes.admin import router as admin_router
 
 app = FastAPI(lifespan=lifespan)
-
-# Session middleware for OAuth
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.environ.get("AUTH_SECRET_KEY", "INSECURE-DEV-ONLY"),
-    max_age=COOKIE_MAX_AGE,
-    same_site="lax",
-    https_only=os.environ.get("ENVIRONMENT", "development") == "production",
-)
-
-@app.get("/")
-async def root():
-    """Redirect root to login page."""
-    return RedirectResponse("/auth/login", status_code=302)
-
 app.include_router(health_router)
-app.include_router(auth_router)
-app.include_router(onboarding_router)
 app.include_router(dashboard_router)
 app.include_router(stats_router)
-app.include_router(settings_router)
-app.include_router(admin_router)
 
 
 if __name__ == "__main__":

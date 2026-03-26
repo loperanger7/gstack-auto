@@ -1,4 +1,4 @@
-"""Stats page route — auth required. User-scoped."""
+"""Stats page route — auth required."""
 
 from pathlib import Path
 
@@ -23,30 +23,21 @@ def _get_app():
 @router.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     a = _get_app()
-    user_id = a.get_current_user_id(request)
-    if not user_id:
+    if not a.check_auth(request):
         return a._deny()
 
     conn = await db.get_connection(a.DB_PATH)
     try:
-        user = await db.get_user_by_id(conn, user_id)
-        if not user:
-            return a._deny()
-        stats = await db.get_stats(conn, user_id=user_id)
-        cycles = await db.get_cycle_history(conn, limit=20, user_id=user_id)
+        stats = await db.get_stats(conn)
+        cycles = await db.get_cycle_history(conn, limit=20)
     finally:
         await conn.close()
 
     max_window_replies = max((w["count"] for w in stats.get("window_stats", [])), default=1) or 1
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "stats.html",
-        {
-            "stats": stats,
-            "cycles": cycles,
-            "max_window_replies": max_window_replies,
-            "active_page": "stats",
-            "user": user,
-        },
+        {"stats": stats, "cycles": cycles, "max_window_replies": max_window_replies, "active_page": "stats"},
     )
+    return a._set_auth_cookie(response)

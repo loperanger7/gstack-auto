@@ -1,7 +1,6 @@
 """Tests for robustness improvements — error handling, connection failures, edge cases."""
 
 import base64
-import json
 import os
 import sys
 from unittest.mock import AsyncMock, patch
@@ -14,67 +13,54 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import db
 
 
-def _set_session_cookie(client, user_id: int, email: str = "test@example.com"):
-    """Set a valid session cookie for the Starlette SessionMiddleware."""
-    from itsdangerous import TimestampSigner
-    secret = "test-secret-key-for-signing"
-    signer = TimestampSigner(secret)
-    data = {"user_id": user_id, "user_email": email, "user_name": "Test"}
-    payload = base64.b64encode(json.dumps(data).encode()).decode()
-    signed = signer.sign(payload).decode()
-    client.cookies.set("session", signed)
-    return client
-
-
 @pytest_asyncio.fixture
 async def seeded_db(tmp_path):
-    """File-based SQLite DB with a user for robustness tests."""
+    """File-based SQLite DB for robustness tests."""
     db_path = str(tmp_path / "robust_test.db")
     conn = await db.get_connection(db_path)
     await db.init_db(conn)
-    user = await db.get_or_create_user(conn, "test@example.com", name="Test")
-    await db.update_user(conn, user["id"], onboard_step=3,
-                         twitter_access_token="t", twitter_access_secret="s")
     await conn.close()
 
     import app as app_module
     old_path = app_module.DB_PATH
     app_module.DB_PATH = db_path
-    yield db_path, user["id"]
+    yield db_path
     app_module.DB_PATH = old_path
 
 
 @pytest.fixture
 def client(seeded_db):
-    from starlette.testclient import TestClient
+    from fastapi.testclient import TestClient
     import app as app_module
-    _, user_id = seeded_db
-    c = TestClient(app_module.app)
-    _set_session_cookie(c, user_id=user_id)
-    return c
+    return TestClient(app_module.app)
+
+
+def _auth():
+    creds = base64.b64encode(b"testuser:testpass").decode()
+    return {"Authorization": f"Basic {creds}"}
 
 
 # --- Health endpoint robustness ---
 
-def test_health_returns_json_on_db_error(seeded_db):
+def test_health_returns_json_on_db_error(client):
     """Health endpoint returns 503 JSON even when DB is unreachable."""
-    from starlette.testclient import TestClient
     import app as app_module
     old = app_module.DB_PATH
     app_module.DB_PATH = "/nonexistent/path/bad.db"
     try:
-        c = TestClient(app_module.app)
-        resp = c.get("/health")
+        resp = client.get("/health")
         assert resp.status_code == 503
         data = resp.json()
         assert data["status"] == "error"
-        assert "detail" in data
+        assert "detail" in data  # Error detail included
     finally:
         app_module.DB_PATH = old
 
 
 def test_health_error_detail_truncated():
     """Error detail is truncated to 100 chars to prevent info leak."""
+    # The health endpoint truncates str(e)[:100]
+    # Verify this behavior in the route code
     import routes.health as h
     assert "str(e)[:100]" in open(h.__file__).read()
 
@@ -83,82 +69,79 @@ def test_health_error_detail_truncated():
 
 def test_dashboard_returns_200_with_empty_db(client):
     """Dashboard works even when DB has no tweets."""
-    resp = client.get("/dashboard")
+    resp = client.get("/dashboard", headers=_auth())
     assert resp.status_code == 200
-    assert "No tweets" in resp.text
+    assert "No tweets to review" in resp.text
 
 
-def test_approve_nonexistent_tweet_returns_error(client):
-    """Approve with nonexistent tweet returns 403 (not owned) or 409, not 500."""
-    resp = client.post("/approve", data={
+def test_approve_nonexistent_tweet_returns_409(client):
+    """Approve with nonexistent tweet returns 409, not 500."""
+    resp = client.post("/approve", headers=_auth(), data={
         "tweet_id": "does-not-exist",
         "variant_id": "1",
         "reply_text": "Hello!",
+        "send_window": "morning",
     })
-    # 403 because the tweet doesn't exist so ownership check fails
-    assert resp.status_code in (403, 409)
+    assert resp.status_code == 409
 
 
-def test_skip_nonexistent_tweet_returns_error(client):
-    """Skip with nonexistent tweet returns 403 (not owned) or 409, not 500."""
-    resp = client.post("/skip", data={
+def test_skip_nonexistent_tweet_returns_409(client):
+    """Skip with nonexistent tweet returns 409, not 500."""
+    resp = client.post("/skip", headers=_auth(), data={
         "tweet_id": "does-not-exist",
     })
-    assert resp.status_code in (403, 409)
+    assert resp.status_code == 409
 
 
 # --- Input boundary robustness ---
 
 def test_approve_variant_id_zero_rejected(client):
     """variant_id=0 is rejected (must be >= 1)."""
-    resp = client.post("/approve", data={
+    resp = client.post("/approve", headers=_auth(), data={
         "tweet_id": "t1",
         "variant_id": "0",
         "reply_text": "Hello!",
+        "send_window": "morning",
     })
     assert resp.status_code == 400
 
 
 def test_approve_negative_variant_id_rejected(client):
     """Negative variant_id is rejected."""
-    resp = client.post("/approve", data={
+    resp = client.post("/approve", headers=_auth(), data={
         "tweet_id": "t1",
         "variant_id": "-1",
         "reply_text": "Hello!",
+        "send_window": "morning",
     })
     assert resp.status_code == 400
 
 
 def test_approve_exactly_280_chars_accepted(seeded_db):
     """Reply of exactly 280 chars is accepted."""
-    import asyncio
-    db_path, user_id = seeded_db
+    # Need a tweet with a variant first
+    conn_setup = __import__('asyncio').get_event_loop().run_until_complete(
+        db.get_connection(seeded_db)
+    )
+    __import__('asyncio').get_event_loop().run_until_complete(
+        db.upsert_tweet(conn_setup, tweet_id="t280", author_id="a1",
+                       author_name="Test", follower_count=100, text="test")
+    )
+    __import__('asyncio').get_event_loop().run_until_complete(
+        db.save_variants(conn_setup, "t280", [{"label": "A", "text": "x" * 280}])
+    )
+    __import__('asyncio').get_event_loop().run_until_complete(conn_setup.close())
 
-    variant_id = None
-
-    async def setup():
-        nonlocal variant_id
-        conn = await db.get_connection(db_path)
-        await db.upsert_tweet(conn, tweet_id="t280", author_id="a1",
-                             author_name="Test", follower_count=100, text="test",
-                             user_id=user_id)
-        await db.save_variants(conn, "t280", [{"label": "A", "text": "x" * 280}])
-        cursor = await conn.execute("SELECT id FROM variants WHERE tweet_id = 't280'")
-        variant_id = (await cursor.fetchone())[0]
-        await conn.close()
-
-    asyncio.get_event_loop().run_until_complete(setup())
-
-    from starlette.testclient import TestClient
+    from fastapi.testclient import TestClient
     import app as app_module
-    c = TestClient(app_module.app)
-    _set_session_cookie(c, user_id=user_id)
+    client = TestClient(app_module.app)
 
-    resp = c.post("/approve", data={
+    creds = base64.b64encode(b"testuser:testpass").decode()
+    resp = client.post("/approve", headers={"Authorization": f"Basic {creds}"}, data={
         "tweet_id": "t280",
-        "variant_id": str(variant_id),
+        "variant_id": "1",
         "reply_text": "x" * 280,
-    }, follow_redirects=False)
-    # Should redirect to Twitter intent URL, not 400
-    assert resp.status_code == 303
-    assert "x.com/intent/post" in resp.headers.get("location", "")
+        "send_window": "morning",
+    })
+    # Should be accepted (200 or 303 redirect, not 400)
+    assert resp.status_code in (200, 303)

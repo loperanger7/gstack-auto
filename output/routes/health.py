@@ -33,9 +33,9 @@ async def health():
             try:
                 await conn.close()
             except Exception:
-                pass
+                pass  # Connection close should never crash the health endpoint
 
 
 @router.get("/", response_class=HTMLResponse)
 async def index():
-    return RedirectResponse("/auth/login")
+    return RedirectResponse("/dashboard")

@@ -137,36 +137,6 @@ Changed from `repeat(3,1fr)` to `repeat(auto-fit,minmax(140px,1fr))` with `repea
 ### Favicon
 Inline SVG lightning bolt favicon on both pages.
 
-## Priority Tier Tokens
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| `tier-hot-border` | `#d4a574` | Gold left border on hot-tier cards |
-| `tier-hot-badge-bg` | `#3d2e1f` | Hot pill badge background |
-| `tier-hot-badge-text` | `#d4a574` | Hot pill badge text |
-| `tier-warm-border` | `#58a6ff` | Blue left border on warm-tier cards |
-| `tier-normal` | (none) | No special treatment |
-
-### Priority Tier Classification
-
-| Tier | Threshold | Visual Treatment |
-|------|-----------|-----------------|
-| Hot | >= 50,000 followers | Gold left border, "Hot" pill badge |
-| Warm | >= 10,000 followers | Blue left border, no badge |
-| Normal | < 10,000 followers | Default card styling |
-
-Thresholds are configurable via `HOT_TWEET_THRESHOLD` and `WARM_TWEET_THRESHOLD` env vars.
-
-### Tier Component Spec
-
-- **Hot card**: 3px left border `#d4a574`, pill badge "Hot" (12px radius, uppercase, 0.75rem bold)
-- **Warm card**: 3px left border `#58a6ff`, no badge
-- **Normal card**: default 1px border
-- **Mobile (<=480px)**: left border becomes top border
-- **Animation**: card fade-in 200ms ease-out
-- **WCAG AA**: Gold `#d4a574` on `#161b22` = 5.2:1 contrast ratio (passes AA)
-- **WCAG AA**: Blue `#58a6ff` on `#161b22` = 5.4:1 contrast ratio (passes AA)
-
 ## Resolved Design Issues (from Phase 11 Review)
 
 1. ~~No navigation~~ -- FIXED: Shared nav bar with active state on both pages

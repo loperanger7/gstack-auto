@@ -1,8 +1,5 @@
-"""Scheduled jobs — monitor, engagement, digest, email alerts.
-Multi-tenant: iterates all active users per cycle.
-Sending removed — users post via Twitter intent URLs from the dashboard."""
-
-from __future__ import annotations
+"""Scheduled jobs — monitor, send, engagement, digest, email alerts.
+Extracted from app.py for testability and single-responsibility."""
 
 import asyncio
 import json
@@ -25,6 +22,11 @@ def _get_app():
     """Import app module. Deferred to avoid circular imports."""
     import app as app_module
     return app_module
+
+
+def _is_in_send_window(window_name: str) -> bool:
+    """Delegate to app module's send window check."""
+    return _get_app()._is_in_send_window(window_name)
 
 
 # --- Email (fire-and-forget) ---
@@ -51,187 +53,159 @@ def _send_email(subject: str, body: str) -> None:
         log.error("Email send failed: %s", e)
 
 
-def _decrypt_user_creds(user: dict) -> dict | None:
-    """Decrypt a user's Twitter credentials. Returns None on failure (fail closed)."""
-    try:
-        import crypto
-        access_token = crypto.decrypt_token(user["twitter_access_token"])
-        access_secret = crypto.decrypt_token(user["twitter_access_secret"])
-        return twitter._get_credentials(
-            consumer_key=os.environ.get("CONSUMER_KEY", ""),
-            consumer_secret=os.environ.get("CONSUMER_SECRET", ""),
-            access_token=access_token,
-            access_secret=access_secret,
-        )
-    except (ValueError, KeyError) as e:
-        log.error("Failed to decrypt creds for user %s: %s", user.get("email", "?"), e)
-        return None
-
-
 # --- Scheduled jobs ---
 
 async def monitor_cycle() -> None:
-    """Search Twitter for all active users, classify, draft variants, store pending."""
+    """Search Twitter, classify, draft variants, store pending."""
     a = _get_app()
     if a.shutdown_event.is_set():
         return
 
-    log.info("Starting multi-tenant monitor cycle")
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        log.warning("ANTHROPIC_API_KEY not set, skipping drafting")
-        return
-
+    log.info("Starting monitor cycle")
     conn = await db.get_connection(a.DB_PATH)
-    try:
-        users = await db.get_all_active_users(conn)
-        if not users:
-            log.info("No active users with Twitter credentials, skipping cycle")
-            return
-
-        async with httpx.AsyncClient() as http_client:
-            claude_client = anthropic.AsyncAnthropic(api_key=api_key)
-
-            for user in users:
-                if a.shutdown_event.is_set():
-                    break
-                await _monitor_for_user(
-                    a, conn, http_client, claude_client, user
-                )
-    except Exception as e:
-        log.error("Monitor cycle error: %s", e, exc_info=True)
-    finally:
-        await conn.close()
-
-    log.info("Multi-tenant monitor cycle done for %d users", len(users) if 'users' in dir() else 0)
-
-
-async def trigger_first_monitor(user_id: int) -> None:
-    """Run a single-user monitor cycle immediately (e.g. after onboarding).
-    Self-contained: creates its own DB connection and API clients."""
-    a = _get_app()
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        log.warning("ANTHROPIC_API_KEY not set, skipping first monitor for user %d", user_id)
-        return
-
-    conn = await db.get_connection(a.DB_PATH)
-    try:
-        user = await db.get_user_by_id(conn, user_id)
-        if not user:
-            return
-        async with httpx.AsyncClient() as http_client:
-            claude_client = anthropic.AsyncAnthropic(api_key=api_key)
-            await _monitor_for_user(a, conn, http_client, claude_client, user)
-        log.info("First monitor cycle complete for user %d", user_id)
-    except Exception as e:
-        log.error("First monitor cycle failed for user %d: %s", user_id, e, exc_info=True)
-    finally:
-        await conn.close()
-
-
-async def _monitor_for_user(a, conn, http_client, claude_client, user):
-    """Run monitor cycle for a single user."""
-    user_id = user["id"]
     cycle_id = None
     tweets_found = 0
     drafts_created = 0
     errors_list = []
 
     try:
-        cycle_id = await db.start_cycle(conn, user_id=user_id)
+        cycle_id = await db.start_cycle(conn)
 
-        # Get user's custom queries
-        user_queries = await db.get_user_queries(conn, user_id)
-        query_texts = [q["query_text"] for q in user_queries] if user_queries else None
+        async with httpx.AsyncClient() as http_client:
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            if not api_key:
+                log.warning("ANTHROPIC_API_KEY not set, skipping drafting")
+                return
+            claude_client = anthropic.AsyncAnthropic(api_key=api_key)
 
-        mentions = await twitter.search_mentions(http_client, queries=query_texts)
-        tweets_found = len(mentions)
+            mentions = await twitter.search_mentions(http_client)
+            tweets_found = len(mentions)
 
-        for mention in mentions:
-            if a.shutdown_event.is_set():
-                break
+            for mention in mentions:
+                if a.shutdown_event.is_set():
+                    break
 
-            inserted = await db.upsert_tweet(
-                conn,
-                tweet_id=mention["id"],
-                author_id=mention["author_id"],
-                author_name=mention.get("author_name", ""),
-                follower_count=mention.get("follower_count", 0),
-                text=mention["text"],
-                user_id=user_id,
-            )
-            if not inserted:
-                continue
+                inserted = await db.upsert_tweet(
+                    conn,
+                    tweet_id=mention["id"],
+                    author_id=mention["author_id"],
+                    author_name=mention.get("author_name", ""),
+                    follower_count=mention.get("follower_count", 0),
+                    text=mention["text"],
+                )
+                if not inserted:
+                    continue
 
-            if await db.check_cooldown(conn, mention["author_id"], a.COOLDOWN_DAYS, user_id=user_id):
-                log.info("Skipping %s — author on cooldown for user %d", mention["id"], user_id)
-                continue
+                if await db.check_cooldown(conn, mention["author_id"], a.COOLDOWN_DAYS):
+                    log.info("Skipping %s — author on cooldown", mention["id"])
+                    continue
 
-            thread = []
-            conv_id = mention.get("conversation_id", mention["id"])
-            if conv_id:
-                thread = await twitter.fetch_thread(http_client, conv_id)
+                thread = []
+                conv_id = mention.get("conversation_id", mention["id"])
+                if conv_id:
+                    thread = await twitter.fetch_thread(http_client, conv_id)
 
-            thread_json = json.dumps(
-                [{"text": t.get("text", "")} for t in thread] if thread else []
-            )
-            await conn.execute(
-                "UPDATE tweets SET thread_json = ? WHERE id = ?",
-                (thread_json, mention["id"]),
-            )
-            await conn.commit()
+                thread_json = json.dumps(
+                    [{"text": t.get("text", "")} for t in thread] if thread else []
+                )
+                await conn.execute(
+                    "UPDATE tweets SET thread_json = ? WHERE id = ?",
+                    (thread_json, mention["id"]),
+                )
+                await conn.commit()
 
-            sentiment = await drafter.classify_sentiment(claude_client, mention["text"])
-            await conn.execute(
-                "UPDATE tweets SET sentiment = ? WHERE id = ?",
-                (sentiment, mention["id"]),
-            )
-            await conn.commit()
+                sentiment = await drafter.classify_sentiment(claude_client, mention["text"])
+                await conn.execute(
+                    "UPDATE tweets SET sentiment = ? WHERE id = ?",
+                    (sentiment, mention["id"]),
+                )
+                await conn.commit()
 
-            variants = await drafter.draft_variants(
-                claude_client,
-                tweet_text=mention["text"],
-                author_name=mention.get("author_name", ""),
-                author_username=mention.get("author_username", ""),
-                sentiment=sentiment,
-                thread=thread,
-                tone=user.get("tone", "professional"),
-                custom_link=user.get("custom_link", ""),
-            )
-            if variants:
-                count = await db.save_variants(conn, mention["id"], variants)
-                drafts_created += count
-                log.info("Drafted %d variants for tweet %s (user %d)", count, mention["id"], user_id)
+                variants = await drafter.draft_variants(
+                    claude_client,
+                    tweet_text=mention["text"],
+                    author_name=mention.get("author_name", ""),
+                    author_username=mention.get("author_username", ""),
+                    sentiment=sentiment,
+                    thread=thread,
+                )
+                if variants:
+                    count = await db.save_variants(conn, mention["id"], variants)
+                    drafts_created += count
+                    log.info("Drafted %d variants for tweet %s", count, mention["id"])
 
-                follower_count = mention.get("follower_count", 0)
-                if isinstance(follower_count, int) and follower_count >= a.HOT_TWEET_THRESHOLD:
-                    _send_email(
-                        f"HOT TWEET: {mention.get('author_name', '?')} ({follower_count:,} followers)",
-                        f"Tweet: {mention['text']}\n\nAuthor: {mention.get('author_name', '')}\n"
-                        f"Followers: {follower_count:,}\nID: {mention['id']}\nUser: {user.get('email', '')}",
-                    )
-            else:
-                log.warning("No variants for tweet %s", mention["id"])
+                    follower_count = mention.get("follower_count", 0)
+                    if isinstance(follower_count, int) and follower_count >= a.HOT_TWEET_THRESHOLD:
+                        _send_email(
+                            f"HOT TWEET: {mention.get('author_name', '?')} ({follower_count:,} followers)",
+                            f"Tweet: {mention['text']}\n\nAuthor: {mention.get('author_name', '')}\n"
+                            f"Followers: {follower_count:,}\nID: {mention['id']}",
+                        )
+                else:
+                    log.warning("No variants for tweet %s", mention["id"])
 
     except twitter.RateLimitError:
         errors_list.append("Rate limit hit")
-        log.warning("Rate limit for user %d — skipping rest of cycle", user_id)
+        log.warning("Rate limit — skipping rest of cycle")
     except twitter.TwitterAuthError:
         errors_list.append("Auth failed")
-        log.critical("Twitter auth failed for user %d", user_id)
+        log.critical("Twitter auth failed — check credentials")
+        _send_email("CRITICAL: Twitter Auth Failed", "Twitter 401. Check API credentials.")
     except Exception as e:
         errors_list.append(str(e)[:200])
-        log.error("Monitor cycle error for user %d: %s", user_id, e, exc_info=True)
+        log.error("Monitor cycle error: %s", e, exc_info=True)
     finally:
         if cycle_id is not None:
             await db.end_cycle(
                 conn, cycle_id, tweets_found, drafts_created,
                 "; ".join(errors_list),
             )
+        await conn.close()
 
-    log.info("User %d cycle done: %d found, %d drafted", user_id, tweets_found, drafts_created)
+    log.info("Monitor cycle done: %d found, %d drafted", tweets_found, drafts_created)
+
+
+async def send_approved_replies() -> None:
+    """Post approved replies whose send window is active."""
+    a = _get_app()
+    if a.shutdown_event.is_set():
+        return
+
+    conn = await db.get_connection(a.DB_PATH)
+    try:
+        queue = await db.get_send_queue(conn)
+        if not queue:
+            return
+
+        async with httpx.AsyncClient() as http_client:
+            for item in queue:
+                if a.shutdown_event.is_set():
+                    break
+
+                # Send if ANY window is active. scheduled_for already
+                # gates first-eligible time; after that, don't require
+                # exact window match or stale replies never send.
+                if not any(_is_in_send_window(w) for w in a.VALID_SEND_WINDOWS):
+                    continue
+
+                try:
+                    reply_id = await twitter.post_reply(
+                        http_client, item["tweet_id"], item["reply_text"]
+                    )
+                    await db.mark_sent(conn, item["reply_id"], reply_id)
+                    await db.update_cooldown(conn, item["author_id"])
+                    log.info("Sent reply %s to tweet %s", reply_id, item["tweet_id"])
+                    await asyncio.sleep(10)
+                except twitter.TweetDeletedError:
+                    await db.mark_stale(conn, item["tweet_id"])
+                    log.warning("Tweet %s deleted, marked stale", item["tweet_id"])
+                except twitter.RateLimitError:
+                    log.warning("Rate limited during send — will retry next cycle")
+                    break
+                except Exception as e:
+                    log.error("Send failed for tweet %s: %s", item["tweet_id"], e)
+    finally:
+        await conn.close()
 
 
 async def check_engagement() -> None:

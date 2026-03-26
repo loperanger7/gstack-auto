@@ -1,5 +1,4 @@
-"""Claude-powered reply drafting with XML-safe prompt construction.
-Multi-tenant: tone and custom link are per-user."""
+"""Claude-powered reply drafting with XML-safe prompt construction."""
 
 from __future__ import annotations
 
@@ -13,23 +12,13 @@ log = logging.getLogger(__name__)
 
 VALID_SENTIMENTS = frozenset({"praise", "question", "criticism", "neutral"})
 
-TONE_INSTRUCTIONS = {
-    "professional": "Be professional and informative. Use clear, direct language.",
-    "casual": "Be casual and friendly. Use conversational language, feel approachable.",
-    "witty": "Be witty and clever. Use humor naturally, but stay on topic.",
-    "technical": "Be technical and precise. Speak to developers with specific details.",
-    "custom": "Be authentic and natural. Match the energy of the conversation.",
-}
-
-DEFAULT_LINK = "https://github.com/loperanger7/gstack-auto"
-
-SENTIMENT_PROMPT = """Classify the sentiment of this tweet into exactly one category: praise, question, criticism, or neutral.
+SENTIMENT_PROMPT = """Classify the sentiment of this tweet about gstack into exactly one category: praise, question, criticism, or neutral.
 
 <tweet_text>{tweet_text}</tweet_text>
 
 Respond with ONLY one word: praise, question, criticism, or neutral."""
 
-DRAFT_PROMPT = """You are helping a user craft authentic Twitter replies to tweets that match their interests.
+DRAFT_PROMPT = """You are helping maintain an authentic Twitter presence for gstack-auto, an open-source project built on Garry Tan's gstack.
 
 A Twitter user posted the following tweet. Draft 2-3 reply variants.
 
@@ -38,12 +27,10 @@ A Twitter user posted the following tweet. Draft 2-3 reply variants.
 <tweet_sentiment>{sentiment}</tweet_sentiment>
 <thread_context>{thread_context}</thread_context>
 
-Tone: {tone_instruction}
-{link_instruction}
-
 Rules:
 - Each reply MUST be 280 characters or fewer
 - Be helpful and genuine, not promotional or spammy
+- If relevant, mention gstack-auto naturally (don't force it)
 - Match the tone: supportive for praise, helpful for questions, respectful for criticism, conversational for neutral
 - No hashtags, no emojis unless the original tweet uses them
 
@@ -88,11 +75,8 @@ async def draft_variants(
     sentiment: str,
     thread: list[dict] | None = None,
     retries: int = 2,
-    tone: str = "professional",
-    custom_link: str = "",
 ) -> list[dict]:
-    """Generate 2-3 reply variants. Returns list of {label, text} dicts.
-    tone and custom_link are per-user settings."""
+    """Generate 2-3 reply variants. Returns list of {label, text} dicts."""
     thread_context = ""
     if thread:
         thread_lines = []
@@ -100,21 +84,12 @@ async def draft_variants(
             thread_lines.append(f"- {_xml_escape(t.get('text', ''))}")
         thread_context = "\n".join(thread_lines)
 
-    tone_instruction = TONE_INSTRUCTIONS.get(tone, TONE_INSTRUCTIONS["professional"])
-    link = custom_link if custom_link else DEFAULT_LINK
-    if custom_link:
-        link_instruction = f"Include a link to {link} when it fits naturally — but only if it adds value to the reply. Do not force it."
-    else:
-        link_instruction = "Include a link to " + DEFAULT_LINK + " when it fits naturally — but only if it adds value to the reply. Do not force it."
-
     prompt = DRAFT_PROMPT.format(
         tweet_text=_xml_escape(tweet_text),
         author_name=_xml_escape(author_name),
         author_username=_xml_escape(author_username),
         sentiment=sentiment,
         thread_context=thread_context or "(no thread context)",
-        tone_instruction=tone_instruction,
-        link_instruction=link_instruction,
     )
 
     for attempt in range(retries + 1):
@@ -153,6 +128,7 @@ async def draft_variants(
 def _parse_variants(raw: str) -> list[dict]:
     """Parse Claude's JSON response into validated variants."""
     try:
+        # Strip markdown code fences if present
         text = raw.strip()
         if text.startswith("```"):
             lines = text.split("\n")
@@ -172,9 +148,6 @@ def _parse_variants(raw: str) -> list[dict]:
             label = str(item.get("label", "")).strip()
             draft = str(item.get("text", "")).strip()
             if not label or not draft:
-                continue
-            if label not in {"A", "B", "C", "D", "E"}:
-                log.warning("Unexpected variant label '%s', skipping", label)
                 continue
             if len(draft) > 280:
                 log.warning("Variant %s exceeds 280 chars (%d), discarding", label, len(draft))

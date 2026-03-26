@@ -8,8 +8,6 @@ itsdangerous>=2.2.0
 jinja2>=3.1.0
 python-multipart>=0.0.9
 python-dotenv>=1.0.0
-authlib>=1.3.0
-cryptography>=42.0.0
 
 # Dev/test
 pytest>=8.0.0

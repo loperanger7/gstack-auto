@@ -1,6 +1,5 @@
 """Twitter API v2 client with OAuth 1.0a signing and rate budget.
-Manual HMAC-SHA1 — no tweepy, no authlib for Twitter calls.
-Multi-tenant: search uses shared bearer, posting uses per-user credentials."""
+Manual HMAC-SHA1 — no tweepy, no authlib."""
 
 from __future__ import annotations
 
@@ -21,8 +20,7 @@ log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.twitter.com/2"
 
-# Default search queries (used as fallback if user has none)
-DEFAULT_SEARCH_QUERIES = [
+SEARCH_QUERIES = [
     "gstack",
     '"g-stack"',
     '"garry tan" gstack',
@@ -76,18 +74,12 @@ def reset_budget() -> None:
     _rate_budget["window_start"] = 0.0
 
 
-def _get_credentials(
-    consumer_key: str = "",
-    consumer_secret: str = "",
-    access_token: str = "",
-    access_secret: str = "",
-) -> dict:
-    """Get Twitter credentials. Uses explicit args if provided, else env vars."""
+def _get_credentials() -> dict:
     return {
-        "consumer_key": consumer_key or os.environ.get("CONSUMER_KEY", ""),
-        "consumer_secret": consumer_secret or os.environ.get("CONSUMER_SECRET", ""),
-        "token": access_token or os.environ.get("ACCESS_TOKEN", ""),
-        "token_secret": access_secret or os.environ.get("ACCESS_TOKEN_SECRET", ""),
+        "consumer_key": os.environ["CONSUMER_KEY"],
+        "consumer_secret": os.environ["CONSUMER_KEY_SECRET"],
+        "token": os.environ["ACCESS_TOKEN"],
+        "token_secret": os.environ["ACCESS_TOKEN_SECRET"],
     }
 
 
@@ -141,26 +133,18 @@ async def _request(
     params: dict | None = None,
     json_body: dict | None = None,
     retries: int = 2,
-    creds: dict | None = None,
-    use_bearer: bool = False,
 ) -> dict[str, Any]:
     """Authenticated request with retry, budget tracking, fail-safe error handling."""
     if not _check_budget():
         raise RateLimitError("Rate budget exhausted for this window")
 
-    _spend_budget()
+    creds = _get_credentials()
+    sig_params = {k: str(v) for k, v in params.items()} if params and method == "GET" else {}
+
+    _spend_budget()  # count once per logical call, not per retry
     for attempt in range(retries + 1):
-        if use_bearer:
-            bearer = os.environ.get("APP_BEARER_TOKEN", "")
-            if not bearer:
-                raise TwitterAuthError("APP_BEARER_TOKEN not set")
-            headers = {"Authorization": f"Bearer {bearer}"}
-        else:
-            if creds is None:
-                creds = _get_credentials()
-            sig_params = {k: str(v) for k, v in params.items()} if params and method == "GET" else {}
-            auth_header = _oauth_header(method, url, creds, sig_params if method == "GET" else None)
-            headers = {"Authorization": auth_header}
+        auth_header = _oauth_header(method, url, creds, sig_params if method == "GET" else None)
+        headers = {"Authorization": auth_header}
 
         try:
             resp = await client.request(
@@ -181,6 +165,7 @@ async def _request(
             raise TwitterError(f"Twitter connection failed: {e}")
 
         if resp.status_code in (200, 201):
+            # Sync local budget with Twitter's server-side rate limit view
             remaining = resp.headers.get("x-rate-limit-remaining")
             if remaining is not None:
                 try:
@@ -199,12 +184,7 @@ async def _request(
         if resp.status_code == 404:
             raise TweetDeletedError(f"Tweet not found (404): {resp.text[:100]}")
         if resp.status_code == 403:
-            # 403 can mean "tweet deleted" OR "reply not allowed" (Twitter free tier).
-            # Only treat it as deleted if the body doesn't mention permissions.
-            body = resp.text[:200]
-            if "not allowed" in body.lower() or "not permitted" in body.lower():
-                raise TwitterError(f"Reply permission denied (403): {body[:100]}")
-            raise TweetDeletedError(f"Forbidden (403): {body[:100]}")
+            raise TweetDeletedError(f"Forbidden (403): {resp.text[:100]}")
 
         if resp.status_code >= 500 and attempt < retries:
             log.warning("Twitter %d, retrying...", resp.status_code)
@@ -216,25 +196,21 @@ async def _request(
     return {}
 
 
-async def search_mentions(
-    client: httpx.AsyncClient,
-    queries: list[str] | None = None,
-) -> list[dict]:
-    """Search for mentions. Accepts user-specific queries or uses defaults."""
+async def search_mentions(client: httpx.AsyncClient) -> list[dict]:
+    """Search for gstack mentions. Returns list of tweet dicts."""
     all_tweets = []
     seen_ids: set[str] = set()
 
-    search_queries = queries if queries else DEFAULT_SEARCH_QUERIES
-
     usage = budget_usage_pct()
+    queries = SEARCH_QUERIES
     if usage >= 95:
         log.warning("Rate budget at %.0f%%, skipping search", usage)
         return []
     if usage >= 80:
-        search_queries = search_queries[:2]
-        log.info("Rate budget at %.0f%%, reducing to %d queries", usage, len(search_queries))
+        queries = queries[:2]
+        log.info("Rate budget at %.0f%%, reducing to %d queries", usage, len(queries))
 
-    for query in search_queries:
+    for query in queries:
         if not _check_budget():
             log.warning("Budget exhausted mid-search, stopping")
             break
@@ -246,7 +222,7 @@ async def search_mentions(
                 "tweet.fields": "author_id,created_at,conversation_id,public_metrics",
                 "expansions": "author_id",
                 "user.fields": "name,username,public_metrics",
-            }, use_bearer=True)
+            })
         except (RateLimitError, TwitterAuthError):
             raise
         except TwitterError as e:
@@ -273,7 +249,7 @@ async def search_mentions(
                 "conversation_id": t.get("conversation_id", tid),
             })
 
-    log.info("Found %d tweets across %d queries", len(all_tweets), len(search_queries))
+    log.info("Found %d tweets across %d queries", len(all_tweets), len(queries))
     return all_tweets
 
 
@@ -288,7 +264,7 @@ async def fetch_thread(
             "query": f"conversation_id:{conversation_id}",
             "max_results": str(min(max_tweets, 100)),
             "tweet.fields": "author_id,created_at,text",
-        }, use_bearer=True)
+        })
         return [
             {"id": t["id"], "text": t.get("text", ""), "author_id": t.get("author_id", "")}
             for t in data.get("data", [])[:max_tweets]
@@ -300,23 +276,14 @@ async def fetch_thread(
         return []
 
 
-async def post_reply(
-    client: httpx.AsyncClient,
-    tweet_id: str,
-    text: str,
-    user_creds: dict | None = None,
-) -> str:
-    """Post a reply using per-user credentials. Returns the new tweet's ID."""
+async def post_reply(client: httpx.AsyncClient, tweet_id: str, text: str) -> str:
+    """Post a reply. Returns the new tweet's ID."""
     if not text or len(text) > 280:
         raise TwitterError(f"Invalid reply text length: {len(text) if text else 0}")
-    data = await _request(
-        client, "POST", f"{BASE_URL}/tweets",
-        json_body={
-            "text": text,
-            "reply": {"in_reply_to_tweet_id": tweet_id},
-        },
-        creds=user_creds,
-    )
+    data = await _request(client, "POST", f"{BASE_URL}/tweets", json_body={
+        "text": text,
+        "reply": {"in_reply_to_tweet_id": tweet_id},
+    })
     reply_id = data.get("data", {}).get("id", "")
     if not reply_id:
         raise TwitterError("Twitter did not return a reply ID")

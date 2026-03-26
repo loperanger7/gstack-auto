@@ -36,8 +36,6 @@ h2{font-size:1.2rem;margin:1.5rem 0 .8rem;color:#f0f6fc;font-weight:600}
 .toast--success{border-color:#238636;color:#3fb950}
 .toast--skip{border-color:#484f58;color:#8b949e}
 .toast--error{border-color:#f85149;color:#f85149}
-.user-info{font-size:.78rem;color:#484f58}
-.tone-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:.7rem;font-weight:600;background:#1c2d4a;color:#58a6ff;margin-left:.3rem}
 @media(max-width:480px){.health-dot{width:10px;height:10px}.queue-badge{font-size:.9rem}.nav-right{gap:.5rem;font-size:.8rem}}
 @media(prefers-reduced-motion:reduce){.health-ok{animation:none}.toast{transition:none}.nav-link{transition:none}}
 {% block extra_css %}{% endblock %}
@@ -45,15 +43,11 @@ h2{font-size:1.2rem;margin:1.5rem 0 .8rem;color:#f0f6fc;font-weight:600}
 </head>
 <body>
 <nav class="nav-bar">
-  <div><h1 style="margin:0">{% block page_title %}gstack{% endblock %}</h1><div style="font-size:.65rem;color:#484f58;letter-spacing:.02em">built autonomously with <a href="https://github.com/loperanger7/gstack-auto" style="color:#6e7681;text-decoration:none;border-bottom:1px dotted #30363d">gstack-auto</a></div></div>
+  <h1>{% block page_title %}gstack{% endblock %}</h1>
   <div class="nav-right">
     {% block nav_status %}{% endblock %}
     <a href="/dashboard" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
     <a href="/stats" class="nav-link{% if active_page == 'stats' %} active{% endif %}">Stats</a>
-    <a href="/settings" class="nav-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
-    {% if user is defined and user and user.is_admin %}
-    <a href="/admin" class="nav-link{% if active_page == 'admin' %} active{% endif %}">Admin</a>
-    {% endif %}
   </div>
 </nav>
 
