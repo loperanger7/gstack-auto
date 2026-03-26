@@ -61,7 +61,7 @@ def google_callback():
     if not user:
         # New user — check if admin email
         admin_email = current_app.config.get('ADMIN_EMAIL', '')
-        is_admin = email.lower() == admin_email.lower() and admin_email
+        is_admin = bool(admin_email and email.lower() == admin_email.lower())
         is_approved = is_admin  # Admin is auto-approved
 
         user = create_user(
