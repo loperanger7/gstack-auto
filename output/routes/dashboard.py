@@ -1,5 +1,7 @@
 """Dashboard routes — approval queue with Twitter intent URLs. Auth required. User-scoped."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
@@ -14,6 +16,26 @@ import db
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _classify_tier(follower_count: int | None) -> str:
+    """Classify a tweet's priority tier based on follower count.
+
+    Returns "hot", "warm", or "normal".
+    None/falsy follower_count is treated as normal.
+    """
+    if not follower_count:
+        return "normal"
+    try:
+        count = int(follower_count)
+    except (TypeError, ValueError):
+        return "normal"
+    a = _get_app()
+    if count >= a.HOT_TWEET_THRESHOLD:
+        return "hot"
+    if count >= a.WARM_TWEET_THRESHOLD:
+        return "warm"
+    return "normal"
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -63,6 +85,10 @@ async def dashboard(request: Request):
             asyncio.create_task(jobs.trigger_first_monitor(user_id))
     finally:
         await conn.close()
+
+    # Classify priority tier for each tweet
+    for tweet in tweets:
+        tweet["tier"] = _classify_tier(tweet.get("follower_count"))
 
     return templates.TemplateResponse(
         request,

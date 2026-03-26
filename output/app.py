@@ -69,6 +69,7 @@ SEND_WINDOWS = {
 VALID_SEND_WINDOWS = set(SEND_WINDOWS.keys())
 DB_PATH = os.environ.get("DB_PATH", "data/gstack_replies.db")
 HOT_TWEET_THRESHOLD = int(os.environ.get("HOT_TWEET_THRESHOLD", "50000"))
+WARM_TWEET_THRESHOLD = int(os.environ.get("WARM_TWEET_THRESHOLD", "10000"))
 COOLDOWN_DAYS = int(os.environ.get("COOLDOWN_DAYS", "7"))
 
 # Google OAuth config
