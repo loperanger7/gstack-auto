@@ -75,9 +75,20 @@ Install [Conductor](https://conductor.build) (the AI development environment) an
 
 > Install gstack: run `git clone https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` then add a "gstack" section to CLAUDE.md that says to use the /browse skill from gstack for all web browsing, never use mcp\_\_claude-in-chrome\_\_\* tools, and lists the available skills: /plan-ceo-review, /plan-eng-review, /review, /ship, /browse, /qa, /setup-browser-cookies, /retro. Then ask the user if they also want to add gstack to the current project so teammates get it.
 
-### 2. Configure
+### 2. Start Mission Control
 
-**Option A (recommended):** Run `/office-hours` in Claude Code to brainstorm your idea interactively. It produces a structured design doc that the pipeline reads automatically.
+Mission Control is a Flask web service that manages your builds. Start it and open the browser:
+
+```bash
+python3 scripts/setup-server.py
+# opens at http://localhost:8080
+```
+
+Sign in with Google OAuth. First-time users land on the waitlist — an admin must approve your account before you can access the app.
+
+### 3. Configure your build
+
+**Option A (recommended):** Use **Office Hours** in Mission Control. A Claude-powered chat helps you define what to build and produces a structured product spec. When you're done, click "Complete" to generate the spec and proceed to the build handoff.
 
 **Option B (power users):** Edit `product-spec.md` directly with what you want built. Be specific:
 
@@ -103,7 +114,9 @@ Vague specs produce vague software.
 
 **Email (optional):** Copy `.env.example` to `.env`, add your [Gmail App Password](https://myaccount.google.com/security), and update `email.to` in `pipeline/config.yml`. Run `python3 scripts/send-email.py --probe` to verify. Or set `email.method: "file-only"` and skip it — results are always saved to disk.
 
-### 3. Run
+### 4. Run
+
+Copy the handoff prompt from Mission Control into Conductor and run the pipeline:
 
 ```
 Run the gstack-auto pipeline with N=3
@@ -111,9 +124,18 @@ Run the gstack-auto pipeline with N=3
 
 Go get coffee. Come back in 30 minutes.
 
+### 5. Iterate
+
+Once a build completes, Mission Control shows two iteration paths from the build detail page:
+
+- **Iterate** — opens a new Office Hours session pre-seeded with the parent build's context and scores. Full conversational spec refinement before the next build.
+- **Quick Fix** — type a one-liner description of what to change. Skips Office Hours and goes straight to the handoff prompt.
+
+Both paths carry the parent build's output into the next round so agents improve the existing code rather than starting from scratch.
+
 ## What You Get
 
-**Dashboard** at `localhost:8000` — ranked score cards with winner crown, live app preview iframes, round-by-round progression with score deltas, and unified diff comparison between runs.
+**Mission Control** at `localhost:8080` — build history, detail views with phase progress and scoring breakdowns, iterate and quick-fix buttons, and Fly.io deploy trigger.
 
 **Email** (if configured) — ASCII score bar charts, architectural narratives, code highlights, and git branch names for each run.
 
