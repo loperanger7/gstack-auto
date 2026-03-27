@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Settings — gstack-auto{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p class="subtitle">deploy configuration</p>
+
+<section>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Fly.io Deploy</span>
+      {% if has_deploy_config %}
+      <span class="build-status build-status-completed">configured</span>
+      {% else %}
+      <span class="build-status build-status-pending">not configured</span>
+      {% endif %}
+    </div>
+
+    <p style="margin: 1rem 0; color: var(--text-dim);">
+      Add your Fly.io API token to enable one-click re-deploy from build pages.
+      Your token is encrypted at rest.
+    </p>
+
+    <form method="post" action="{{ url_for('settings.save_deploy_config') }}">
+      <div style="margin-bottom: 1rem;">
+        <input type="password" name="fly_token"
+               placeholder="{% if has_deploy_config %}••••••••••••{% else %}fly_...{% endif %}"
+               class="input-field" style="width: 100%; max-width: 400px;">
+      </div>
+      <button type="submit" class="btn-primary">
+        {% if has_deploy_config %}Update Token{% else %}Save Token{% endif %}
+      </button>
+      {% if has_deploy_config %}
+      <button type="submit" name="fly_token" value="" class="btn-secondary"
+              onclick="return confirm('Remove your Fly API token?')">Remove</button>
+      {% endif %}
+    </form>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Account</span>
+    </div>
+    <div class="card-meta">
+      <span>{{ user.email }}</span>
+      <span>{{ user.name }}</span>
+    </div>
+  </div>
+</section>
+{% endblock %}

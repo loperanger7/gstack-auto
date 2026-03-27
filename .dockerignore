@@ -1,0 +1,15 @@
+.claude/
+.git/
+.env
+__pycache__/
+*.pyc
+instance/
+output/
+.context/
+pipeline/
+scripts/
+tests/
+product-spec.md
+results-history.json
+*.md
+!app/**
