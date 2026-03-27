@@ -2,6 +2,26 @@
 
 All notable changes to Pattaya will be documented in this file.
 
+## [0.1.16.0] - 2026-03-26
+
+### Added
+- **Build iteration:** Two paths from completed builds — full Iterate (opens office hours pre-seeded with parent context) and Quick Fix (one-liner description → straight to handoff).
+- **Build lineage tracking:** Recursive CTE ancestor chain with depth cap of 20. Iteration badges in build list and detail views.
+- **Deploy feature:** Async Fly.io re-deploy via Machines API with background thread + JSON poll endpoint. Auto-deploy hook triggers on build completion when user has deploy config.
+- **Settings page:** Manage Fly API token with Fernet encryption via dedicated `DEPLOY_ENCRYPTION_KEY`. Token validation and secure clear.
+- **Preseed role filtering:** Iteration sessions pre-seed parent context as `role='preseed'`, filtered from spec assembly to prevent spec contamination.
+- **Migration tracking:** `_migrations` table for idempotent replay of SQL migrations. Migration 002 adds iteration columns (parent_build_id, root_session_id, fly_app_name, deploy_status, deploy_config) with backfill.
+- **Auth helpers:** Extracted `require_approved_user()` to `app/auth_helpers.py` for DRY route guards.
+- **Randomized heredoc delimiter:** Handoff prompt uses `SPEC_{random_hex}` to prevent shell injection.
+- **33 new tests:** Full coverage of iterate, quick fix, lineage, deploy, settings, migrations, preseed filtering, and handoff prompt security.
+
+### Fixed
+- **Auth callback bool coercion:** Changed admin check from `email == admin and admin` to `bool(admin and email == admin)` preventing ValueError on falsy admin email.
+- **fly_app_name injection:** Regex validation (`^[a-z0-9][a-z0-9-]{0,62}$`) prevents malicious app names in results POST.
+- **conductor_url XSS:** Non-https conductor workspace URLs rejected, stored as empty string.
+- **Duplicate store_nonce:** Removed dead duplicate function from models.py.
+- **Orphaned nonce in create_build_atomic:** Removed nonce creation that was never consumed.
+
 ## [0.1.15.0] - 2026-03-25
 
 ### Added

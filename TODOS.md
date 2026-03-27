@@ -149,6 +149,28 @@ are scored identically because the rubric doesn't differentiate.
 **Effort: S**
 **Context:** Identified during v2 adversarial review.
 
+### Branching iterations (fork a build into two directions)
+Currently iteration is linear: Build 1 → Build 2 → Build 3. Users might want
+to fork: Build 1 → Build 2a (fix UX) AND Build 1 → Build 2b (add feature).
+The lineage model (parent_build_id + root_session_id) already supports this —
+the UI needs a way to pick which ancestor to iterate from and display the tree.
+**Effort: S**
+**Priority: P3**
+**Depends on:** Iteration feature (iterate-from-mission-control plan)
+**Context:** Identified during CEO review of iterate feature. Linear iteration
+covers 90% of use cases; branching adds UI complexity for a rare need.
+
+### Iteration diff viewer (side-by-side code changes)
+The iterate feature includes a text diff summary (iteration_summary), but a
+real code diff between parent and child output/ directories would let users
+see exactly what changed. Could use a simple unified diff view rendered in
+the build detail page.
+**Effort: M** (human) → S (CC)
+**Priority: P2**
+**Depends on:** Iteration feature (iterate-from-mission-control plan)
+**Context:** Identified during CEO review. Text summary is sufficient for v1;
+code diff is a power-user feature.
+
 ## P3 — Low Priority
 
 ### Chat history retention policy
