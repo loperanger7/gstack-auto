@@ -42,13 +42,20 @@ def stream_chat_response(messages, template=None):
 
     system = SYSTEM_PROMPT + get_template_system_addition(template)
 
-    # Convert our DB messages to Claude format
+    # Convert our DB messages to Claude format (skip preseed, inject as system context)
     claude_messages = []
+    preseed_context = ''
     for msg in messages:
+        if msg['role'] == 'preseed':
+            preseed_context += msg['content'] + '\n\n'
+            continue
         claude_messages.append({
             'role': msg['role'],
             'content': msg['content'],
         })
+
+    if preseed_context:
+        system += f"\n\n## Context from prior build\n{preseed_context.strip()}"
 
     client = anthropic.Anthropic(api_key=api_key)
 
@@ -88,7 +95,11 @@ def stream_chat_response(messages, template=None):
     except anthropic.APIConnectionError:
         yield sse_error('api_error', 'Could not connect to Claude API. Check your connection.')
     except anthropic.APIStatusError as e:
-        yield sse_error('api_error', f'Claude API error: {e.status_code}')
+        detail = ''
+        if hasattr(e, 'body') and isinstance(e.body, dict):
+            err = e.body.get('error', {})
+            detail = err.get('message', '')
+        yield sse_error('api_error', detail or f'Claude API error: {e.status_code}')
     except Exception as e:
         yield sse_error('api_error', f'Unexpected error: {type(e).__name__}')
 

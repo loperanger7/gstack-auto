@@ -1,5 +1,7 @@
 """Tests for machine API endpoints."""
 
+import hashlib
+import hmac as hmac_mod
 import json
 import time
 import jwt
@@ -15,6 +17,11 @@ def make_token(app, user_id=1, build_id=1, nonce='test-nonce', expired=False):
         'exp': int(time.time()) + (-3600 if expired else 86400),
     }
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+
+
+def compute_sha(nonce, body_bytes):
+    """Compute HMAC-SHA256 for payload integrity."""
+    return hmac_mod.HMAC(nonce.encode(), body_bytes, hashlib.sha256).hexdigest()
 
 
 def setup_build(db, user_id=1, build_id=1, nonce='test-nonce'):
@@ -55,15 +62,18 @@ def test_results_success(client, app, db):
     setup_build(db)
     token = make_token(app)
 
-    scores = {'average': 7.5, 'functionality': 8}
+    body = json.dumps({
+        'status': 'completed',
+        'scores': {'average': 7.5, 'functionality': 8},
+        'round_results': [],
+        'spec_title': 'Test Build',
+    })
+    sha = compute_sha('test-nonce', body.encode())
     resp = client.post('/api/v1/results',
-                       json={
-                           'status': 'completed',
-                           'scores': scores,
-                           'round_results': [],
-                           'spec_title': 'Test Build',
-                       },
-                       headers={'Authorization': f'Bearer {token}'})
+                       data=body,
+                       content_type='application/json',
+                       headers={'Authorization': f'Bearer {token}',
+                                'X-Payload-SHA': sha})
     assert resp.status_code == 200
 
     build = db.execute('SELECT * FROM builds WHERE id = 1').fetchone()
@@ -76,16 +86,21 @@ def test_results_nonce_reuse(client, app, db):
     setup_build(db)
     token = make_token(app)
 
+    body = json.dumps({'status': 'completed', 'scores': {}})
+    sha = compute_sha('test-nonce', body.encode())
+
     # First request succeeds
     resp = client.post('/api/v1/results',
-                       json={'status': 'completed', 'scores': {}},
-                       headers={'Authorization': f'Bearer {token}'})
+                       data=body, content_type='application/json',
+                       headers={'Authorization': f'Bearer {token}',
+                                'X-Payload-SHA': sha})
     assert resp.status_code == 200
 
     # Second request with same nonce fails
     resp = client.post('/api/v1/results',
-                       json={'status': 'completed', 'scores': {}},
-                       headers={'Authorization': f'Bearer {token}'})
+                       data=body, content_type='application/json',
+                       headers={'Authorization': f'Bearer {token}',
+                                'X-Payload-SHA': sha})
     assert resp.status_code == 403
 
 
@@ -107,9 +122,12 @@ def test_results_failed_build(client, app, db):
     setup_build(db)
     token = make_token(app)
 
+    body = json.dumps({'status': 'failed'})
+    sha = compute_sha('test-nonce', body.encode())
     resp = client.post('/api/v1/results',
-                       json={'status': 'failed'},
-                       headers={'Authorization': f'Bearer {token}'})
+                       data=body, content_type='application/json',
+                       headers={'Authorization': f'Bearer {token}',
+                                'X-Payload-SHA': sha})
     assert resp.status_code == 200
 
     build = db.execute('SELECT * FROM builds WHERE id = 1').fetchone()

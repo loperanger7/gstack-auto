@@ -17,6 +17,7 @@
           <a href="{{ url_for('office_hours.index') }}" class="nav-link {% if request.path.startswith('/office-hours') %}active{% endif %}">office hours</a>
           <a href="{{ url_for('builds.index') }}" class="nav-link {% if request.path.startswith('/builds') %}active{% endif %}">builds</a>
           <a href="{{ url_for('office_hours.history') }}" class="nav-link {% if request.path == '/history' %}active{% endif %}">history</a>
+          <a href="{{ url_for('settings.index') }}" class="nav-link {% if request.path.startswith('/settings') %}active{% endif %}">settings</a>
           {% if user.is_admin %}
           <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.path.startswith('/admin') %}active{% endif %}">admin</a>
           {% endif %}
@@ -28,6 +29,15 @@
 
     <main class="main-content">
       <div class="container {% block container_class %}{% endblock %}">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+          <div class="flash-msg">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
       </div>
     </main>

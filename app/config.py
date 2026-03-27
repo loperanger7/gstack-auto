@@ -8,7 +8,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 class Config:
     SECRET_KEY = os.environ['SECRET_KEY']  # Required — sessions/JWTs invalid without stable key
-    DATABASE = os.path.join(os.path.dirname(__file__), '..', 'instance', 'app.db')
+    DATABASE = os.environ.get('DATABASE_PATH', os.path.join(os.path.dirname(__file__), '..', 'instance', 'app.db'))
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
@@ -34,6 +34,9 @@ class Config:
     SMTP_PASS = os.environ.get('PATTAYA_SMTP_PASS', '')
     NOTIFY_FROM = os.environ.get('NOTIFY_FROM', '')
 
+    # Deploy encryption (Fernet key for Fly API tokens)
+    DEPLOY_ENCRYPTION_KEY = os.environ.get('DEPLOY_ENCRYPTION_KEY', '')
+
     # Server
     BASE_URL = os.environ.get('BASE_URL', 'http://127.0.0.1:5000')
 
@@ -47,3 +50,4 @@ class TestConfig(Config):
     ANTHROPIC_API_KEY = 'test-api-key'
     ADMIN_EMAIL = 'admin@test.com'
     DAILY_TOKEN_CEILING = 100000
+    DEPLOY_ENCRYPTION_KEY = 'pp2I8Bcqb3KwSsOvZ6-o-8UuQrQiSbSBYqF_TYLYPKM='  # test-only Fernet key

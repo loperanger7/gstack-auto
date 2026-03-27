@@ -13,6 +13,10 @@
   {% endif %}
 </div>
 
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
+
 <div class="chat-container" id="chat-container">
   <div class="chat-messages" id="chat-messages">
     {% if not messages %}
@@ -111,10 +115,20 @@ async function sendMessage(text) {
       const lines = buffer.split('\n');
       buffer = lines.pop();
 
+      let nextIsError = false;
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
+            if (nextIsError && data.message) {
+              assistantDiv.textContent = '[Error: ' + data.message + ']';
+              assistantDiv.classList.add('chat-error');
+              const cursor = assistantDiv.querySelector('.chat-cursor');
+              if (cursor) cursor.remove();
+              nextIsError = false;
+              streaming = false;
+              return;
+            }
             if (data.text) {
               fullText += data.text;
               assistantDiv.textContent = fullText;
@@ -122,13 +136,13 @@ async function sendMessage(text) {
               scrollToBottom();
             }
           } catch (e) {}
+          nextIsError = false;
         } else if (line.startsWith('event: done')) {
           // Remove cursor
           const cursor = assistantDiv.querySelector('.chat-cursor');
           if (cursor) cursor.remove();
         } else if (line.startsWith('event: error')) {
-          // Next data line has the error
-          // handled in the data parsing above
+          nextIsError = true;
         }
       }
     }

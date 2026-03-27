@@ -1,41 +1,65 @@
 {% extends "base.html" %}
 {% block title %}Build #{{ build.id }} — gstack-auto{% endblock %}
 {% block content %}
-<h1>Build #{{ build.id }}</h1>
-<p class="subtitle">
-  <span class="build-status build-status-{{ build.status }}">{{ build.status }}</span>
-  {% if build.completed_at %} · completed {{ build.completed_at[:16] }}{% endif %}
-</p>
 
-{% if phases %}
-<section>
-  <h2>Phase Progress</h2>
-  <div class="phase-progress-detail">
-    {% set phase_names = {
-      '01': 'CEO Plan', '02': 'Adversarial CEO', '03': 'Eng Plan',
-      '04': 'Adversarial Eng', '05': 'Design Plan', '06': 'Adversarial Design',
-      '07': 'Eng Plan v2', '08': 'Adversarial Final', '09': 'Implement',
-      '10': 'Ship', '11': 'QA', '12': 'Docs', '13': 'Score'
-    } %}
-    {% for phase_id in ['01','02','03','04','05','06','07','08','09','10','11','12','13'] %}
-    <div class="phase-row">
-      <div class="phase-dot {% if phases.get(phase_id) == 'done' %}done{% elif phases.get(phase_id) == 'running' %}active{% endif %}"></div>
-      <span class="phase-name">{{ phase_names.get(phase_id, phase_id) }}</span>
-      <span class="phase-status">{{ phases.get(phase_id, '—') }}</span>
-    </div>
-    {% endfor %}
+{# ── HEADER ─────────────────────────────────────── #}
+<div class="build-header">
+  <div class="build-header-left">
+    <h1>Build #{{ build.id }}</h1>
+    <p class="subtitle">
+      <span class="build-status build-status-{{ build.status }}">{{ build.status }}</span>
+      {% if build.parent_build_id %}
+      <span class="iteration-badge">↻ iteration of <a href="{{ url_for('builds.detail', build_id=build.parent_build_id) }}">#{{ build.parent_build_id }}</a></span>
+      {% endif %}
+      {% if build.completed_at %} · completed {{ build.completed_at[:16] }}{% endif %}
+    </p>
   </div>
-</section>
+  {% if scores %}
+  <div class="build-header-score">
+    <span class="big-score">{{ scores.get('average', '—') }}</span><span class="score-max">/10</span>
+  </div>
+  {% endif %}
+</div>
+
+{# ── ACTION ROW ─────────────────────────────────── #}
+{% if build.status == 'completed' %}
+<div class="action-row">
+  {# Quick Fix chip #}
+  <form method="post" action="{{ url_for('builds.quick_fix', build_id=build.id) }}" class="quick-fix-form">
+    <input type="text" name="fix_description" placeholder="describe the fix..." class="quick-fix-input" required>
+    <button type="submit" class="chip chip-cta">⚡ Quick Fix</button>
+  </form>
+
+  {# Iterate chip #}
+  <form method="post" action="{{ url_for('builds.iterate', build_id=build.id) }}" style="display:inline">
+    <button type="submit" class="chip chip-accent">↻ Iterate</button>
+  </form>
+
+  {# Deploy chip #}
+  {% if build.fly_app_name %}
+  <form method="post" action="{{ url_for('builds.deploy', build_id=build.id) }}" style="display:inline"
+        onsubmit="return confirm('Re-deploy {{ build.fly_app_name }}?')">
+    <button type="submit" class="chip chip-deploy" id="deploy-btn">
+      {% if build.deploy_status == 'deploying' %}
+      <span class="pulse">●</span> deploying...
+      {% elif build.deploy_status == 'deployed' %}
+      ✓ deployed
+      {% elif build.deploy_status and build.deploy_status.startswith('failed') %}
+      ✗ deploy failed
+      {% else %}
+      🚀 Deploy
+      {% endif %}
+    </button>
+  </form>
+  {% endif %}
+</div>
 {% endif %}
 
+{# ── SCORES ─────────────────────────────────────── #}
 {% if scores %}
 <section>
   <h2>Scores</h2>
   <div class="card">
-    <div class="card-header">
-      <span class="card-title">Final Scores</span>
-      <span class="card-score">{{ scores.get('average', '—') }}<span class="score-max">/10</span></span>
-    </div>
     <div class="score-bars">
       {% for dim in ['functionality', 'code_quality', 'test_coverage', 'ux_polish', 'spec_adherence', 'design_quality'] %}
       {% if scores.get(dim) is not none %}
@@ -73,6 +97,60 @@
 </section>
 {% endif %}
 
+{# ── ITERATION TIMELINE ─────────────────────────── #}
+{% if lineage and lineage|length > 1 %}
+<section>
+  <h2>Iteration History</h2>
+  <div class="timeline">
+    {% for ancestor in lineage %}
+    <div class="timeline-entry {% if ancestor.id == build.id %}timeline-current{% endif %}">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <a href="{{ url_for('builds.detail', build_id=ancestor.id) }}"
+           class="timeline-link {% if ancestor.id == build.id %}active{% endif %}">
+          Build #{{ ancestor.id }}
+        </a>
+        <span class="timeline-meta">
+          {{ ancestor.status }}
+          {% if ancestor.scores_json %}
+            {% set s = ancestor.scores_json | from_json %}
+            · {{ s.get('average', '?') }}/10
+          {% endif %}
+          {% if ancestor.iteration_summary %}
+            · {{ ancestor.iteration_summary[:60] }}
+          {% endif %}
+        </span>
+        <span class="timeline-date">{{ ancestor.created_at[:10] }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ── PHASES (collapsed) ─────────────────────────── #}
+{% if phases %}
+<details>
+  <summary><h2 style="display:inline">Phase Progress</h2></summary>
+  <div class="phase-progress-detail">
+    {% set phase_names = {
+      '01': 'CEO Plan', '02': 'Adversarial CEO', '03': 'Eng Plan',
+      '04': 'Adversarial Eng', '05': 'Design Plan', '06': 'Adversarial Design',
+      '07': 'Eng Plan v2', '08': 'Adversarial Final', '09': 'Implement',
+      '10': 'Ship', '11': 'QA', '12': 'Docs', '13': 'Score'
+    } %}
+    {% for phase_id in ['01','02','03','04','05','06','07','08','09','10','11','12','13'] %}
+    <div class="phase-row">
+      <div class="phase-dot {% if phases.get(phase_id) == 'done' %}done{% elif phases.get(phase_id) == 'running' %}active{% endif %}"></div>
+      <span class="phase-name">{{ phase_names.get(phase_id, phase_id) }}</span>
+      <span class="phase-status">{{ phases.get(phase_id, '—') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+{# ── OUTPUT ─────────────────────────────────────── #}
 {% if build.conductor_url %}
 <section>
   <h2>Output</h2>
@@ -84,4 +162,32 @@
 <div class="build-actions">
   <a href="{{ url_for('builds.index') }}" class="link-btn">← All Builds</a>
 </div>
+
+{% block scripts %}
+{% if build.deploy_status == 'deploying' %}
+<script>
+(function() {
+  var btn = document.getElementById('deploy-btn');
+  if (!btn) return;
+  var poll = setInterval(function() {
+    fetch('{{ url_for("builds.deploy_status", build_id=build.id) }}')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.deploy_status === 'deployed') {
+          btn.innerHTML = '✓ deployed';
+          btn.classList.add('chip-success');
+          clearInterval(poll);
+        } else if (d.deploy_status && d.deploy_status.indexOf('failed') === 0) {
+          btn.innerHTML = '✗ deploy failed';
+          btn.classList.add('chip-error');
+          clearInterval(poll);
+        }
+      });
+  }, 3000);
+  setTimeout(function() { clearInterval(poll); }, 120000);
+})();
+</script>
+{% endif %}
+{% endblock %}
+
 {% endblock %}

@@ -6,6 +6,7 @@ from flask import (
     request, Response, stream_with_context, current_app
 )
 
+from app.auth_helpers import require_approved_user
 from app.models import (
     get_user_by_id, count_sessions_today, count_messages_in_session,
     create_session, get_session, get_user_sessions, get_messages,
@@ -15,17 +16,6 @@ from app.services.chat import stream_chat_response, sse_error
 from app.services.spend import check_spend_allowed, record_spend
 
 office_hours_bp = Blueprint('office_hours', __name__)
-
-
-def require_approved_user():
-    """Check session and return user, or None if not authorized."""
-    user_id = session.get('user_id')
-    if not user_id:
-        return None
-    user = get_user_by_id(user_id)
-    if not user or not user['is_approved']:
-        return None
-    return user
 
 
 @office_hours_bp.route('/office-hours')
@@ -177,9 +167,21 @@ def complete(session_id):
 
     messages = get_messages(session_id)
 
-    # Build spec from conversation
+    # Guard: refuse to complete if no conversation happened
+    user_messages = [m for m in messages if m['role'] == 'user']
+    if not user_messages:
+        return render_template('chat.html',
+                               user=user,
+                               chat_session=chat_session,
+                               messages=messages,
+                               template=get_template(chat_session['template_id']) if chat_session['template_id'] else None,
+                               error='Send at least one message before completing the session.')
+
+    # Build spec from conversation (skip preseed messages)
     spec_parts = [f"# Product Specification\n\nGenerated from office hours session: {chat_session['title']}\n"]
     for msg in messages:
+        if msg['role'] == 'preseed':
+            continue
         prefix = '**User:**' if msg['role'] == 'user' else '**Consultant:**'
         spec_parts.append(f"{prefix} {msg['content']}")
 

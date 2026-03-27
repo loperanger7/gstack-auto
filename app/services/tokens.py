@@ -56,16 +56,18 @@ def verify_payload_integrity(token_payload, request_body):
     if not check_and_use_nonce(nonce):
         return False, 'Nonce already used or invalid'
 
-    # Verify payload SHA if header present (defense in depth)
+    # Verify payload SHA — mandatory for results integrity
     expected_sha = flask_request.headers.get('X-Payload-SHA')
-    if expected_sha:
-        actual_sha = compute_payload_sha(nonce, request_body)
-        if not hmac.compare_digest(expected_sha, actual_sha):
-            return False, 'Payload integrity check failed'
+    if not expected_sha:
+        return False, 'Missing X-Payload-SHA header'
+
+    actual_sha = compute_payload_sha(nonce, request_body)
+    if not hmac.compare_digest(expected_sha, actual_sha):
+        return False, 'Payload integrity check failed'
 
     return True, None
 
 
 def compute_payload_sha(nonce, body_bytes):
     """Compute the HMAC-SHA256 that the pipeline should send."""
-    return hmac.new(nonce.encode(), body_bytes, hashlib.sha256).hexdigest()  # hmac.new is an alias for hmac.HMAC
+    return hmac.HMAC(nonce.encode(), body_bytes, hashlib.sha256).hexdigest()

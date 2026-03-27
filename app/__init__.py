@@ -3,6 +3,7 @@
 import json
 import os
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import Config
 from app.models import close_db, init_db
 
@@ -24,6 +25,10 @@ def create_app(config=None):
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = not app.debug
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24h
+    app.config['PREFERRED_URL_SCHEME'] = 'https' if not app.debug else 'http'
+
+    # Trust Fly.io reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto, etc.)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # DB teardown
     app.teardown_appcontext(close_db)
@@ -38,12 +43,14 @@ def create_app(config=None):
     from app.routes.builds import builds_bp
     from app.routes.admin import admin_bp
     from app.routes.api import api_bp
+    from app.routes.settings import settings_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(office_hours_bp)
     app.register_blueprint(builds_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(settings_bp)
 
     # Custom Jinja2 filters
     @app.template_filter('from_json')

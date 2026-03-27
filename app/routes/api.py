@@ -1,11 +1,12 @@
 """Machine API endpoints — results POST, progress POST."""
 
 import json
+import re
 from flask import Blueprint, request, jsonify
 
 from app.models import (
     get_build_by_token, get_build, update_build_progress, complete_build,
-    fail_build, get_user_by_id,
+    fail_build, get_user_by_id, update_build_deploy_status,
 )
 from app.services.tokens import validate_build_token, verify_payload_integrity
 from app.services.notify import send_build_notification
@@ -60,18 +61,44 @@ def receive_results():
     status_val = data.get('status', 'completed')
     scores_json = json.dumps(data.get('scores', {}))
     round_results_json = json.dumps(data.get('round_results', []))
+
+    # Validate conductor_url — must be https or empty
     conductor_url = data.get('conductor_workspace', '')
+    if conductor_url and not conductor_url.startswith('https://'):
+        conductor_url = ''
+
+    # Store fly_app_name if provided (for deploy feature) — validate format
+    fly_app_name = data.get('fly_app_name', '')
+    if fly_app_name and not re.match(r'^[a-z0-9][a-z0-9-]{0,62}$', fly_app_name):
+        fly_app_name = ''
 
     if status_val == 'failed':
         fail_build(build_id)
     else:
         complete_build(build_id, scores_json, round_results_json, conductor_url)
 
+    # Store fly_app_name on build record
+    if fly_app_name:
+        from app.models import get_db
+        db = get_db()
+        db.execute('UPDATE builds SET fly_app_name = ? WHERE id = ?', (fly_app_name, build_id))
+        db.commit()
+
     # Send email notification (best-effort)
     user = get_user_by_id(payload.get('user_id'))
     if user:
         build = get_build(build_id)
         send_build_notification(user['email'], build, data.get('spec_title', ''))
+
+    # Auto-deploy if user has deploy config and fly_app_name is set (best-effort)
+    if fly_app_name and status_val != 'failed' and user and user['deploy_config']:
+        try:
+            from flask import current_app
+            from app.services.deploy import trigger_deploy
+            build = get_build(build_id)
+            trigger_deploy(build, user, current_app._get_current_object())
+        except Exception:
+            pass  # Auto-deploy is best-effort
 
     return jsonify({'status': 'ok', 'build_id': build_id}), 200
 

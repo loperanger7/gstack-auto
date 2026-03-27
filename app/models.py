@@ -26,19 +26,25 @@ def close_db(e=None):
 
 
 def init_db(app):
-    """Run migrations on startup."""
+    """Run migrations on startup with tracking table for idempotency."""
     db_path = app.config['DATABASE']
     if db_path == ':memory:':
         return  # Tests handle their own init
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TEXT DEFAULT (datetime(\'now\')))')
     migration_dir = os.path.join(os.path.dirname(__file__), '..', 'migrations')
     if os.path.isdir(migration_dir):
         for f in sorted(os.listdir(migration_dir)):
             if f.endswith('.sql'):
+                already = conn.execute('SELECT 1 FROM _migrations WHERE name = ?', (f,)).fetchone()
+                if already:
+                    continue
                 with open(os.path.join(migration_dir, f)) as mf:
                     conn.executescript(mf.read())
+                conn.execute('INSERT INTO _migrations (name) VALUES (?)', (f,))
+                conn.commit()
     conn.close()
 
 
@@ -103,11 +109,11 @@ def count_messages_in_session(session_id):
     return row['c']
 
 
-def create_session(user_id, title=None, template_id=None):
+def create_session(user_id, title=None, template_id=None, parent_build_id=None):
     db = get_db()
     cur = db.execute(
-        'INSERT INTO sessions (user_id, title, template_id) VALUES (?, ?, ?)',
-        (user_id, title, template_id)
+        'INSERT INTO sessions (user_id, title, template_id, parent_build_id) VALUES (?, ?, ?, ?)',
+        (user_id, title, template_id, parent_build_id)
     )
     db.commit()
     return cur.lastrowid
@@ -157,13 +163,17 @@ def complete_session(session_id, spec_markdown):
     db.commit()
 
 
-def create_build(user_id, session_id, build_token):
-    db = get_db()
+def create_build(user_id, session_id, build_token, parent_build_id=None,
+                  root_session_id=None, iteration_summary=None, conn=None):
+    db = conn or get_db()
     cur = db.execute(
-        'INSERT INTO builds (user_id, session_id, build_token) VALUES (?, ?, ?)',
-        (user_id, session_id, build_token)
+        '''INSERT INTO builds (user_id, session_id, build_token, parent_build_id,
+           root_session_id, iteration_summary) VALUES (?, ?, ?, ?, ?, ?)''',
+        (user_id, session_id, build_token, parent_build_id,
+         root_session_id or session_id, iteration_summary)
     )
-    db.commit()
+    if conn is None:
+        db.commit()
     return cur.lastrowid
 
 
@@ -253,12 +263,6 @@ def get_template(template_id):
     return db.execute('SELECT * FROM templates WHERE id = ?', (template_id,)).fetchone()
 
 
-def store_nonce(nonce, build_id):
-    db = get_db()
-    db.execute('INSERT INTO nonces (nonce, build_id) VALUES (?, ?)', (nonce, build_id))
-    db.commit()
-
-
 def check_and_use_nonce(nonce):
     """Atomically mark nonce as used. Returns True if it was valid and unused."""
     db = get_db()
@@ -299,3 +303,48 @@ def get_stats():
         'total_builds': builds,
         'completed_builds': completed,
     }
+
+
+def get_build_lineage(build_id, max_depth=20):
+    """Get ancestor chain for a build using recursive CTE. Most recent first."""
+    db = get_db()
+    return db.execute('''
+        WITH RECURSIVE lineage(id, parent_build_id, depth) AS (
+            SELECT id, parent_build_id, 0 FROM builds WHERE id = ?
+            UNION ALL
+            SELECT b.id, b.parent_build_id, l.depth + 1
+            FROM builds b JOIN lineage l ON b.id = l.parent_build_id
+            WHERE l.depth < ?
+        )
+        SELECT b.id, b.status, b.scores_json, b.iteration_summary, b.created_at
+        FROM lineage l JOIN builds b ON l.id = b.id
+        ORDER BY l.depth ASC
+    ''', (build_id, max_depth)).fetchall()
+
+
+def get_user_deploy_config(user_id):
+    """Get user's deploy config (encrypted JSON string or None)."""
+    db = get_db()
+    row = db.execute('SELECT deploy_config FROM users WHERE id = ?', (user_id,)).fetchone()
+    return row['deploy_config'] if row else None
+
+
+def set_user_deploy_config(user_id, encrypted_config):
+    """Save encrypted deploy config on user record."""
+    db = get_db()
+    db.execute('UPDATE users SET deploy_config = ? WHERE id = ?', (encrypted_config, user_id))
+    db.commit()
+
+
+def update_build_deploy_status(build_id, status):
+    """Update deploy status on a build record."""
+    db = get_db()
+    db.execute('UPDATE builds SET deploy_status = ? WHERE id = ?', (status, build_id))
+    db.commit()
+
+
+def store_nonce(nonce, build_id, conn=None):
+    db = conn or get_db()
+    db.execute('INSERT INTO nonces (nonce, build_id) VALUES (?, ?)', (nonce, build_id))
+    if conn is None:
+        db.commit()

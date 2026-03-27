@@ -15,6 +15,9 @@
     <div class="card-header">
       <div>
         <span class="card-title">{{ build.session_title or 'Build #' + build.id|string }}</span>
+        {% if build.parent_build_id %}
+        <span class="iteration-badge">↻ #{{ build.parent_build_id }}</span>
+        {% endif %}
         <span class="build-status build-status-{{ build.status }}">{{ build.status }}</span>
       </div>
       {% if build.scores_json %}
