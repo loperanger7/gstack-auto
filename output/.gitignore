@@ -1,9 +1,3 @@
-__pycache__/
-*.pyc
-*.pyo
-.env
-*.log
 .DS_Store
-.pytest_cache/
-*.db
-data/
+node_modules/
+*.log
